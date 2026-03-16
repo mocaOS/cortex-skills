@@ -1,36 +1,61 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# CORTEXSKILLS
 
-## Getting Started
+The missing knowledge layer between AI agents and the Cortex ecosystem.
 
-First, run the development server:
+## What is this?
+
+AI models often hallucinate or rely on stale training data when asked to write code for specific, rapidly evolving systems. **Cortex Skills** solves this by providing curated, up-to-date Markdown files (`SKILL.md`) that AI agents can fetch directly via HTTP. 
+
+Instead of guessing how the Cortex API or MOCA Library works, your agent simply reads the relevant skill file, gets the ground-truth knowledge, and builds the correct integration on the first try.
+
+Inspired by [ethskills.com](https://ethskills.com/).
+
+## How to use
+
+When prompting your AI agent (Claude, ChatGPT, Cursor, etc.), simply tell it to fetch the relevant skill file before starting the task:
+
+> *"Fetch `https://cortexskills.com/upload/SKILL.md` and use it to write a Python script that batch-uploads a folder of PDFs."*
+
+For a complete index, point your agent to the root:
+> *"Read `https://cortexskills.com/SKILL.md` to understand how to build on Cortex, then write an integration plan."*
+
+## Available Skills
+
+### Core
+* `/ship` — Master orchestrator. Agents read this first if they aren't sure where to start.
+* `/setup` — Deploying MOCA Library via Docker, environment variables.
+* `/auth` — API keys, permissions, prompt security.
+
+### Features
+* `/upload` — Document ingestion, formats, chunking.
+* `/search` — Hybrid search (vector + keyword + graph).
+* `/ask` — RAG Q&A, streaming, agentic reasoning.
+* `/graph` — Knowledge graph, entities, relationships.
+* `/collections` — Scoping documents by project/tenant.
+* `/communities` — Auto-clustering and summarization.
+* `/turbo` — GPU acceleration via Compute3.
+
+### Ecosystem
+* `/integration` — LangChain, CrewAI, MCP, Slack, Webhooks.
+* `/apps` — Source and workflow apps (YouTube, Notion).
+* `/cortex-design` — The generative design principles for building Cortex UIs.
+
+## Development
+
+The project is a minimalist Next.js application that serves the static markdown files and provides a terminal-like web interface to preview them.
 
 ```bash
+# Install dependencies
+npm install
+
+# Run the development server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000) to see the web interface.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+All skill definitions live in the `public/` directory so they can be served as raw static files with wide open CORS headers.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## License
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+MIT
