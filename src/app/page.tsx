@@ -25,8 +25,8 @@ export default function Home() {
       if (!res.ok) throw new Error("Failed to load skill");
       const text = await res.text();
       setModalContent(renderMarkdown(text));
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
     } finally {
       setLoading(false);
     }
