@@ -8,14 +8,6 @@ export interface Skill {
 
 export const skills: Skill[] = [
   {
-    slug: "ship",
-    name: "Ship",
-    description:
-      "Master orchestrator — end-to-end guide for building on Cortex. Routes you to the right skill at each phase of development.",
-    icon: "Rocket",
-    category: "core",
-  },
-  {
     slug: "setup",
     name: "Setup",
     description:

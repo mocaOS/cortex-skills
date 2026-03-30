@@ -22,8 +22,7 @@ For a complete index, point your agent to the root:
 ## Available Skills
 
 ### Core
-* `/ship` — Master orchestrator. Agents read this first if they aren't sure where to start.
-* `/setup` — Deploying MOCA Library via Docker, environment variables.
+* `/setup` — Deploying Cortex via Docker, environment variables.
 * `/auth` — API keys, permissions, prompt security.
 
 ### Features
@@ -38,7 +37,6 @@ For a complete index, point your agent to the root:
 ### Ecosystem
 * `/integration` — LangChain, CrewAI, MCP, Slack, Webhooks.
 * `/apps` — Source and workflow apps (YouTube, Notion).
-* `/library` — Sync agent memory to a Cortex Library knowledge graph.
 * `/cortex-design` — The generative design principles for building Cortex UIs.
 
 ## Development

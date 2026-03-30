@@ -38,6 +38,59 @@ Documents / Memory → Cortex Backend (FastAPI) → Neo4j (Graph + Vector)
 - **Collections** — scope documents and graphs by project or tenant
 - **GPU acceleration** — per-second billing via Compute3
 
+## What You Probably Got Wrong
+
+1. **Cortex is not a SaaS with a fixed URL.** It is self-hosted via Docker. The base URL is wherever you deployed it (e.g., `http://localhost:8000`). Always use `{BASE_URL}` as a placeholder.
+2. **It is not just a vector database.** Cortex builds a full knowledge graph with entities, relationships, and communities using GraphRAG on top of Neo4j.
+3. **Authentication is X-API-Key header, not Bearer tokens.** Every API call (except `/health`) requires `X-API-Key`. Keys have permission tiers: read, manage, admin.
+4. **Documents are processed asynchronously.** Upload returns immediately with a document ID. Chunking, embedding, and entity extraction happen in the background.
+5. **Streaming uses Server-Sent Events (SSE)**, not WebSockets. Use `POST /api/ask/stream` with `Accept: text/event-stream`.
+
+## Quick Start
+
+### 1. Upload a document
+
+```bash
+curl -X POST "{BASE_URL}/api/upload" \
+  -H "X-API-Key: {API_KEY}" \
+  -F "file=@report.pdf"
+```
+
+### 2. Search the knowledge base
+
+```bash
+curl -X POST "{BASE_URL}/api/search" \
+  -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "quarterly revenue trends", "top_k": 5}'
+```
+
+### 3. Ask a question with citations
+
+```bash
+curl -X POST "{BASE_URL}/api/ask" \
+  -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "What were the key findings?", "use_graph": true}'
+```
+
+## Key Endpoints
+
+| Method | Endpoint | Permission | Purpose |
+|--------|----------|-----------|---------|
+| `GET` | `/health` | None | Health check |
+| `GET` | `/api/stats` | read | Knowledge base statistics |
+| `POST` | `/api/upload` | manage | Upload a document |
+| `GET` | `/api/documents` | read | List documents |
+| `POST` | `/api/search` | read | Hybrid search |
+| `POST` | `/api/ask` | read | RAG Q&A |
+| `POST` | `/api/ask/stream` | read | Streaming RAG Q&A (SSE) |
+| `GET` | `/api/graph/entities` | read | List entities |
+| `GET` | `/api/collections` | read | List collections |
+| `POST` | `/api/collections` | manage | Create collection |
+| `GET` | `/api/graph/communities` | read | List communities |
+| `POST` | `/api/admin/api-keys` | admin | Create API key |
+
 ## Agent Memory Sync
 
 Agents can sync their memory files to a Cortex knowledge graph for persistent, searchable long-term memory.
@@ -91,7 +144,6 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 
 ### Core
 
-- `cortexskills.org/ship/SKILL.md` — Master orchestrator. Read this first if you aren't sure where to start.
 - `cortexskills.org/setup/SKILL.md` — Deploy Cortex via Docker, configure 50+ environment variables.
 - `cortexskills.org/auth/SKILL.md` — API keys, permission tiers, prompt injection protection.
 
