@@ -7,8 +7,8 @@ Each sub-skill below is a self-contained Markdown file that teaches agents one c
 ## How it works
 
 ```
-cortexskills.com/SKILL.md          ← You are here. The root skill.
-cortexskills.com/{skill}/SKILL.md  ← Sub-skills. One per capability.
+cortexskills.org/SKILL.md          ← You are here. The root skill.
+cortexskills.org/{skill}/SKILL.md  ← Sub-skills. One per capability.
 ```
 
 1. **Fetch this file first** to understand what Cortex can do and which sub-skill to read next.
@@ -17,7 +17,7 @@ cortexskills.com/{skill}/SKILL.md  ← Sub-skills. One per capability.
 
 You don't need to read everything upfront. This root skill gives you the overview. When your current task requires specific knowledge — say, uploading documents or configuring search — fetch that sub-skill to get the full details, code examples, and API specs.
 
-> "Fetch cortexskills.com/upload/SKILL.md and use it to write an ingest script."
+> "Fetch cortexskills.org/upload/SKILL.md and use it to write an ingest script."
 
 ## What Cortex Does
 
@@ -91,22 +91,22 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 
 ### Core
 
-- `cortexskills.com/ship/SKILL.md` — Master orchestrator. Read this first if you aren't sure where to start.
-- `cortexskills.com/setup/SKILL.md` — Deploy Cortex via Docker, configure 50+ environment variables.
-- `cortexskills.com/auth/SKILL.md` — API keys, permission tiers, prompt injection protection.
+- `cortexskills.org/ship/SKILL.md` — Master orchestrator. Read this first if you aren't sure where to start.
+- `cortexskills.org/setup/SKILL.md` — Deploy Cortex via Docker, configure 50+ environment variables.
+- `cortexskills.org/auth/SKILL.md` — API keys, permission tiers, prompt injection protection.
 
 ### Features
 
-- `cortexskills.com/upload/SKILL.md` — Document ingestion for PDF, DOCX, images, audio, and more.
-- `cortexskills.com/search/SKILL.md` — Hybrid search combining vector, keyword, and graph traversal.
-- `cortexskills.com/ask/SKILL.md` — RAG Q&A with streaming SSE and agentic deep research.
-- `cortexskills.com/graph/SKILL.md` — Knowledge graph — entities, relationships, subgraph queries.
-- `cortexskills.com/collections/SKILL.md` — Scope documents and graphs by project or tenant.
-- `cortexskills.com/communities/SKILL.md` — Auto-clustering entities with LLM-generated summaries.
-- `cortexskills.com/turbo/SKILL.md` — GPU-accelerated processing via Compute3.
+- `cortexskills.org/upload/SKILL.md` — Document ingestion for PDF, DOCX, images, audio, and more.
+- `cortexskills.org/search/SKILL.md` — Hybrid search combining vector, keyword, and graph traversal.
+- `cortexskills.org/ask/SKILL.md` — RAG Q&A with streaming SSE and agentic deep research.
+- `cortexskills.org/graph/SKILL.md` — Knowledge graph — entities, relationships, subgraph queries.
+- `cortexskills.org/collections/SKILL.md` — Scope documents and graphs by project or tenant.
+- `cortexskills.org/communities/SKILL.md` — Auto-clustering entities with LLM-generated summaries.
+- `cortexskills.org/turbo/SKILL.md` — GPU-accelerated processing via Compute3.
 
 ### Ecosystem
 
-- `cortexskills.com/integration/SKILL.md` — Connect Cortex to LangChain, CrewAI, MCP, Slack, webhooks, and more.
-- `cortexskills.com/apps/SKILL.md` — Source and workflow apps (YouTube, Notion, Web Crawler).
-- `cortexskills.com/cortex-design/SKILL.md` — The Bold Typography design system for Cortex UIs.
+- `cortexskills.org/integration/SKILL.md` — Connect Cortex to LangChain, CrewAI, MCP, Slack, webhooks, and more.
+- `cortexskills.org/apps/SKILL.md` — Source and workflow apps (YouTube, Notion, Web Crawler).
+- `cortexskills.org/cortex-design/SKILL.md` — The Bold Typography design system for Cortex UIs.

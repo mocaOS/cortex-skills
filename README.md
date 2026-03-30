@@ -14,10 +14,10 @@ Inspired by [ethskills.com](https://ethskills.com/).
 
 When prompting your AI agent (Claude, ChatGPT, Cursor, etc.), simply tell it to fetch the relevant skill file before starting the task:
 
-> *"Fetch `https://cortexskills.com/upload/SKILL.md` and use it to write a Python script that batch-uploads a folder of PDFs."*
+> *"Fetch `https://cortexskills.org/upload/SKILL.md` and use it to write a Python script that batch-uploads a folder of PDFs."*
 
 For a complete index, point your agent to the root:
-> *"Read `https://cortexskills.com/SKILL.md` to understand how to build on Cortex, then write an integration plan."*
+> *"Read `https://cortexskills.org/SKILL.md` to understand how to build on Cortex, then write an integration plan."*
 
 ## Available Skills
 

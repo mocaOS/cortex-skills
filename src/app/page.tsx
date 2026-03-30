@@ -13,7 +13,7 @@ export default function Home() {
 
   const copyUrl = (slug: string | null, e?: React.MouseEvent) => {
     e?.stopPropagation();
-    const url = slug ? `https://cortexskills.com/${slug}/SKILL.md` : "https://cortexskills.com/SKILL.md";
+    const url = slug ? `https://cortexskills.org/${slug}/SKILL.md` : "https://cortexskills.org/SKILL.md";
     navigator.clipboard.writeText(url);
     setCopiedSlug(slug ?? "__root__");
     setTimeout(() => setCopiedSlug(null), 1500);
@@ -69,7 +69,7 @@ export default function Home() {
             className="skill-url"
             onClick={(e) => copyUrl(null, e)}
           >
-            {copiedSlug === "__root__" ? "copied!" : "cortexskills.com/SKILL.md"}
+            {copiedSlug === "__root__" ? "copied!" : "cortexskills.org/SKILL.md"}
             {copiedSlug === "__root__" ? <CheckIcon /> : <CopyIcon />}
           </button>
         </div>
@@ -85,7 +85,7 @@ export default function Home() {
                 className="skill-url"
                 onClick={(e) => copyUrl(skill.slug, e)}
               >
-                {copiedSlug === skill.slug ? "copied!" : `cortexskills.com/${skill.slug}/SKILL.md`}
+                {copiedSlug === skill.slug ? "copied!" : `cortexskills.org/${skill.slug}/SKILL.md`}
                 {copiedSlug === skill.slug ? <CheckIcon /> : <CopyIcon />}
               </button>
             </div>
