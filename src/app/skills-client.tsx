@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { skills } from "@/data/skills";
 import { renderMarkdown } from "@/lib/markdown";
 
@@ -73,11 +73,19 @@ export function SkillsClient() {
     }
   };
 
-  const closeModal = () => {
+  const closeModal = useCallback(() => {
     document.getElementById("modal-overlay")!.style.display = "none";
     document.body.style.overflow = "";
     setModalContent(null);
-  };
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeModal();
+    };
+    document.addEventListener("keydown", handleKeyDown);
+    return () => document.removeEventListener("keydown", handleKeyDown);
+  }, [closeModal]);
 
   return (
     <>
