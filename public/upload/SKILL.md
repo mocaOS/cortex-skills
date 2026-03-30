@@ -396,3 +396,10 @@ curl -X POST "{BASE_URL}/api/documents/process-pending" \
 | 500         | Internal processing error — check logs                   |
 
 When a document's processing status is `failed`, the document metadata typically includes an `error` field describing what went wrong. Always check this before calling reprocess.
+
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/API.md](references/API.md) | Complete API endpoint reference |
+| [references/FORMATS.md](references/FORMATS.md) | Supported file formats and limits |

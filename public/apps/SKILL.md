@@ -167,6 +167,12 @@ for result in results:
     print(f"Score: {result['score']:.2f} — {result['content'][:100]}")
 ```
 
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/CATALOG.md](references/CATALOG.md) | Full app catalog and pricing details |
+
 ## Resources
 
 - [Cortex Apps Page](https://cortex.moca.qwellco.de/apps)

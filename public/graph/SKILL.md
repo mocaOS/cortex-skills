@@ -200,6 +200,13 @@ ENABLE_SEMANTIC_ENTITY_RESOLUTION=true
 ENTITY_SIMILARITY_THRESHOLD=0.85
 ```
 
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/API.md](references/API.md) | Complete API endpoint reference |
+| [references/SCHEMA.md](references/SCHEMA.md) | Neo4j graph schema and node types |
+
 ## Resources
 
 - [Knowledge Graph Documentation](https://docs-library.moca.qwellco.de/features/knowledge-graph)

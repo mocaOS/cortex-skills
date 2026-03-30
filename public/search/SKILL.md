@@ -236,3 +236,9 @@ Latency depends on corpus size, graph density, and whether Turbo mode is active 
 | 404    | Specified `collection_id` does not exist.  |
 | 500    | Internal retrieval failure.                |
 | 503    | Search index not ready (still ingesting).  |
+
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/API.md](references/API.md) | Complete API endpoint reference |

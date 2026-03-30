@@ -322,6 +322,14 @@ export async function POST(req: NextRequest) {
 }
 ```
 
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/PYTHON.md](references/PYTHON.md) | Python client reference implementation |
+| [references/LANGCHAIN.md](references/LANGCHAIN.md) | LangChain integration patterns |
+| [references/WEBHOOKS.md](references/WEBHOOKS.md) | Webhook events and configuration |
+
 ## Resources
 
 - [Integration Examples](https://docs-library.moca.qwellco.de/examples/integration)

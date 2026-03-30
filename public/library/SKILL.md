@@ -29,8 +29,8 @@ All memory files are organized within a single dedicated collection (default: **
 |------|-------------|
 | **SKILL.md** (this file) | Main skill documentation |
 | **HEARTBEAT.md** | Periodic sync tasks and memory upload workflow |
-| **references/API.md** | Full API reference (60+ endpoints) |
-| **references/SYNC.md** | Detailed sync workflow, scripts, and troubleshooting |
+| [references/API.md](references/API.md) | Full API reference (60+ endpoints) |
+| [references/SYNC.md](references/SYNC.md) | Detailed sync workflow and troubleshooting |
 | **scripts/sync.sh** | Bash sync script |
 | **scripts/sync_bulk.py** | Python bulk sync script |
 | **scripts/sync_memory.js** | Node.js sync script |

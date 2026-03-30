@@ -265,6 +265,12 @@ curl https://api.openai.com/v1/models \
 curl -H "X-API-Key: {ADMIN_KEY}" {BASE_URL}/api/admin/config
 ```
 
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/CONFIGURATION.md](references/CONFIGURATION.md) | Full configuration variable reference |
+
 ## Resources
 
 - [Configuration Reference](https://docs-library.moca.qwellco.de/configuration)

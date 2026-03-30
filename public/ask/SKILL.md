@@ -229,6 +229,12 @@ for line in response.iter_lines(decode_unicode=True):
             print("\n--- Done ---")
 ```
 
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/API.md](references/API.md) | Complete API endpoint reference |
+
 ## Resources
 
 - [Ask AI Documentation](https://docs-library.moca.qwellco.de/features/ask-ai)

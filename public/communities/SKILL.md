@@ -336,3 +336,9 @@ pre-generated summary like:
 
 This gives the LLM a high-level structural overview that individual entity retrievals
 cannot provide.
+
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/API.md](references/API.md) | Complete API endpoint reference |

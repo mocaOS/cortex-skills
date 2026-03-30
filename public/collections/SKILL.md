@@ -186,6 +186,12 @@ DEFAULT_COLLECTION=default       # Default collection name
 MAX_COLLECTIONS=0                # Limit (0 = unlimited)
 ```
 
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/API.md](references/API.md) | Complete API endpoint reference |
+
 ## Resources
 
 - [Collections Documentation](https://docs-library.moca.qwellco.de/features/collections)

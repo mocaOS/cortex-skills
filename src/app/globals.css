@@ -42,21 +42,6 @@ a:hover {
   text-decoration: underline;
 }
 
-.terminal-header {
-  margin-bottom: 3rem;
-  border-bottom: 1px solid var(--border);
-  padding-bottom: 2rem;
-}
-
-.terminal-title {
-  color: var(--green);
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
-}
-
-.terminal-subtitle {
-  color: var(--dim);
-}
 
 .skill-list {
   list-style: none;
@@ -68,6 +53,7 @@ a:hover {
   border: 1px solid var(--border);
   background: var(--hover);
   transition: border-color 0.2s;
+  cursor: pointer;
 }
 
 .skill-item:hover {
@@ -90,6 +76,10 @@ a:hover {
   color: var(--dim);
   font-size: 0.9rem;
   cursor: pointer;
+  background: none;
+  border: none;
+  font-family: inherit;
+  padding: 0;
 }
 
 .skill-url:hover {
@@ -99,6 +89,29 @@ a:hover {
 .skill-desc {
   color: var(--dim);
   font-size: 0.9rem;
+}
+
+.skill-item.skill-item-hero {
+  border: 1px solid var(--accent);
+  background: var(--bg);
+  padding: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.skill-item-hero .skill-name {
+  color: var(--accent);
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.skill-item-hero .skill-desc {
+  font-size: 1rem;
+}
+
+.skill-item-hero .skill-url {
+  font-size: 0.8rem;
+  letter-spacing: 0.05em;
 }
 
 #modal-overlay {
@@ -125,22 +138,25 @@ a:hover {
 
 #modal-close {
   position: absolute;
-  top: 1rem;
-  right: 1rem;
+  top: 0.5rem;
+  right: 0.5rem;
   background: none;
   border: none;
   color: var(--accent);
   cursor: pointer;
   font-family: inherit;
   font-size: 1rem;
+  padding: 0.75rem 1rem;
 }
 
 /* Markdown Styles inside modal */
-#md-container h1 { color: var(--green); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-top: 1rem; }
+#md-container h1 { color: var(--green); border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin-top: 1rem; font-size: 1.25rem; }
 #md-container h2 { color: var(--fg); margin-top: 2rem; }
 #md-container pre { background: #000; padding: 1rem; overflow-x: auto; margin: 1rem 0; border: 1px solid var(--border); }
 #md-container code { font-family: inherit; color: var(--accent); }
 #md-container pre code { color: var(--fg); }
 #md-container p { margin-bottom: 1rem; color: var(--dim); }
-#md-container ul { margin-left: 1.5rem; margin-bottom: 1rem; color: var(--dim); }
+#md-container ul { margin-left: 1.5rem; margin-bottom: 1rem; color: var(--dim); list-style: disc; padding-left: 1rem; }
+#md-container ol { margin-left: 1.5rem; margin-bottom: 1rem; color: var(--dim); list-style: decimal; padding-left: 1rem; }
 #md-container li { margin-bottom: 0.5rem; }
+#md-container li > ul, #md-container li > ol { margin-top: 0.25rem; margin-bottom: 0; }

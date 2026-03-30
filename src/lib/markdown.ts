@@ -1,6 +1,6 @@
 /**
  * Lightweight Markdown-to-HTML renderer.
- * Handles headings, code blocks, tables, lists, blockquotes, inline formatting, and links.
+ * Handles headings, code blocks, tables, lists (with nesting), blockquotes, inline formatting, and links.
  */
 export function renderMarkdown(md: string): string {
   const lines = md.split("\n");
@@ -10,18 +10,6 @@ export function renderMarkdown(md: string): string {
   let codeBuffer: string[] = [];
   let inTable = false;
   let tableRows: string[] = [];
-  let inList = false;
-  let listType: "ul" | "ol" = "ul";
-  let listItems: string[] = [];
-
-  function flushList() {
-    if (inList && listItems.length > 0) {
-      const tag = listType;
-      html.push(`<${tag} class="md-list">${listItems.join("")}</${tag}>`);
-      listItems = [];
-      inList = false;
-    }
-  }
 
   function flushTable() {
     if (inTable && tableRows.length > 0) {
@@ -50,22 +38,123 @@ export function renderMarkdown(md: string): string {
   }
 
   function inlineFormat(text: string): string {
-    // Escape HTML entities
     text = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    // Bold
     text = text.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
     text = text.replace(/__(.+?)__/g, "<strong>$1</strong>");
-    // Italic
     text = text.replace(/\*(.+?)\*/g, "<em>$1</em>");
     text = text.replace(/_(.+?)_/g, "<em>$1</em>");
-    // Inline code
     text = text.replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>');
-    // Links
     text = text.replace(
       /\[([^\]]+)\]\(([^)]+)\)/g,
       '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>'
     );
     return text;
+  }
+
+  // Collect a contiguous list block (including blank lines between items)
+  // starting at index `start`. Returns the HTML and the next index to process.
+  function parseListBlock(start: number): { html: string; nextIndex: number } {
+    type ListNode = {
+      type: "ul" | "ol";
+      items: { text: string; children: string }[];
+    };
+
+    const stack: ListNode[] = [];
+    let i = start;
+
+    function currentIndent(line: string): number {
+      const match = line.match(/^(\s*)/);
+      return match ? match[1].length : 0;
+    }
+
+    function isOlItem(line: string) {
+      return /^(\s*)\d+\.\s+/.test(line);
+    }
+
+    function isUlItem(line: string) {
+      return /^(\s*)[-*+]\s+/.test(line);
+    }
+
+    function isListItem(line: string) {
+      return isOlItem(line) || isUlItem(line);
+    }
+
+    function itemText(line: string): string {
+      return line.replace(/^[\s]*(?:\d+\.|[-*+])\s+/, "");
+    }
+
+    function itemType(line: string): "ol" | "ul" {
+      return isOlItem(line) ? "ol" : "ul";
+    }
+
+    // Determine the base indent level (first item)
+    const baseIndent = currentIndent(lines[start]);
+
+    while (i < lines.length) {
+      const line = lines[i];
+
+      // Empty line — skip if the list continues after at the same or deeper indent
+      if (line.trim() === "") {
+        let next = i + 1;
+        while (next < lines.length && lines[next].trim() === "") next++;
+        if (next < lines.length && isListItem(lines[next]) && currentIndent(lines[next]) >= baseIndent) {
+          i = next;
+          continue;
+        }
+        break;
+      }
+
+      if (!isListItem(line)) break;
+
+      const indent = currentIndent(line);
+
+      // Item at a lower indent means we've exited this nesting level
+      if (indent < baseIndent) break;
+
+      const type = itemType(line);
+      const text = itemText(line);
+
+      if (stack.length === 0) {
+        stack.push({ type, items: [{ text, children: "" }] });
+      } else if (indent > baseIndent) {
+        // Nested item — append as sub-list to the last item of the current top
+        const parent = stack[stack.length - 1];
+        const lastItem = parent.items[parent.items.length - 1];
+
+        // Collect all items at this indent level into a sub-list
+        const sub = parseListBlock(i);
+        lastItem.children += sub.html;
+        i = sub.nextIndex;
+        continue;
+      } else {
+        // Same level
+        const top = stack[stack.length - 1];
+        if (top.type === type) {
+          top.items.push({ text, children: "" });
+        } else {
+          // Type changed at same level (e.g., ol -> ul) — start new list
+          stack.push({ type, items: [{ text, children: "" }] });
+        }
+      }
+
+      i++;
+    }
+
+    // Render all lists in the stack
+    let result = "";
+    for (const list of stack) {
+      const tag = list.type;
+      const items = list.items
+        .map((item) => `<li>${inlineFormat(item.text)}${item.children}</li>`)
+        .join("");
+      result += `<${tag} class="md-list">${items}</${tag}>`;
+    }
+
+    return { html: result, nextIndex: i };
+  }
+
+  function isListLine(line: string): boolean {
+    return /^[\s]*(?:\d+\.|[-*+])\s+/.test(line);
   }
 
   for (let i = 0; i < lines.length; i++) {
@@ -81,7 +170,6 @@ export function renderMarkdown(md: string): string {
         inCodeBlock = false;
         codeBlockLang = "";
       } else {
-        flushList();
         flushTable();
         inCodeBlock = true;
         codeBlockLang = line.slice(3).trim() || "text";
@@ -100,20 +188,18 @@ export function renderMarkdown(md: string): string {
     if (i === 0 && line.trim() === "---") {
       let j = i + 1;
       while (j < lines.length && lines[j].trim() !== "---") j++;
-      i = j; // skip to end of frontmatter
+      i = j;
       continue;
     }
 
     // Empty line
     if (line.trim() === "") {
-      flushList();
       flushTable();
       continue;
     }
 
     // Table
     if (line.includes("|") && line.trim().startsWith("|")) {
-      flushList();
       if (!inTable) inTable = true;
       tableRows.push(line.trim());
       continue;
@@ -124,7 +210,6 @@ export function renderMarkdown(md: string): string {
     // Headings
     const headingMatch = line.match(/^(#{1,6})\s+(.+)/);
     if (headingMatch) {
-      flushList();
       const level = headingMatch[1].length;
       const text = inlineFormat(headingMatch[2]);
       html.push(`<h${level} class="md-h${level}">${text}</h${level}>`);
@@ -133,50 +218,30 @@ export function renderMarkdown(md: string): string {
 
     // Blockquote
     if (line.startsWith("> ")) {
-      flushList();
       html.push(
         `<blockquote class="md-blockquote">${inlineFormat(line.slice(2))}</blockquote>`
       );
       continue;
     }
 
-    // Unordered list
-    if (/^[\s]*[-*+]\s+/.test(line)) {
-      if (!inList || listType !== "ul") {
-        flushList();
-        inList = true;
-        listType = "ul";
-      }
-      const text = line.replace(/^[\s]*[-*+]\s+/, "");
-      listItems.push(`<li>${inlineFormat(text)}</li>`);
-      continue;
-    }
-
-    // Ordered list
-    if (/^[\s]*\d+\.\s+/.test(line)) {
-      if (!inList || listType !== "ol") {
-        flushList();
-        inList = true;
-        listType = "ol";
-      }
-      const text = line.replace(/^[\s]*\d+\.\s+/, "");
-      listItems.push(`<li>${inlineFormat(text)}</li>`);
+    // List (ordered or unordered) — hand off to list parser
+    if (isListLine(line)) {
+      const result = parseListBlock(i);
+      html.push(result.html);
+      i = result.nextIndex - 1; // -1 because the for loop increments
       continue;
     }
 
     // Horizontal rule
     if (/^---+$/.test(line.trim())) {
-      flushList();
       html.push('<hr class="md-hr" />');
       continue;
     }
 
     // Paragraph
-    flushList();
     html.push(`<p class="md-p">${inlineFormat(line)}</p>`);
   }
 
-  flushList();
   flushTable();
 
   return html.join("\n");

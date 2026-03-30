@@ -175,6 +175,12 @@ Response includes `last_used_at` and usage statistics by endpoint category.
 6. **Use HTTPS** via reverse proxy (nginx/Caddy).
 7. **Set strong `SESSION_SECRET`** (32+ characters, randomly generated).
 
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/API.md](references/API.md) | Complete API endpoint reference |
+
 ## Resources
 
 - [Authentication Guide](https://docs-library.moca.qwellco.de/guides/authentication)

@@ -148,6 +148,12 @@ COMPUTE3_DEFAULT_RUNTIME=3600   # Default job duration in seconds (1 hour)
 | H100 | High performance, recommended default | High |
 | A100 | Good performance, cost-effective | Medium |
 
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/API.md](references/API.md) | Complete API endpoint reference |
+
 ## Resources
 
 - [Turbo Mode Documentation](https://docs-library.moca.qwellco.de/features/turbo-mode)
