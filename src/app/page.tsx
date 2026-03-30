@@ -1,118 +1,110 @@
-"use client";
-
-import { useState } from "react";
-import { skills } from "@/data/skills";
-import { renderMarkdown } from "@/lib/markdown";
+import { skills, categories } from "@/data/skills";
+import { SkillsClient } from "./skills-client";
 
 export default function Home() {
-  const [modalContent, setModalContent] = useState<string | null>(null);
-  const [modalTitle, setModalTitle] = useState("");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [copiedSlug, setCopiedSlug] = useState<string | null>(null);
-
-  const copyUrl = (slug: string | null, e?: React.MouseEvent) => {
-    e?.stopPropagation();
-    const url = slug ? `https://cortexskills.org/${slug}/SKILL.md` : "https://cortexskills.org/SKILL.md";
-    navigator.clipboard.writeText(url);
-    setCopiedSlug(slug ?? "__root__");
-    setTimeout(() => setCopiedSlug(null), 1500);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    name: "Cortex Skills",
+    url: "https://cortexskills.org",
+    description:
+      "Curated Markdown skill files that teach AI agents how to build on the Cortex intelligence ecosystem.",
+    publisher: {
+      "@type": "Organization",
+      name: "MOCA",
+      url: "https://museumofcryptoart.com",
+    },
   };
 
-  const CopyIcon = () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: "middle", marginLeft: "6px" }}>
-      <rect x="9" y="9" width="13" height="13" rx="2" ry="2" />
-      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
-    </svg>
-  );
-
-  const CheckIcon = () => (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: "inline", verticalAlign: "middle", marginLeft: "6px" }}>
-      <polyline points="20 6 9 17 4 12" />
-    </svg>
-  );
-
-  const openSkill = async (slug: string, title: string) => {
-    setModalTitle(title);
-    setLoading(true);
-    setError(null);
-    setModalContent("");
-    
-    // Show modal immediately
-    document.getElementById("modal-overlay")!.style.display = "block";
-    document.body.style.overflow = "hidden";
-
-    try {
-      const res = await fetch(slug ? `/${slug}/SKILL.md` : "/SKILL.md");
-      if (!res.ok) throw new Error("Failed to load skill");
-      const text = await res.text();
-      setModalContent(renderMarkdown(text));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const closeModal = () => {
-    document.getElementById("modal-overlay")!.style.display = "none";
-    document.body.style.overflow = "";
-    setModalContent(null);
+  const softwareJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "Cortex Skills",
+    applicationCategory: "DeveloperApplication",
+    operatingSystem: "Any",
+    url: "https://cortexskills.org",
+    description:
+      "Curated knowledge files for AI agents building on the Cortex intelligence ecosystem. Covers document ingestion, hybrid search, knowledge graphs, RAG, and integrations.",
+    offers: {
+      "@type": "Offer",
+      price: "0",
+      priceCurrency: "USD",
+    },
   };
 
   return (
     <>
-      <div className="skill-item skill-item-hero" onClick={() => openSkill("", "Cortex Skills")}>
-        <div className="skill-title">
-          <span className="skill-name">Cortex Skills</span>
-          <button
-            className="skill-url"
-            onClick={(e) => copyUrl(null, e)}
-          >
-            {copiedSlug === "__root__" ? "copied!" : "cortexskills.org/SKILL.md"}
-            {copiedSlug === "__root__" ? <CheckIcon /> : <CopyIcon />}
-          </button>
-        </div>
-        <p className="skill-desc">The missing knowledge between AI agents and the Cortex ecosystem. Integrate the main skill and let your agent navigate the rest.</p>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareJsonLd) }}
+      />
+
+      {/* Server-rendered SEO content — visible to crawlers */}
+      <noscript>
+        <header>
+          <h1>Cortex Skills — Knowledge Files for AI Agents</h1>
+          <p>
+            Curated Markdown skill files that teach AI agents how to build on
+            the Cortex intelligence ecosystem. Fetch the skill you need via HTTP
+            and get ground-truth API knowledge.
+          </p>
+          <p>
+            Entry point:{" "}
+            <a href="/SKILL.md">cortexskills.org/SKILL.md</a>
+          </p>
+        </header>
+        <main>
+          {categories.map((cat) => (
+            <section key={cat.id}>
+              <h2>
+                {cat.label} — {cat.description}
+              </h2>
+              <ul>
+                {skills
+                  .filter((s) => s.category === cat.id)
+                  .map((skill) => (
+                    <li key={skill.slug}>
+                      <a href={`/${skill.slug}/SKILL.md`}>
+                        <strong>{skill.name}</strong>
+                      </a>
+                      {" — "}
+                      {skill.description}
+                    </li>
+                  ))}
+              </ul>
+            </section>
+          ))}
+        </main>
+      </noscript>
+
+      {/* Hidden from visual display but crawlable */}
+      <div className="sr-only" aria-hidden="false">
+        <h1>Cortex Skills — Knowledge Files for AI Agents</h1>
+        <p>
+          Curated Markdown skill files that teach AI agents how to build on the
+          Cortex intelligence ecosystem. Covers document upload, hybrid search,
+          knowledge graphs, RAG Q&A, collections, integrations with LangChain,
+          CrewAI, MCP, and more.
+        </p>
+        <nav aria-label="Skill files">
+          <ul>
+            {skills.map((skill) => (
+              <li key={skill.slug}>
+                <a href={`/${skill.slug}/SKILL.md`}>
+                  {skill.name}: {skill.description}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </nav>
       </div>
 
-      <ul className="skill-list">
-        {skills.map((skill) => (
-          <li key={skill.slug} className="skill-item" onClick={() => openSkill(skill.slug, skill.name)}>
-            <div className="skill-title">
-              <span className="skill-name">{skill.name}</span>
-              <button
-                className="skill-url"
-                onClick={(e) => copyUrl(skill.slug, e)}
-              >
-                {copiedSlug === skill.slug ? "copied!" : `cortexskills.org/${skill.slug}/SKILL.md`}
-                {copiedSlug === skill.slug ? <CheckIcon /> : <CopyIcon />}
-              </button>
-            </div>
-            <p className="skill-desc">{skill.description}</p>
-          </li>
-        ))}
-      </ul>
-
-      <div className="mt-12 pt-8 border-t border-[var(--border)] text-sm text-[var(--dim)]">
-        <p>Built by <a href="https://museumofcryptoart.com" target="_blank" rel="noopener noreferrer">MOCA</a>. Open source on <a href="https://github.com/mocaOS/cortex-skills" target="_blank" rel="noopener noreferrer">GitHub</a>.</p>
-      </div>
-
-      <div id="modal-overlay" onClick={(e) => { if (e.target === e.currentTarget) closeModal(); }}>
-        <div id="modal-content">
-          <button id="modal-close" onClick={closeModal}>[X]</button>
-          
-          {loading && <div className="text-[var(--accent)] blink">Loading skill data...</div>}
-          {error && <div className="text-red-500">Error: {error}</div>}
-          
-          <div id="md-container" dangerouslySetInnerHTML={{ __html: modalContent || "" }} />
-        </div>
-      </div>
-
-      <style jsx>{`
-        .blink { animation: blinker 1s linear infinite; }
-        @keyframes blinker { 50% { opacity: 0; } }
-      `}</style>
+      {/* Interactive client component */}
+      <SkillsClient />
     </>
   );
 }
