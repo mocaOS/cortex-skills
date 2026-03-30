@@ -38,6 +38,7 @@ For a complete index, point your agent to the root:
 ### Ecosystem
 * `/integration` — LangChain, CrewAI, MCP, Slack, Webhooks.
 * `/apps` — Source and workflow apps (YouTube, Notion).
+* `/library` — Sync agent memory to a Cortex Library knowledge graph.
 * `/cortex-design` — The generative design principles for building Cortex UIs.
 
 ## Development

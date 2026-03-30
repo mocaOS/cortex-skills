@@ -23,4 +23,5 @@ These are curated skill files that teach AI agents how to build on the Cortex in
 ### Ecosystem
 - `cortexskills.com/integration/SKILL.md` — LangChain, CrewAI, MCP, Slack, etc.
 - `cortexskills.com/apps/SKILL.md` — Source and workflow apps (YouTube, Notion).
+- `cortexskills.com/library/SKILL.md` — Sync agent memory to a Cortex Library knowledge graph.
 - `cortexskills.com/cortex-design/SKILL.md` — The Bold Typography design system for UIs.

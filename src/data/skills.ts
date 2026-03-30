@@ -104,6 +104,14 @@ export const skills: Skill[] = [
     category: "ecosystem",
   },
   {
+    slug: "library",
+    name: "Library",
+    description:
+      "Sync agent memory files to a Cortex Library knowledge graph for enhanced retrieval, hybrid search (vector + keyword + graph), AI-powered Q&A with agentic deep research, and knowledge graph exploration.",
+    icon: "BookOpen",
+    category: "ecosystem",
+  },
+  {
     slug: "cortex-design",
     name: "Cortex Design",
     description:

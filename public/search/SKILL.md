@@ -1,5 +1,5 @@
 ---
-name: Hybrid Search
+name: search
 description: Perform hybrid search combining vector similarity, keyword matching, and graph traversal with cross-encoder re-ranking. Use this skill when searching documents, finding relevant chunks, or retrieving knowledge from the Cortex knowledge base.
 ---
 
