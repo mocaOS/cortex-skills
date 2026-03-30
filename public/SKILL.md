@@ -137,8 +137,8 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 
 | File | Description |
 |------|-------------|
-| [references/API.md](library/references/API.md) | Full API reference (60+ endpoints) |
-| [references/SYNC.md](library/references/SYNC.md) | Sync workflow, scripts, and troubleshooting |
+| [library/references/API.md](library/references/API.md) | Full API reference (60+ endpoints) |
+| [library/references/SYNC.md](library/references/SYNC.md) | Sync workflow, scripts, and troubleshooting |
 
 ## Sub-Skills
 
