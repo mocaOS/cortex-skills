@@ -80,6 +80,14 @@ export const skills: Skill[] = [
     category: "features",
   },
   {
+    slug: "mcp",
+    name: "MCP",
+    description:
+      "Model Context Protocol server for Cortex. Give Claude Desktop, Cursor, Windsurf, and any MCP client native access to your knowledge base.",
+    icon: "Plug",
+    category: "ecosystem",
+  },
+  {
     slug: "integration",
     name: "Integration",
     description:
