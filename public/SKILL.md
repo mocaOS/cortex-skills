@@ -146,6 +146,7 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 
 - `cortexskills.org/setup/SKILL.md` — Deploy Cortex via Docker, configure 50+ environment variables.
 - `cortexskills.org/auth/SKILL.md` — API keys, permission tiers, prompt injection protection.
+- `cortexskills.org/admin/SKILL.md` — Instance management, AgentSkills registry, export/import, system reset.
 
 ### Features
 
@@ -156,6 +157,7 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 - `cortexskills.org/collections/SKILL.md` — Scope documents and graphs by project or tenant.
 - `cortexskills.org/communities/SKILL.md` — Auto-clustering entities with LLM-generated summaries.
 - `cortexskills.org/turbo/SKILL.md` — GPU-accelerated processing via Compute3.
+- `cortexskills.org/tasks/SKILL.md` — Background task polling, cancellation, and cleanup.
 
 ### Ecosystem
 

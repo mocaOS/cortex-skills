@@ -163,14 +163,42 @@ Maximum 6 messages in history. The system automatically manages context window s
 
 ## Agentic Mode (Deep Research)
 
-When `use_agentic: true`, the system:
+When `use_agentic: true`, the system uses a **researcher/writer agent architecture**:
 
-1. **Decomposes** the question into sub-questions
-2. **Retrieves** relevant context for each sub-question independently
-3. **Synthesizes** a comprehensive answer from all retrieved contexts
-4. Up to `MAX_AGENTIC_STEPS` (default 3) reasoning steps
+1. A **Researcher Agent** iteratively gathers information using tool-calling (knowledge search, community search, entity lookup, reasoning)
+2. A **Writer LLM** synthesizes the gathered context into a streamed answer
+
+The researcher decides dynamically how many searches to perform and when to stop (up to `RESEARCHER_MAX_ITERATIONS_QUALITY` iterations, default 10). This is fundamentally different from legacy fixed-step reasoning.
 
 Best for complex, multi-part questions that span multiple documents or require cross-referencing.
+
+### Research Modes
+
+There are two operational modes that affect iteration depth and output length:
+
+| Mode | Trigger | Max Iterations | Max Output Tokens | Use Case |
+|------|---------|----------------|-------------------|----------|
+| **Chat (Speed)** | `use_agentic: false` or standard chat | 2 | 1,200 | Quick answers, conversational Q&A |
+| **Deep Research (Quality)** | `use_agentic: true` | 10 | 4,000 | Comprehensive analysis, cross-document comparison |
+
+The `POST /api/ask/stream/thinking` endpoint streams the researcher's reasoning steps as `thinking` events, giving visibility into the research process. Use this when building UIs that surface the "thought process."
+
+### Fast Search Mode
+
+Set `use_fast_search: true` to use vector-only search, bypassing hybrid search, graph traversal, and cross-encoder re-ranking. This dramatically reduces latency at the cost of result diversity.
+
+When `use_fast_search` is `true`, `use_reranking` and `use_graph` are effectively ignored.
+
+### Agent vs Legacy Pipeline
+
+The agent pipeline (`ENABLE_AGENT_RESEARCH=true`, default) requires a model that supports function calling (OpenAI `tools` parameter). If your model doesn't support this, set `ENABLE_AGENT_RESEARCH=false` to fall back to the legacy fixed decompose-search-synthesize pipeline.
+
+| | Agent Pipeline | Legacy Pipeline |
+|---|---|---|
+| **Token usage** | 3-5x higher (multiple researcher iterations) | Lower (2 LLM calls) |
+| **Latency** | 15-30s typical (4-8 LLM round-trips) | 5-10s typical |
+| **Research depth** | Adaptive — agent decides when to dig deeper | Fixed — always decomposes into N sub-questions |
+| **Compatible models** | GPT-4o, Claude, Mistral Large, Command R+ | Any OpenAI-compatible endpoint |
 
 ## Parsing SSE in JavaScript
 

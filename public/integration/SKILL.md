@@ -228,6 +228,14 @@ writing_client = MOCAClient(BASE_URL, API_KEY)
 context = writing_client.search("key findings", collection_id="research_col")
 ```
 
+## AgentSkills
+
+Cortex has a built-in AgentSkills system that extends the researcher agent with external knowledge and tools. Skills are installed from the [skills.sh](https://skills.sh) registry or local directories. This is distinct from MCP — AgentSkills are used by the built-in researcher agent during deep research, while MCP tools are used by external AI clients.
+
+For skill installation, configuration, and management, see the [Admin skill](../admin/SKILL.md).
+
+---
+
 ## MCP (Model Context Protocol) for Claude
 
 Cortex is MCP-server compatible. Configure for Claude Desktop:

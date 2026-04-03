@@ -65,7 +65,7 @@ Returns all detected communities with their names, entity counts, and summary st
 
 ```bash
 curl -s http://localhost:8000/api/graph/communities \
-  -H "Authorization: Bearer $TOKEN" | jq .
+  -H "X-API-Key: $TOKEN" | jq .
 ```
 
 Response:
@@ -102,7 +102,7 @@ Triggers community detection as a background task. Returns immediately with a `t
 
 ```bash
 curl -s -X POST http://localhost:8000/api/graph/communities/detect \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "X-API-Key: $TOKEN" \
   -H "Content-Type: application/json" | jq .
 ```
 
@@ -128,7 +128,7 @@ Returns full details for a single community including member entities and key re
 
 ```bash
 curl -s http://localhost:8000/api/graph/communities/comm_01 \
-  -H "Authorization: Bearer $TOKEN" | jq .
+  -H "X-API-Key: $TOKEN" | jq .
 ```
 
 Response:
@@ -164,7 +164,7 @@ configured LLM. You can target specific communities or summarize all of them.
 ```bash
 # Summarize specific communities
 curl -s -X POST http://localhost:8000/api/graph/communities/summarize \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "X-API-Key: $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "community_ids": ["comm_01", "comm_02"],
@@ -175,7 +175,7 @@ curl -s -X POST http://localhost:8000/api/graph/communities/summarize \
 ```bash
 # Summarize all communities (omit community_ids)
 curl -s -X POST http://localhost:8000/api/graph/communities/summarize \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "X-API-Key: $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{
     "force_regenerate": true
@@ -206,7 +206,7 @@ Searches community names and summaries for the given query string.
 
 ```bash
 curl -s "http://localhost:8000/api/graph/communities/search?q=machine%20learning" \
-  -H "Authorization: Bearer $TOKEN" | jq .
+  -H "X-API-Key: $TOKEN" | jq .
 ```
 
 Response:
@@ -227,65 +227,61 @@ Response:
 
 ---
 
-## Background Tasks
+## Delete Communities
 
-Community detection and summarization run as background tasks. Use these endpoints to
-track progress.
-
-### List Tasks
+### Delete a Single Community
 
 ```bash
-curl -s http://localhost:8000/api/tasks \
-  -H "Authorization: Bearer $TOKEN" | jq .
+curl -X DELETE "{BASE_URL}/api/graph/communities/comm_01" \
+  -H "X-API-Key: {API_KEY}"
 ```
 
-### Get Task Status
+Member entities are unlinked (their `community_id` is cleared) but **not deleted**.
+
+### Delete All Communities
 
 ```bash
-curl -s http://localhost:8000/api/tasks/task_abc123 \
-  -H "Authorization: Bearer $TOKEN" | jq .
+curl -X DELETE "{BASE_URL}/api/graph/communities" \
+  -H "X-API-Key: {API_KEY}"
+```
+
+All communities are removed. Entities are preserved.
+
+---
+
+## Cleanup Orphaned Entities
+
+After deleting documents or communities, some entities may become orphaned (not mentioned by any document). Clean them up:
+
+```bash
+curl -X POST "{BASE_URL}/api/cleanup/orphaned-entities" \
+  -H "X-API-Key: {API_KEY}"
 ```
 
 Response:
-
 ```json
 {
-  "id": "task_abc123",
-  "type": "community_detection",
-  "status": "running",
-  "progress": 65,
-  "created_at": "2026-03-15T10:30:00Z",
-  "updated_at": "2026-03-15T10:31:15Z"
+  "message": "Cleanup completed",
+  "orphaned_entities_removed": 42,
+  "orphaned_communities_removed": 3
 }
 ```
 
-Status values: `pending`, `running`, `completed`, `failed`, `cancelled`.
+---
 
-### Get Task Result
+## Background Tasks
 
-```bash
-curl -s http://localhost:8000/api/tasks/task_abc123/result \
-  -H "Authorization: Bearer $TOKEN" | jq .
-```
+Community detection and summarization run as background tasks. For full task management (polling, cancellation, cleanup), see the [Tasks skill](../tasks/SKILL.md).
 
-Only available when status is `completed`. Returns the output of the task (e.g., the list
-of detected communities).
-
-### Cancel a Task
+Quick reference:
 
 ```bash
-curl -s -X DELETE http://localhost:8000/api/tasks/task_abc123 \
-  -H "Authorization: Bearer $TOKEN" | jq .
+# Get task status
+curl "{BASE_URL}/api/tasks/{task_id}" -H "X-API-Key: {API_KEY}"
+
+# Cancel a task
+curl -X DELETE "{BASE_URL}/api/tasks/{task_id}" -H "X-API-Key: {API_KEY}"
 ```
-
-### Clean Up Old Tasks
-
-```bash
-curl -s -X POST http://localhost:8000/api/tasks/cleanup \
-  -H "Authorization: Bearer $TOKEN" | jq .
-```
-
-Removes completed and failed tasks older than 24 hours.
 
 ---
 
@@ -294,12 +290,12 @@ Removes completed and failed tasks older than 24 hours.
 ```bash
 # 1. Trigger detection
 TASK_ID=$(curl -s -X POST http://localhost:8000/api/graph/communities/detect \
-  -H "Authorization: Bearer $TOKEN" | jq -r '.task_id')
+  -H "X-API-Key: $TOKEN" | jq -r '.task_id')
 
 # 2. Poll until complete
 while true; do
   STATUS=$(curl -s http://localhost:8000/api/tasks/$TASK_ID \
-    -H "Authorization: Bearer $TOKEN" | jq -r '.status')
+    -H "X-API-Key: $TOKEN" | jq -r '.status')
   echo "Status: $STATUS"
   [ "$STATUS" = "completed" ] && break
   sleep 5
@@ -307,17 +303,17 @@ done
 
 # 3. List detected communities
 curl -s http://localhost:8000/api/graph/communities \
-  -H "Authorization: Bearer $TOKEN" | jq .
+  -H "X-API-Key: $TOKEN" | jq .
 
 # 4. Generate summaries for all communities
 curl -s -X POST http://localhost:8000/api/graph/communities/summarize \
-  -H "Authorization: Bearer $TOKEN" \
+  -H "X-API-Key: $TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"force_regenerate": false}' | jq .
 
 # 5. Search communities to use in RAG context
 curl -s "http://localhost:8000/api/graph/communities/search?q=payments" \
-  -H "Authorization: Bearer $TOKEN" | jq .
+  -H "X-API-Key: $TOKEN" | jq .
 ```
 
 ---

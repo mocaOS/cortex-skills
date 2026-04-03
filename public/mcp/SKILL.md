@@ -17,6 +17,7 @@ The Cortex MCP server gives any MCP-compatible AI client native access to your C
 2. **Authentication uses environment variables, not config files.** Set `CORTEX_BASE_URL` and `CORTEX_API_KEY` in your MCP client config.
 3. **You need an API key with at least `read` permission.** Get one from `{YOUR_BASE_URL}/admin` → API Keys. Use `manage` permission if you also want upload capabilities.
 4. **The server communicates via stdio, not HTTP.** MCP uses JSON-RPC over stdin/stdout. You do not need to expose any ports.
+5. **AgentSkills are not MCP tools.** The AgentSkills system (installing skills from the skills.sh registry) is a separate admin feature that extends the built-in researcher agent. It has nothing to do with the MCP server. See the [Admin skill](../admin/SKILL.md) for AgentSkills management.
 
 ## Installation
 

@@ -2,7 +2,7 @@
 
 Complete endpoint reference for document ingestion, management, and custom inputs.
 
-All endpoints require authentication via `Authorization: Bearer {API_KEY}` or `X-API-Key: {API_KEY}` header.
+All endpoints require authentication via `X-API-Key: {API_KEY}` header.
 
 ---
 

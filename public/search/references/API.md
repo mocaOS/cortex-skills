@@ -2,7 +2,7 @@
 
 Complete endpoint specification for hybrid search with vector similarity, keyword matching, graph traversal, and cross-encoder re-ranking.
 
-All endpoints require authentication via `Authorization: Bearer {API_KEY}` or `X-API-Key: {API_KEY}` header.
+All endpoints require authentication via `X-API-Key: {API_KEY}` header.
 
 ---
 

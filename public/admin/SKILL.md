@@ -1,0 +1,214 @@
+---
+name: admin
+description: Use this skill when managing a Cortex instance — installing AgentSkills from the registry, exporting/importing data for migration, resetting the system, viewing stats, or authenticating as an admin user via session login. Covers the full /api/admin/* surface and the AgentSkills system.
+---
+
+# Admin — Instance Management, Skills, and System Operations
+
+## What You Probably Got Wrong
+
+1. **Admin session auth is separate from API key auth.** `POST /api/admin/login` uses email/password and returns a JWT session cookie for the web UI. API keys (`X-API-Key` header) are for programmatic access. They are two independent auth systems.
+
+2. **AgentSkills are not MCP tools.** They are Markdown instruction files (with optional tool definitions) installed from the [skills.sh](https://skills.sh) registry or local directories. The researcher agent uses them during deep research, not MCP clients.
+
+3. **Export produces a ZIP, not JSON.** `POST /api/admin/export` returns a ZIP64 archive containing NDJSON data files, a manifest, and original document files. Import expects the same format.
+
+4. **System reset is granular.** You can reset documents only, graph only, or everything. It's not all-or-nothing.
+
+5. **The stats endpoint only requires `read` permission.** You don't need an admin key to check `GET /api/stats`.
+
+---
+
+## System Statistics
+
+```bash
+curl "{BASE_URL}/api/stats" \
+  -H "X-API-Key: {API_KEY}"
+```
+
+Response:
+```json
+{
+  "document_count": 156,
+  "chunk_count": 4280,
+  "entity_count": 1542,
+  "relationship_count": 3891,
+  "per_chunk_relationship_count": 1204,
+  "community_count": 23,
+  "collection_count": 5
+}
+```
+
+The `relationship_count` field shows cross-document relationships (Phase B). The `per_chunk_relationship_count` shows relationships extracted during document processing (Phase A).
+
+---
+
+## Admin Session Authentication
+
+The frontend web UI uses session-based auth, separate from API keys.
+
+### Login
+
+```bash
+curl -X POST "{BASE_URL}/api/admin/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@example.com", "password": "your-password"}'
+```
+
+Credentials are validated against `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables. On success, returns an encrypted JWT token stored in an HTTP-only cookie.
+
+### Logout
+
+```bash
+curl -X POST "{BASE_URL}/api/admin/logout"
+```
+
+Clears the session cookie.
+
+### How Session Auth and API Keys Coexist
+
+| Mechanism | Used By | Transport | Lifetime |
+|-----------|---------|-----------|----------|
+| Session (JWT cookie) | Web UI / browser | HTTP-only cookie | Until logout or expiry |
+| API key (`X-API-Key`) | Scripts, agents, integrations | Request header | Until revoked |
+
+All frontend routes (except `/login`) are protected by middleware that checks the session cookie. All API routes check the `X-API-Key` header.
+
+---
+
+## AgentSkills System
+
+AgentSkills extend the researcher agent with external knowledge and tools. Each skill is a directory containing a `SKILL.md` file and an optional `tools.json` defining HTTP or script tools.
+
+### List Installed Skills
+
+```bash
+curl "{BASE_URL}/api/admin/skills" \
+  -H "X-API-Key: {ADMIN_KEY}"
+```
+
+### Install a Skill from URL
+
+```bash
+curl -X POST "{BASE_URL}/api/admin/skills/install" \
+  -H "X-API-Key: {ADMIN_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"url": "https://skills.sh/weather/SKILL.md"}'
+```
+
+### Search the skills.sh Registry
+
+```bash
+curl "{BASE_URL}/api/admin/skills/registry/search?q=weather" \
+  -H "X-API-Key: {ADMIN_KEY}"
+```
+
+### Enable/Disable a Skill
+
+```bash
+curl -X PATCH "{BASE_URL}/api/admin/skills/{skill_id}" \
+  -H "X-API-Key: {ADMIN_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"enabled": false}'
+```
+
+### Configure a Skill
+
+Skills can define configuration schemas (e.g., API keys, base URLs). Use the LLM-powered analyzer to extract configuration requirements:
+
+```bash
+# Analyze skill to discover config schema
+curl -X POST "{BASE_URL}/api/admin/skills/{skill_id}/analyze" \
+  -H "X-API-Key: {ADMIN_KEY}"
+
+# Get config schema
+curl "{BASE_URL}/api/admin/skills/{skill_id}/config" \
+  -H "X-API-Key: {ADMIN_KEY}"
+
+# Save config values
+curl -X PUT "{BASE_URL}/api/admin/skills/{skill_id}/config" \
+  -H "X-API-Key: {ADMIN_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"api_key": "sk-...", "base_url": "https://api.example.com"}'
+```
+
+### Uninstall a Skill
+
+```bash
+curl -X DELETE "{BASE_URL}/api/admin/skills/{skill_id}" \
+  -H "X-API-Key: {ADMIN_KEY}"
+```
+
+### Rescan Skills Directory
+
+```bash
+curl -X POST "{BASE_URL}/api/admin/skills/discover" \
+  -H "X-API-Key: {ADMIN_KEY}"
+```
+
+Rescans the `SKILLS_DIR` directory for new or changed skills.
+
+### Configuration
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ENABLE_SKILLS` | `true` | Master switch for the skills system |
+| `SKILLS_DIR` | `.agents/skills` | Directory where skill directories are stored |
+| `ENABLE_SKILL_SCRIPTS` | `false` | Allow skills to execute local scripts (security-sensitive) |
+| `SKILL_SCRIPT_TIMEOUT` | `30` | Timeout in seconds for skill script execution |
+| `SKILL_HTTP_TIMEOUT` | `15` | Timeout in seconds for skill HTTP tool requests |
+| `MAX_SKILL_TOOLS` | `10` | Max skill tools available to the researcher agent |
+
+---
+
+## Export and Import
+
+### Export Full Instance
+
+```bash
+curl -X POST "{BASE_URL}/api/admin/export" \
+  -H "X-API-Key: {ADMIN_KEY}" \
+  --output moca-export.zip
+```
+
+Returns a ZIP64 archive containing:
+- `manifest.json` — version, export date, embedding model, stats
+- `documents.ndjson`, `chunks.ndjson`, `entities.ndjson`, `relationships.ndjson`, `communities.ndjson` — all graph data
+- `collections.ndjson`, `collection_members.ndjson`, `community_members.ndjson`, `chunk_mentions.ndjson` — relationships
+- `merge_history.ndjson`, `system_meta.ndjson` — audit trail and metadata
+- `files/` — original uploaded document files
+
+### Import from ZIP
+
+```bash
+curl -X POST "{BASE_URL}/api/admin/import" \
+  -H "X-API-Key: {ADMIN_KEY}" \
+  -F "file=@moca-export.zip"
+```
+
+The system validates the manifest (including embedding model compatibility) before importing. Two modes:
+- **Clean import** — merges with existing data
+- **Replace import** — wipes existing data first
+
+---
+
+## System Reset
+
+```bash
+curl -X POST "{BASE_URL}/api/admin/reset" \
+  -H "X-API-Key: {ADMIN_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"confirm": true}'
+```
+
+Removes all data: Documents, Chunks, Entities, Relationships, Communities, MergeHistory, SystemMeta. This is **destructive and irreversible**.
+
+For granular resets, the web UI provides options to reset specific data types independently.
+
+---
+
+## Skill Files
+
+| File | Description |
+|------|-------------|
+| [references/API.md](references/API.md) | Complete admin API endpoint reference |

@@ -30,7 +30,7 @@ POST {BASE_URL}/api/search
 ### Headers
 
 ```
-Authorization: Bearer {API_KEY}
+X-API-Key: {API_KEY}
 Content-Type: application/json
 ```
 
@@ -116,7 +116,7 @@ Set `fast_mode: true` to skip this step when latency matters more than precision
 
 ```bash
 curl -X POST {BASE_URL}/api/search \
-  -H "Authorization: Bearer {API_KEY}" \
+  -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "How does the authentication system handle token refresh?",
@@ -128,7 +128,7 @@ curl -X POST {BASE_URL}/api/search \
 
 ```bash
 curl -X POST {BASE_URL}/api/search \
-  -H "Authorization: Bearer {API_KEY}" \
+  -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "database migration strategies",
@@ -140,7 +140,7 @@ curl -X POST {BASE_URL}/api/search \
 
 ```bash
 curl -X POST {BASE_URL}/api/search \
-  -H "Authorization: Bearer {API_KEY}" \
+  -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "quarterly revenue projections",
@@ -153,7 +153,7 @@ curl -X POST {BASE_URL}/api/search \
 
 ```bash
 curl -X POST {BASE_URL}/api/search \
-  -H "Authorization: Bearer {API_KEY}" \
+  -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "error handling best practices",
@@ -169,7 +169,7 @@ curl -X POST {BASE_URL}/api/search \
 
 ```bash
 curl -X POST {BASE_URL}/api/search \
-  -H "Authorization: Bearer {API_KEY}" \
+  -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "query": "quick lookup for API rate limits",

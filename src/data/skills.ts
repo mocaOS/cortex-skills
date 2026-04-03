@@ -24,6 +24,14 @@ export const skills: Skill[] = [
     category: "core",
   },
   {
+    slug: "admin",
+    name: "Admin",
+    description:
+      "Instance management — AgentSkills registry, export/import, system reset, admin session auth, and system statistics.",
+    icon: "ShieldCheck",
+    category: "core",
+  },
+  {
     slug: "upload",
     name: "Upload",
     description:
@@ -77,6 +85,14 @@ export const skills: Skill[] = [
     description:
       "GPU-accelerated inference via Compute3. Start/stop dedicated B200 GPU jobs with per-second billing for massive document uploads.",
     icon: "Zap",
+    category: "features",
+  },
+  {
+    slug: "tasks",
+    name: "Tasks",
+    description:
+      "Background task system — poll for completion, cancel long-running jobs, and clean up old tasks. Used by community detection, summarization, and bulk processing.",
+    icon: "Clock",
     category: "features",
   },
   {

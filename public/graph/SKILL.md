@@ -170,6 +170,89 @@ curl "{BASE_URL}/api/graph/search?q=open" \
   -H "X-API-Key: {API_KEY}"
 ```
 
+## Entity Deduplication
+
+Automatic resolution handles most duplicates during ingestion, but you can also find and merge duplicates manually:
+
+### Find Duplicate Candidates
+
+```bash
+curl "{BASE_URL}/api/entities/duplicates?threshold=0.85&limit=50" \
+  -H "X-API-Key: {API_KEY}"
+```
+
+Returns groups of entities that appear to be duplicates based on name similarity. Lower the threshold (min 0.5) to find more candidates at the cost of more false positives.
+
+### Merge Duplicates
+
+```bash
+curl -X POST "{BASE_URL}/api/entities/merge" \
+  -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"canonical": "Machine Learning", "merge": ["machine learning", "ML"]}'
+```
+
+When merged: all relationships and chunk mentions transfer to the canonical entity, merged names become aliases, and merged entity nodes are deleted.
+
+### View Merge History
+
+```bash
+curl "{BASE_URL}/api/entities/merge-history" \
+  -H "X-API-Key: {API_KEY}"
+```
+
+Returns the audit trail of all past merge operations with counts of transferred relationships and mentions.
+
+---
+
+## Entity Editing
+
+Update an entity's name or description:
+
+```bash
+curl -X PATCH "{BASE_URL}/api/graph/entity/OpenAI" \
+  -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"description": "AI research and deployment company"}'
+```
+
+---
+
+## Cross-Document Relationship Analysis
+
+After documents are processed with per-chunk entity and relationship extraction (Phase A), you can run a deeper cross-document analysis (Phase B) that discovers relationships between entities across different documents:
+
+```bash
+curl -X POST "{BASE_URL}/api/graph/relationships/analyze" \
+  -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"mode": "incremental"}'
+```
+
+This runs as a background task. `mode: "incremental"` builds on existing relationships; `mode: "rebuild"` deletes batch-analysis relationships and re-analyzes from scratch.
+
+Phase B relationships carry a `confidence` score (0.0-1.0) and are tagged with `extraction_method: "batch_analysis"` to distinguish them from per-chunk Phase A relationships.
+
+---
+
+## Deleting Graph Data
+
+```bash
+# Delete ALL entities (and their attached relationships)
+curl -X DELETE "{BASE_URL}/api/graph/entities" \
+  -H "X-API-Key: {API_KEY}"
+
+# Delete ALL entity-to-entity relationships (preserving entity nodes)
+curl -X DELETE "{BASE_URL}/api/graph/relationships" \
+  -H "X-API-Key: {API_KEY}"
+
+# Clean up orphaned entities and communities
+curl -X POST "{BASE_URL}/api/cleanup/orphaned-entities" \
+  -H "X-API-Key: {API_KEY}"
+```
+
+---
+
 ## Semantic Entity Resolution
 
 When enabled (`ENABLE_SEMANTIC_ENTITY_RESOLUTION=true`), the system automatically merges entities that are semantically similar:
@@ -183,19 +266,40 @@ Example: "OpenAI", "Open AI", "openai" all merge into a single entity.
 
 ## GraphRAG Extraction Pipeline
 
-During document processing, for each chunk:
+The extraction pipeline has two phases:
+
+### Phase A: Per-Document Extraction (During Upload)
+
+For each chunk in a document:
 
 1. **Entity Extraction** — LLM identifies entities using XML-formatted prompts
-2. **Type Classification** — Each entity gets one of the 10 types
-3. **Relationship Extraction** — LLM identifies relationships between entities with types, descriptions, and weight scores
+2. **Type Classification** — Each entity gets one of the 10 types (non-standard types are fuzzy-matched to the nearest allowed type)
+3. **Per-Chunk Relationship Extraction** — LLM identifies relationships between entities within the same chunk, with types, descriptions, and weight scores
 4. **Entity Resolution** — New entities are compared against existing ones and merged if similar
 5. **Neo4j Storage** — Entities and relationships stored as graph nodes and edges
 
-Configuration:
+### Phase B: Cross-Document Relationship Analysis (On Demand)
+
+Triggered via `POST /api/graph/relationships/analyze`. Uses Union-Find co-occurrence clustering to batch entities that share chunks, then runs multi-round LLM discovery:
+
+1. **Candidate Scanning** — Groups co-occurring entities into batches
+2. **LLM Relationship Proposals** — Each batch is analyzed for cross-document relationships
+3. **Confidence Scoring** — Relationships below 0.5 confidence are filtered
+4. **Early Stopping** — Stops when the ERR (Entity-Relationship Ratio) target is met or max rounds are reached
+
+The **ERR metric** (Entity-Relationship Ratio) measures graph density. Displayed on the Knowledge Graph UI page as a quality indicator. Target is configurable via `RELATIONSHIP_TARGET_RATIO` (default 1.0).
+
+### Configuration
+
 ```bash
 ENABLE_GRAPH_EXTRACTION=true
 MAX_GRAPH_HOPS=2
-CONCURRENT_EXTRACTIONS=20
+CONCURRENT_EXTRACTIONS=3              # Parallel entity extraction operations
+CONCURRENT_RELATIONS=3                # Per-chunk relationship extractions per document
+PARALLEL_RELATIONSHIP_BATCHES=5       # Batches processed in parallel during Phase B
+RELATIONSHIP_TARGET_RATIO=1.0         # Target ERR — higher = more relationships per entity
+RELATIONSHIP_MAX_ROUNDS=3             # Max discovery rounds per batch
+RELATIONSHIP_MAX_PER_ENTITY=50        # Soft cap to prevent hub domination
 ENABLE_SEMANTIC_ENTITY_RESOLUTION=true
 ENTITY_SIMILARITY_THRESHOLD=0.85
 ```

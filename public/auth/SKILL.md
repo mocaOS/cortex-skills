@@ -113,13 +113,36 @@ curl -X DELETE "{BASE_URL}/api/admin/api-keys/{key_id}" \
 
 ## Admin Authentication (Frontend)
 
-The frontend uses session-based auth for human users:
+The frontend uses session-based auth for human users, completely separate from API key auth.
 
-- **Login:** `POST /api/auth/login` with `{email, password}` (validated against `ADMIN_EMAIL`, `ADMIN_PASSWORD` env vars)
-- **Sessions:** Encrypted JWT tokens stored in HTTP-only cookies
-- **Middleware:** All frontend routes (except `/login`) are protected
+### Login
 
-This is separate from API key auth. API keys are for programmatic access; sessions are for the web UI.
+```bash
+curl -X POST "{BASE_URL}/api/admin/login" \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@example.com", "password": "your-password"}'
+```
+
+Credentials are validated against the `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables. On success, an encrypted JWT token is set as an HTTP-only cookie.
+
+### Logout
+
+```bash
+curl -X POST "{BASE_URL}/api/admin/logout"
+```
+
+Clears the session cookie.
+
+### How Session Auth and API Keys Coexist
+
+| Mechanism | Used By | Transport | Scope |
+|-----------|---------|-----------|-------|
+| Session (JWT cookie) | Web UI / browser users | HTTP-only cookie | All frontend routes (except `/login`) protected by middleware |
+| API key (`X-API-Key`) | Scripts, agents, integrations | Request header | All `/api/*` routes |
+
+These are two independent auth systems. A valid session cookie does not grant API access, and an API key does not grant frontend access. For programmatic administration, use an `admin`-tier API key.
+
+For full admin endpoint coverage (skills management, export/import, reset), see the [Admin skill](../admin/SKILL.md).
 
 ## Prompt Injection Protection
 

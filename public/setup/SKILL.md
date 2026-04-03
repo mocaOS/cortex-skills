@@ -173,6 +173,51 @@ MAX_FILE_SIZE_MB=50
 VISION_MODEL=gpt-4o
 VISION_MODEL_API_BASE=https://api.openai.com/v1
 VISION_MODEL_API_KEY=sk-your-key
+VISION_MAX_CONCURRENT=3    # Concurrent vision API calls system-wide
+```
+
+### Concurrency Tuning
+
+```bash
+BATCH_PROCESSING_CONCURRENCY=2     # Documents processed in parallel
+CONCURRENT_EXTRACTIONS=3            # Entity extraction thread pool
+CONCURRENT_RELATIONS=3              # Per-chunk relationship extractions per document
+PARALLEL_RELATIONSHIP_BATCHES=5     # Phase B relationship analysis batches in parallel
+PROCESSING_THREAD_WORKERS=4         # Thread workers for document processing
+```
+
+### Relationship Analysis (Phase B)
+
+```bash
+RELATIONSHIP_EXTRACTION_MODEL=gpt-4o-mini    # Dedicated model for relationship extraction
+RELATIONSHIP_MAX_CONTEXT=65536                # Max input context for batching
+RELATIONSHIP_MAX_OUTPUT_TOKENS=16000          # Max output tokens per LLM response
+RELATIONSHIP_TARGET_RATIO=1.0                 # Target ERR (higher = more relationships)
+RELATIONSHIP_MAX_ROUNDS=3                     # Max discovery rounds per batch
+RELATIONSHIP_MAX_PER_ENTITY=50                # Soft cap to prevent hub entities
+RELATIONSHIP_MAX_HOURS=0                      # Time limit (0 = no limit)
+```
+
+### Agent Skills
+
+```bash
+ENABLE_SKILLS=true                  # Master switch for AgentSkills system
+SKILLS_DIR=.agents/skills           # Directory where skills are stored
+ENABLE_SKILL_SCRIPTS=false          # Allow skills to execute local scripts (security-sensitive)
+SKILL_SCRIPT_TIMEOUT=30             # Script timeout in seconds
+SKILL_HTTP_TIMEOUT=15               # HTTP tool request timeout
+MAX_SKILL_TOOLS=10                  # Max skill tools per researcher conversation
+```
+
+### Agent-Based Research Pipeline
+
+```bash
+ENABLE_AGENT_RESEARCH=true                    # Agent pipeline for Deep Research
+ENABLE_AGENT_CHAT=false                       # Agent pipeline for standard Chat (opt-in)
+RESEARCHER_MAX_ITERATIONS_SPEED=2             # Chat mode iterations
+RESEARCHER_MAX_ITERATIONS_QUALITY=10          # Deep Research iterations
+WRITER_MAX_TOKENS_SPEED=1200                  # Chat answer max tokens
+WRITER_MAX_TOKENS_QUALITY=4000                # Deep Research answer max tokens
 ```
 
 ### Frontend Configuration

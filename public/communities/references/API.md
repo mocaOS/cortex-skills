@@ -4,7 +4,7 @@ Complete endpoint reference for the MOCA Communities API. For conceptual overvie
 
 ## Authentication
 
-All endpoints require an API key via the `X-API-Key` header or `Authorization: Bearer` token:
+All endpoints require an API key via the `X-API-Key` header:
 
 ```
 X-API-Key: your-api-key

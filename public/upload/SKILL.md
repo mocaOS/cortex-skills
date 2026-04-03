@@ -80,7 +80,7 @@ Returns the created document ID and metadata:
 
 ```bash
 curl -X POST "{BASE_URL}/api/upload?collection_id=my-collection&start_processing=true" \
-  -H "Authorization: Bearer {API_KEY}" \
+  -H "X-API-Key: {API_KEY}" \
   -F "file=@/path/to/document.pdf"
 ```
 
@@ -121,7 +121,7 @@ The full sequence:
 
 ```bash
 curl -X GET "{BASE_URL}/api/documents/abc-123" \
-  -H "Authorization: Bearer {API_KEY}"
+  -H "X-API-Key: {API_KEY}"
 ```
 
 Response:
@@ -225,6 +225,27 @@ POST /api/documents/reprocess
 
 Triggers reprocessing for all documents (or those matching filter criteria).
 
+### Update Document Metadata
+
+```
+PATCH /api/documents/{id}
+```
+
+Update a document's metadata (title, collection assignment, etc.) without reprocessing.
+
+### Bulk Download (ZIP)
+
+```
+POST /api/documents/download-zip
+Content-Type: application/json
+
+{
+  "document_ids": ["abc-123", "def-456"]
+}
+```
+
+Returns a streamed `application/zip` containing the original uploaded files. Supports ZIP64 for large collections (1000+ documents). Duplicate filenames are disambiguated automatically (e.g., `report.pdf`, `report (1).pdf`).
+
 ### Move Documents Between Collections
 
 ```
@@ -238,6 +259,35 @@ Content-Type: application/json
 ```
 
 Moves one or more documents to a different collection without reprocessing.
+
+---
+
+## Source Tracking
+
+Every document has a `source` field indicating how it was ingested:
+
+| Source | Description |
+|--------|-------------|
+| `upload` | Uploaded via `/api/upload` (default) |
+| `custom_input` | Created via `/api/custom-input` |
+| Custom string | Any custom identifier passed via the `source` query parameter on upload |
+
+Pass a custom source when uploading:
+
+```bash
+curl -X POST "{BASE_URL}/api/upload?source=slack-import" \
+  -H "X-API-Key: {API_KEY}" \
+  -F "file=@message-export.json"
+```
+
+Use the `source` field in search filters to scope results by ingestion method:
+
+```json
+{
+  "query": "deployment guide",
+  "filters": {"source": "upload"}
+}
+```
 
 ---
 
@@ -296,7 +346,7 @@ Content-Type: application/json
 
 ```bash
 curl -X POST "{BASE_URL}/api/custom-input" \
-  -H "Authorization: Bearer {API_KEY}" \
+  -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
     "input_type": "qa_pair",
@@ -328,6 +378,22 @@ GET /api/custom-inputs
 GET /api/custom-inputs/{id}
 ```
 
+### Update a Custom Input
+
+```
+PATCH /api/custom-inputs/{id}
+```
+
+Update the title, content, or answer of an existing custom input.
+
+### Delete a Custom Input
+
+```
+DELETE /api/custom-inputs/{id}
+```
+
+Removes the custom input and its associated chunks, embeddings, and orphaned entities.
+
 ---
 
 ## Vision and Image Analysis
@@ -338,7 +404,22 @@ When the `VISION_MODEL` environment variable is configured, the system automatic
 - Images embedded within PDFs and DOCX files
 - Charts, diagrams, and tables in presentations (PPTX)
 
-Without `VISION_MODEL` set, image content is processed with basic OCR only, which may miss contextual information from charts, diagrams, or handwritten content.
+Without `VISION_MODEL` set, Docling's built-in SmolDocling model is used for image descriptions. If Docling is also unavailable, basic OCR (EasyOCR/Tesseract) is used as a fallback, which may miss contextual information from charts, diagrams, or handwritten content.
+
+Image analysis runs concurrently — control parallelism with `VISION_MAX_CONCURRENT` (default 3). With 200 images at ~30s each: 3 concurrency ≈ 33 min, 10 concurrency ≈ 10 min.
+
+Image entities are extracted with fuzzy deduplication, and each image chunk stores page number and caption metadata. Check `image_progress_current` vs `image_progress_total` on the document to track background image processing (a document can be `completed` while images are still analyzing).
+
+### Docling Integration
+
+Docling provides advanced document conversion with layout-aware extraction. When enabled, it handles PDF, DOCX, and other formats with better structure preservation than the default extractors.
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `VISION_MODEL` | — (disabled) | Vision model for image analysis (e.g., `gpt-4o`) |
+| `VISION_MODEL_API_BASE` | `OPENAI_API_BASE` | API endpoint for the vision model |
+| `VISION_MODEL_API_KEY` | `OPENAI_API_KEY` | API key for the vision model |
+| `VISION_MAX_CONCURRENT` | `3` | Max concurrent vision API calls system-wide |
 
 ---
 
@@ -349,7 +430,7 @@ Without `VISION_MODEL` set, image content is processed with basic OCR only, whic
 ```bash
 # 1. Upload the file
 RESPONSE=$(curl -s -X POST "{BASE_URL}/api/upload?start_processing=true" \
-  -H "Authorization: Bearer {API_KEY}" \
+  -H "X-API-Key: {API_KEY}" \
   -F "file=@/path/to/document.pdf")
 
 DOC_ID=$(echo "$RESPONSE" | jq -r '.document_id')
@@ -357,7 +438,7 @@ DOC_ID=$(echo "$RESPONSE" | jq -r '.document_id')
 # 2. Poll until processing completes
 while true; do
   STATUS=$(curl -s -X GET "{BASE_URL}/api/documents/$DOC_ID" \
-    -H "Authorization: Bearer {API_KEY}" | jq -r '.status')
+    -H "X-API-Key: {API_KEY}" | jq -r '.status')
 
   echo "Status: $STATUS"
 
@@ -375,13 +456,13 @@ done
 # Upload multiple files without processing
 for file in /path/to/docs/*; do
   curl -s -X POST "{BASE_URL}/api/upload?start_processing=false&collection_id=bulk-import" \
-    -H "Authorization: Bearer {API_KEY}" \
+    -H "X-API-Key: {API_KEY}" \
     -F "file=@$file"
 done
 
 # Kick off batch processing
 curl -X POST "{BASE_URL}/api/documents/process-pending" \
-  -H "Authorization: Bearer {API_KEY}"
+  -H "X-API-Key: {API_KEY}"
 ```
 
 ---
