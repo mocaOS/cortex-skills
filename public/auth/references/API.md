@@ -1,6 +1,6 @@
 # Auth API Reference
 
-Full API endpoint reference for MOCA Library authentication, API key management, session auth, and admin operations. Includes request/response schemas, error codes, and curl examples.
+Full API endpoint reference for Cortex authentication, API key management, session auth, and admin operations. Includes request/response schemas, error codes, and curl examples.
 
 This file complements the main `auth/SKILL.md` which covers the authentication pattern, permission tiers, prompt injection protection, and security best practices. Refer here for exhaustive endpoint specifications.
 
@@ -45,7 +45,7 @@ POST /api/admin/api-keys
 **Example Request:**
 
 ```bash
-curl -X POST "$MOCA_URL/api/admin/api-keys" \
+curl -X POST "$CORTEX_URL/api/admin/api-keys" \
   -H "X-API-Key: $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -85,7 +85,7 @@ Returns all API keys (without raw key values).
 **Example Request:**
 
 ```bash
-curl "$MOCA_URL/api/admin/api-keys" \
+curl "$CORTEX_URL/api/admin/api-keys" \
   -H "X-API-Key: $ADMIN_KEY"
 ```
 
@@ -125,7 +125,7 @@ Returns detailed information for a single key, including usage statistics.
 **Example Request:**
 
 ```bash
-curl "$MOCA_URL/api/admin/api-keys/key_abc123" \
+curl "$CORTEX_URL/api/admin/api-keys/key_abc123" \
   -H "X-API-Key: $ADMIN_KEY"
 ```
 
@@ -175,7 +175,7 @@ Update a key's name, permissions, or expiration. Partial updates supported.
 **Example Request:**
 
 ```bash
-curl -X PATCH "$MOCA_URL/api/admin/api-keys/key_abc123" \
+curl -X PATCH "$CORTEX_URL/api/admin/api-keys/key_abc123" \
   -H "X-API-Key: $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{
@@ -208,7 +208,7 @@ Deactivates a key. The key remains in the database but can no longer authenticat
 **Example Request:**
 
 ```bash
-curl -X POST "$MOCA_URL/api/admin/api-keys/key_abc123/revoke" \
+curl -X POST "$CORTEX_URL/api/admin/api-keys/key_abc123/revoke" \
   -H "X-API-Key: $ADMIN_KEY"
 ```
 
@@ -235,7 +235,7 @@ Re-activates a previously revoked key.
 **Example Request:**
 
 ```bash
-curl -X POST "$MOCA_URL/api/admin/api-keys/key_abc123/activate" \
+curl -X POST "$CORTEX_URL/api/admin/api-keys/key_abc123/activate" \
   -H "X-API-Key: $ADMIN_KEY"
 ```
 
@@ -262,7 +262,7 @@ Permanently removes a key from the database. This action is irreversible.
 **Example Request:**
 
 ```bash
-curl -X DELETE "$MOCA_URL/api/admin/api-keys/key_abc123" \
+curl -X DELETE "$CORTEX_URL/api/admin/api-keys/key_abc123" \
   -H "X-API-Key: $ADMIN_KEY"
 ```
 
@@ -296,7 +296,7 @@ POST /api/auth/login
 **Example Request:**
 
 ```bash
-curl -X POST "$MOCA_URL/api/auth/login" \
+curl -X POST "$CORTEX_URL/api/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
     "email": "admin@example.com",
@@ -343,7 +343,7 @@ Returns the current system configuration (env var values, active features). Admi
 **Example Request:**
 
 ```bash
-curl "$MOCA_URL/api/admin/config" \
+curl "$CORTEX_URL/api/admin/config" \
   -H "X-API-Key: $ADMIN_KEY"
 ```
 
@@ -370,7 +370,7 @@ Selectively delete data from the system. Admin only.
 **Example Request:**
 
 ```bash
-curl -X POST "$MOCA_URL/api/admin/reset" \
+curl -X POST "$CORTEX_URL/api/admin/reset" \
   -H "X-API-Key: $ADMIN_KEY" \
   -H "Content-Type: application/json" \
   -d '{

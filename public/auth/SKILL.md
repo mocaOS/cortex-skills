@@ -1,6 +1,6 @@
 ---
 name: auth
-description: Use this skill when implementing authentication, managing API keys, configuring permissions, or hardening security for a Cortex / MOCA Library deployment. Covers the X-API-Key auth system, permission tiers, key management endpoints, prompt injection protection, and security best practices.
+description: Use this skill when implementing authentication, managing API keys, configuring permissions, or hardening security for a Cortex deployment. Covers the X-API-Key auth system, permission tiers, key management endpoints, prompt injection protection, and security best practices.
 ---
 
 # Auth — API Keys, Permissions, and Security
@@ -206,5 +206,5 @@ Response includes `last_used_at` and usage statistics by endpoint category.
 
 ## Resources
 
-- [Authentication Guide](https://docs-library.moca.qwellco.de/guides/authentication)
-- [Security Guide](https://docs-library.moca.qwellco.de/guides/security)
+- [Authentication Guide](https://docs.cortex.eco/guides/authentication)
+- [Security Guide](https://docs.cortex.eco/guides/security)

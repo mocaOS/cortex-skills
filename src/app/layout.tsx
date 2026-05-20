@@ -32,7 +32,6 @@ export const metadata: Metadata = {
     "cortex",
     "AI agents",
     "skill files",
-    "MOCA Library",
     "knowledge graph",
     "RAG",
     "vector search",

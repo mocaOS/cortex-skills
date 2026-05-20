@@ -1,6 +1,6 @@
 # Neo4j Property Graph Schema
 
-Complete schema reference for the MOCA knowledge graph stored in Neo4j 5.x. For conceptual overview and entity type descriptions, see `SKILL.md`.
+Complete schema reference for the Cortex knowledge graph stored in Neo4j 5.x. For conceptual overview and entity type descriptions, see `SKILL.md`.
 
 ## Connection
 
@@ -240,7 +240,7 @@ When a full system reset occurs (`POST /api/admin/reset`), all node types are re
 When exporting via `POST /api/admin/export`, the graph is serialized as:
 
 ```
-moca-library-export-YYYY-MM-DD.zip
+cortex-export-YYYY-MM-DD.zip
   manifest.json
   documents.ndjson
   chunks.ndjson              # Includes vector embeddings

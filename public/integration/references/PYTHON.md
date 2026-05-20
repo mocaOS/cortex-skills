@@ -1,6 +1,6 @@
-# Python MOCAClient — Complete Reference
+# Python CortexClient — Complete Reference
 
-> This reference complements the SKILL.md by providing exhaustive method documentation, parameter details, return type schemas, error handling patterns, and full working examples for every MOCAClient operation.
+> This reference complements the SKILL.md by providing exhaustive method documentation, parameter details, return type schemas, error handling patterns, and full working examples for every CortexClient operation.
 
 ## Installation Requirements
 
@@ -8,14 +8,14 @@
 pip install requests
 ```
 
-No official SDK package exists. Copy the `MOCAClient` class from SKILL.md into your project, then use this reference for detailed method behavior.
+No official SDK package exists. Copy the `CortexClient` class from SKILL.md into your project, then use this reference for detailed method behavior.
 
 ## Configuration
 
 ```python
-from moca_client import MOCAClient
+from cortex_client import CortexClient
 
-client = MOCAClient(
+client = CortexClient(
     base_url="http://localhost:8000",  # No trailing slash
     api_key="moca_rw_your_key_here"    # Read-write key for mutations; read-only key for queries
 )
@@ -702,10 +702,10 @@ def safe_search(client, query, **kwargs):
 ## Full Working Example: Document Pipeline
 
 ```python
-from moca_client import MOCAClient
+from cortex_client import CortexClient
 import time
 
-client = MOCAClient("http://localhost:8000", "moca_rw_your_key_here")
+client = CortexClient("http://localhost:8000", "moca_rw_your_key_here")
 
 # 1. Verify server health
 health = client.health()

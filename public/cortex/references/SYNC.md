@@ -1,12 +1,12 @@
 # Sync Workflow Reference
 
-Complete reference for syncing agent memory files to a Cortex Library knowledge graph. Covers the heartbeat mechanism, directory scanning, deduplication, and troubleshooting.
+Complete reference for syncing agent memory files to a Cortex knowledge graph. Covers the heartbeat mechanism, directory scanning, deduplication, and troubleshooting.
 
 ---
 
 ## Overview
 
-The sync workflow uploads local agent memory files (markdown, text, JSON) to a Cortex Library instance, where they are processed into a searchable knowledge graph. The workflow is designed to be idempotent -- running it multiple times will only upload new or changed files.
+The sync workflow uploads local agent memory files (markdown, text, JSON) to a Cortex instance, where they are processed into a searchable knowledge graph. The workflow is designed to be idempotent -- running it multiple times will only upload new or changed files.
 
 ---
 
@@ -240,7 +240,7 @@ Location: `~/.openclaw/skills/library/state/credentials.json`
 | Field | Required | Description |
 |-------|----------|-------------|
 | `api_key` | Yes | API key with at least `read` and `manage` permissions |
-| `base_url` | Yes | Full URL to the Cortex Library instance |
+| `base_url` | Yes | Full URL to the Cortex instance |
 | `collection_id` | Auto-populated | ID of the target collection (set during first sync) |
 
 ---

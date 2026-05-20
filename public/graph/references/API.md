@@ -1,6 +1,6 @@
 # Graph API Reference
 
-Complete endpoint reference for the MOCA Knowledge Graph API. For conceptual overview, entity type table, and extraction pipeline summary, see `SKILL.md`.
+Complete endpoint reference for the Cortex Knowledge Graph API. For conceptual overview, entity type table, and extraction pipeline summary, see `SKILL.md`.
 
 ## Authentication
 

@@ -265,5 +265,5 @@ for line in response.iter_lines(decode_unicode=True):
 
 ## Resources
 
-- [Ask AI Documentation](https://docs-library.moca.qwellco.de/features/ask-ai)
-- [API Reference](https://docs-library.moca.qwellco.de/api)
+- [Ask AI Documentation](https://docs.cortex.eco/features/ask-ai)
+- [API Reference](https://docs.cortex.eco/api)

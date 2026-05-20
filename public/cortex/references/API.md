@@ -1,8 +1,8 @@
-# Library API Reference
+# Cortex API Reference
 
-Complete API reference for Cortex Library. All endpoints require the `X-API-Key` header unless noted otherwise.
+Complete API reference for Cortex. All endpoints require the `X-API-Key` header unless noted otherwise.
 
-**Base URL:** Your Cortex Library instance URL (e.g., `https://library.example.com`).
+**Base URL:** Your Cortex instance URL (e.g., `https://cortex.example.com`).
 
 ---
 

@@ -339,11 +339,11 @@ data: {"error": "LLM request failed: connection timeout"}
 ### cURL -- Non-Streaming
 
 ```bash
-export MOCA_URL="http://localhost:8000"
-export MOCA_API_KEY="your-api-key"
+export CORTEX_URL="http://localhost:8000"
+export CORTEX_API_KEY="your-api-key"
 
-curl -X POST "$MOCA_URL/api/ask" \
-  -H "X-API-Key: $MOCA_API_KEY" \
+curl -X POST "$CORTEX_URL/api/ask" \
+  -H "X-API-Key: $CORTEX_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "question": "What are the key findings in the Q4 report?",
@@ -357,8 +357,8 @@ curl -X POST "$MOCA_URL/api/ask" \
 ### cURL -- Streaming
 
 ```bash
-curl -X POST "$MOCA_URL/api/ask/stream" \
-  -H "X-API-Key: $MOCA_API_KEY" \
+curl -X POST "$CORTEX_URL/api/ask/stream" \
+  -H "X-API-Key: $CORTEX_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"question": "What are the main findings?"}' \
   --no-buffer
@@ -367,8 +367,8 @@ curl -X POST "$MOCA_URL/api/ask/stream" \
 ### cURL -- Deep Research
 
 ```bash
-curl -X POST "$MOCA_URL/api/ask/stream" \
-  -H "X-API-Key: $MOCA_API_KEY" \
+curl -X POST "$CORTEX_URL/api/ask/stream" \
+  -H "X-API-Key: $CORTEX_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "question": "Compare the methodologies in papers A and B",
@@ -379,8 +379,8 @@ curl -X POST "$MOCA_URL/api/ask/stream" \
 ### cURL -- Streaming with Thinking
 
 ```bash
-curl -X POST "$MOCA_URL/api/ask/stream/thinking" \
-  -H "X-API-Key: $MOCA_API_KEY" \
+curl -X POST "$CORTEX_URL/api/ask/stream/thinking" \
+  -H "X-API-Key: $CORTEX_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "question": "How does the Q3 strategy compare to Q4 results?",
@@ -391,8 +391,8 @@ curl -X POST "$MOCA_URL/api/ask/stream/thinking" \
 ### cURL -- Fast Search Mode
 
 ```bash
-curl -X POST "$MOCA_URL/api/ask/stream" \
-  -H "X-API-Key: $MOCA_API_KEY" \
+curl -X POST "$CORTEX_URL/api/ask/stream" \
+  -H "X-API-Key: $CORTEX_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "question": "What is the company mission?",
@@ -403,8 +403,8 @@ curl -X POST "$MOCA_URL/api/ask/stream" \
 ### cURL -- With Conversation History
 
 ```bash
-curl -X POST "$MOCA_URL/api/ask/stream" \
-  -H "X-API-Key: $MOCA_API_KEY" \
+curl -X POST "$CORTEX_URL/api/ask/stream" \
+  -H "X-API-Key: $CORTEX_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{
     "question": "Can you elaborate on the third point?",

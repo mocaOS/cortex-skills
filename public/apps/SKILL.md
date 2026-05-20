@@ -7,7 +7,7 @@ description: Use this skill when working with the Cortex app ecosystem — brows
 
 ## What You Probably Got Wrong
 
-1. **Apps are not plugins or extensions you install into MOCA Library.** They are standalone services that interact with your Cortex instance via the API. They run externally and push/pull data through the 60+ REST endpoints.
+1. **Apps are not plugins or extensions you install into Cortex.** They are standalone services that interact with your Cortex instance via the API. They run externally and push/pull data through the 60+ REST endpoints.
 
 2. **There are two categories.** Source apps ingest knowledge from external platforms into your graph. Workflow apps provide better UIs and integrations on top of your existing graph.
 
@@ -175,6 +175,6 @@ for result in results:
 
 ## Resources
 
-- [Cortex Apps Page](https://cortex.moca.qwellco.de/apps)
-- [API Reference](https://docs-library.moca.qwellco.de/api)
-- [Integration Examples](https://docs-library.moca.qwellco.de/examples/integration)
+- [Cortex Apps Page](https://cortex.eco/apps)
+- [API Reference](https://docs.cortex.eco/api)
+- [Integration Examples](https://docs.cortex.eco/examples/integration)

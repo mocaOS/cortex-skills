@@ -6,7 +6,7 @@ The missing knowledge layer between AI agents and the Cortex ecosystem.
 
 AI models often hallucinate or rely on stale training data when asked to write code for specific, rapidly evolving systems. **Cortex Skills** solves this by providing curated, up-to-date Markdown files (`SKILL.md`) that AI agents can fetch directly via HTTP. 
 
-Instead of guessing how the Cortex API or MOCA Library works, your agent simply reads the relevant skill file, gets the ground-truth knowledge, and builds the correct integration on the first try.
+Instead of guessing how the Cortex API works, your agent simply reads the relevant skill file, gets the ground-truth knowledge, and builds the correct integration on the first try.
 
 Inspired by [ethskills.com](https://ethskills.com/).
 

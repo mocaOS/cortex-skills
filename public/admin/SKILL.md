@@ -168,7 +168,7 @@ Rescans the `SKILLS_DIR` directory for new or changed skills.
 ```bash
 curl -X POST "{BASE_URL}/api/admin/export" \
   -H "X-API-Key: {ADMIN_KEY}" \
-  --output moca-export.zip
+  --output cortex-export.zip
 ```
 
 Returns a ZIP64 archive containing:
@@ -183,7 +183,7 @@ Returns a ZIP64 archive containing:
 ```bash
 curl -X POST "{BASE_URL}/api/admin/import" \
   -H "X-API-Key: {ADMIN_KEY}" \
-  -F "file=@moca-export.zip"
+  -F "file=@cortex-export.zip"
 ```
 
 The system validates the manifest (including embedding model compatibility) before importing. Two modes:

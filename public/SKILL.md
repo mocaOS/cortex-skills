@@ -1,6 +1,6 @@
 # Cortex Skills
 
-Cortex is an intelligence ecosystem for knowledge and memory, built on [MOCA Library](https://github.com/mocaOS/library) (the open-source engine). This file is the root skill — the entry point for AI agents building on Cortex.
+Cortex is an intelligence ecosystem for knowledge and memory, powered by the open-source [Cortex engine](https://github.com/mocaOS/cortex-app). This file is the root skill — the entry point for AI agents building on Cortex.
 
 Each sub-skill below is a self-contained Markdown file that teaches agents one capability of the Cortex platform. Agents fetch the skill they need via HTTP and get ground-truth knowledge, corrected for stale training data.
 
@@ -137,8 +137,8 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 
 | File | Description |
 |------|-------------|
-| [library/references/API.md](library/references/API.md) | Full API reference (60+ endpoints) |
-| [library/references/SYNC.md](library/references/SYNC.md) | Sync workflow, scripts, and troubleshooting |
+| [cortex/references/API.md](cortex/references/API.md) | Full API reference (60+ endpoints) |
+| [cortex/references/SYNC.md](cortex/references/SYNC.md) | Sync workflow, scripts, and troubleshooting |
 
 ## Sub-Skills
 

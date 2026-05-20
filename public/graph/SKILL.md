@@ -313,5 +313,5 @@ ENTITY_SIMILARITY_THRESHOLD=0.85
 
 ## Resources
 
-- [Knowledge Graph Documentation](https://docs-library.moca.qwellco.de/features/knowledge-graph)
-- [API Reference](https://docs-library.moca.qwellco.de/api)
+- [Knowledge Graph Documentation](https://docs.cortex.eco/features/knowledge-graph)
+- [API Reference](https://docs.cortex.eco/api)

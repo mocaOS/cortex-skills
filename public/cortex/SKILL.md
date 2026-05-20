@@ -1,13 +1,13 @@
 ---
-name: library
+name: cortex
 description: >
-  Sync agent memory files to a Cortex Library knowledge graph for enhanced retrieval,
+  Sync agent memory files to a Cortex knowledge graph for enhanced retrieval,
   hybrid search (vector + keyword + graph), AI-powered Q&A with agentic deep research,
   and knowledge graph exploration. Use when uploading documents, searching knowledge,
   asking questions about accumulated memories, or syncing memory files to a knowledge base.
 license: MIT
 compatibility: >
-  Requires curl, jq (or python3 as fallback), and network access to a Cortex Library instance.
+  Requires curl, jq (or python3 as fallback), and network access to a Cortex instance.
   Works with any agent that can execute shell commands.
 metadata:
   author: Cortex
@@ -17,9 +17,9 @@ metadata:
 allowed-tools: Bash Read Write
 ---
 
-# Cortex Library Skill
+# Cortex Skill
 
-Sync your agent memory files to a **Cortex Library** knowledge graph. Upload documents, search your knowledge base, and ask AI-powered questions with agentic deep research capabilities.
+Sync your agent memory files to a **Cortex** knowledge graph. Upload documents, search your knowledge base, and ask AI-powered questions with agentic deep research capabilities.
 
 All memory files are organized within a single dedicated collection (default: **OpenClaw**). If this collection doesn't exist, the skill automatically creates it.
 
@@ -46,7 +46,7 @@ You need **both** a base URL and an API key.
 
 Ask your human to provide:
 
-1. **Base URL** - The full URL to their Cortex Library instance (e.g., `https://library.example.com`)
+1. **Base URL** - The full URL to their Cortex instance (e.g., `https://cortex.example.com`)
 2. **API Key** - From `YOUR_BASE_URL/admin` -> API Keys, with **READ** and **MANAGE** permissions
 
 ### Step 2: Configure Credentials
@@ -196,7 +196,7 @@ SSE events: `content`, `sources`, `graph_context`, `thinking`, `sub_questions`, 
 
 ## Knowledge Graph Features
 
-Cortex Library builds a knowledge graph from your documents with:
+Cortex builds a knowledge graph from your documents with:
 
 - **Entity extraction** - 10 types: Person, Organization, Concept, Technology, Location, Event, Product, Document, System, Process
 - **Relationship analysis** - 14 standard types with per-chunk and cross-document relationship discovery, confidence scoring (< 0.5 filtered)
@@ -288,7 +288,7 @@ See [references/SYNC.md](references/SYNC.md) for complete sync scripts, QMD supp
 
 ## Version History
 
-- **2.0.0** - Rewritten for AgentSkills open standard; renamed to Cortex Library; added deep research, collections, communities, custom inputs, image analysis, streaming, entity dedup
+- **2.0.0** - Rewritten for AgentSkills open standard; renamed to Cortex; added deep research, collections, communities, custom inputs, image analysis, streaming, entity dedup
 - **1.3.0** - Added QMD (Quick Memory Daemon) support
 - **1.2.0** - Clarified API parameter format (URL query params)
 - **1.1.0** - Added base_url configuration

@@ -11,7 +11,7 @@ export const skills: Skill[] = [
     slug: "setup",
     name: "Setup",
     description:
-      "Deploy MOCA Library via Docker or Coolify. All 50+ environment variables, first steps, and health checks.",
+      "Deploy Cortex via Docker or Coolify. All 50+ environment variables, first steps, and health checks.",
     icon: "Settings",
     category: "core",
   },

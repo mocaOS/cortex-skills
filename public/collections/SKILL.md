@@ -194,5 +194,5 @@ MAX_COLLECTIONS=0                # Limit (0 = unlimited)
 
 ## Resources
 
-- [Collections Documentation](https://docs-library.moca.qwellco.de/features/collections)
-- [API Reference](https://docs-library.moca.qwellco.de/api)
+- [Collections Documentation](https://docs.cortex.eco/features/collections)
+- [API Reference](https://docs.cortex.eco/api)

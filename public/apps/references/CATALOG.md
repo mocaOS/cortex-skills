@@ -6,7 +6,7 @@ Complete catalog of all Cortex apps -- source apps that ingest knowledge and wor
 
 ## Architecture
 
-Apps are **standalone services** that interact with your Cortex Library instance via the REST API. They are not plugins or extensions installed into the Library itself. Any app that can make HTTP requests can integrate with Cortex through the 60+ API endpoints.
+Apps are **standalone services** that interact with your Cortex instance via the REST API. They are not plugins or extensions installed into Cortex itself. Any app that can make HTTP requests can integrate with Cortex through the 60+ API endpoints.
 
 **Two categories:**
 
@@ -40,8 +40,8 @@ Apps are **standalone services** that interact with your Cortex Library instance
 
 **Setup:**
 
-1. Purchase the YouTube Channel Importer from the [Cortex Apps page](https://cortex.moca.qwellco.de/apps)
-2. Configure your Cortex Library base URL and API key in the app
+1. Purchase the YouTube Channel Importer from the [Cortex Apps page](https://cortex.eco/apps)
+2. Configure your Cortex base URL and API key in the app
 3. Paste a channel URL and start the import
 4. Monitor progress in the app dashboard or via `GET /api/documents/pending`
 
@@ -98,7 +98,7 @@ Apps are **standalone services** that interact with your Cortex Library instance
 
 **Setup:**
 
-1. Purchase Notion Sync from the [Cortex Apps page](https://cortex.moca.qwellco.de/apps)
+1. Purchase Notion Sync from the [Cortex Apps page](https://cortex.eco/apps)
 2. Authorize the Notion integration via OAuth
 3. Select workspaces, pages, and databases to sync
 4. Configure sync frequency (e.g., hourly, daily)
@@ -127,7 +127,7 @@ Apps are **standalone services** that interact with your Cortex Library instance
 
 **Setup:**
 
-1. Purchase the Slack Archive Importer from the [Cortex Apps page](https://cortex.moca.qwellco.de/apps)
+1. Purchase the Slack Archive Importer from the [Cortex Apps page](https://cortex.eco/apps)
 2. Export your Slack workspace data or provide a Slack API token
 3. Select which channels to import
 4. Start the import process
@@ -158,7 +158,7 @@ Apps are **standalone services** that interact with your Cortex Library instance
 - Edge labels showing relationship types
 - Dynamic expansion -- click entities to explore their connections
 
-**Setup:** No setup required. Access via the Explore section in the Cortex Library web interface.
+**Setup:** No setup required. Access via the Explore section in the Cortex web interface.
 
 ---
 
@@ -180,7 +180,7 @@ Apps are **standalone services** that interact with your Cortex Library instance
 - Code generation for curl, Python, and JavaScript
 - Authentication handled automatically
 
-**Setup:** No setup required. Access via the Cortex Library web interface.
+**Setup:** No setup required. Access via the Cortex web interface.
 
 ---
 
@@ -255,12 +255,12 @@ for result in results["results"]:
     print(f"Score: {result['score']:.2f} - {result['content'][:100]}")
 ```
 
-For the full API surface, see the [Library API Reference](/library/references/API.md).
+For the full API surface, see the [Cortex API Reference](/cortex/references/API.md).
 
 ---
 
 ## Resources
 
-- [Cortex Apps Page](https://cortex.moca.qwellco.de/apps)
-- [API Reference](https://docs-library.moca.qwellco.de/api)
-- [Integration Examples](https://docs-library.moca.qwellco.de/examples/integration)
+- [Cortex Apps Page](https://cortex.eco/apps)
+- [API Reference](https://docs.cortex.eco/api)
+- [Integration Examples](https://docs.cortex.eco/examples/integration)

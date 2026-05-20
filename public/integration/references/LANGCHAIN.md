@@ -8,7 +8,7 @@
 pip install langchain langchain-openai langchain-community requests
 ```
 
-You also need the `MOCAClient` class from SKILL.md copied into your project.
+You also need the `CortexClient` class from SKILL.md copied into your project.
 
 ---
 
@@ -20,13 +20,13 @@ The SKILL.md shows a minimal retriever. This is the production-grade version wit
 from langchain.schema import BaseRetriever, Document
 from langchain.callbacks.manager import CallbackManagerForRetrieverRun
 from typing import List, Optional
-from moca_client import MOCAClient
+from cortex_client import CortexClient
 
 
 class CortexRetriever(BaseRetriever):
     """LangChain retriever backed by Cortex hybrid search."""
 
-    client: MOCAClient
+    client: CortexClient
     top_k: int = 10
     collection_id: Optional[str] = None
     score_threshold: float = 0.0
@@ -66,7 +66,7 @@ class CortexRetriever(BaseRetriever):
 ### Usage Patterns
 
 ```python
-client = MOCAClient("http://localhost:8000", "moca_ro_your_key")
+client = CortexClient("http://localhost:8000", "moca_ro_your_key")
 
 # Basic retriever
 retriever = CortexRetriever(client=client, top_k=5)

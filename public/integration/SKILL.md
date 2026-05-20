@@ -9,7 +9,7 @@ description: Use this skill when connecting Cortex to agent frameworks (LangChai
 
 1. **Cortex is a long-term memory layer, not a framework.** It does not replace LangChain or CrewAI — it complements them. Your agent framework handles orchestration; Cortex handles persistent knowledge storage and retrieval.
 
-2. **The memory hierarchy matters.** Context window = short-term memory (dies with the session). Agent memory stack = mid-term memory (survives the session, lost on redeploy). MOCA Library = long-term memory (survives everything — crashes, redeployments, framework migrations).
+2. **The memory hierarchy matters.** Context window = short-term memory (dies with the session). Agent memory stack = mid-term memory (survives the session, lost on redeploy). Cortex = long-term memory (survives everything — crashes, redeployments, framework migrations).
 
 3. **There is no official SDK package.** Integration is via REST API calls. The Python and TypeScript clients below are reference implementations you copy into your project.
 
@@ -27,12 +27,12 @@ description: Use this skill when connecting Cortex to agent frameworks (LangChai
 │  Agent Memory Stack (Mid-term)          │
 │  Survives sessions, lost on redeploy    │
 ├─────────────────────────────────────────┤
-│  MOCA Library / Cortex (Long-term)      │
+│  Cortex (Long-term)                     │
 │  Survives everything — persistent API   │
 └─────────────────────────────────────────┘
 ```
 
-## Python Client (MOCAClient)
+## Python Client (CortexClient)
 
 Copy this class into your project:
 
@@ -41,7 +41,7 @@ import requests
 import json
 from typing import Optional, Generator
 
-class MOCAClient:
+class CortexClient:
     def __init__(self, base_url: str, api_key: str):
         self.base_url = base_url.rstrip("/")
         self.headers = {
@@ -124,7 +124,7 @@ class MOCAClient:
 Usage:
 
 ```python
-client = MOCAClient("http://localhost:8000", "moca_rw_your_key_here")
+client = CortexClient("http://localhost:8000", "moca_rw_your_key_here")
 
 # Upload a document
 client.upload("report.pdf")
@@ -149,7 +149,7 @@ from langchain.schema import BaseRetriever, Document
 from typing import List
 
 class CortexRetriever(BaseRetriever):
-    client: MOCAClient
+    client: CortexClient
     top_k: int = 10
     collection_id: str = None
 
@@ -220,11 +220,11 @@ Use collections for agent-specific memory:
 
 ```python
 # Research agent writes to its collection
-research_client = MOCAClient(BASE_URL, API_KEY)
+research_client = CortexClient(BASE_URL, API_KEY)
 research_client.upload("findings.md", collection_id="research_col")
 
 # Writing agent reads from research collection
-writing_client = MOCAClient(BASE_URL, API_KEY)
+writing_client = CortexClient(BASE_URL, API_KEY)
 context = writing_client.search("key findings", collection_id="research_col")
 ```
 
@@ -265,7 +265,7 @@ Flask-based Slack bot with `/ask` and `/search` commands:
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-client = MOCAClient("http://localhost:8000", "moca_ro_your_key")
+client = CortexClient("http://localhost:8000", "moca_ro_your_key")
 
 @app.route("/slack/ask", methods=["POST"])
 def slack_ask():
@@ -340,6 +340,6 @@ export async function POST(req: NextRequest) {
 
 ## Resources
 
-- [Integration Examples](https://docs-library.moca.qwellco.de/examples/integration)
-- [Python Examples](https://docs-library.moca.qwellco.de/examples/python)
-- [API Reference](https://docs-library.moca.qwellco.de/api)
+- [Integration Examples](https://docs.cortex.eco/examples/integration)
+- [Python Examples](https://docs.cortex.eco/examples/python)
+- [API Reference](https://docs.cortex.eco/api)

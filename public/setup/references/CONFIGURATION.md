@@ -1,6 +1,6 @@
 # Configuration Reference
 
-Complete environment variable reference for MOCA Library. Every variable, its type, default value, and description, organized by category.
+Complete environment variable reference for Cortex. Every variable, its type, default value, and description, organized by category.
 
 This file complements the main `setup/SKILL.md` which covers installation, service URLs, health checks, and troubleshooting. Refer here for the exhaustive variable list with full detail on each.
 
@@ -8,7 +8,7 @@ This file complements the main `setup/SKILL.md` which covers installation, servi
 
 ## Required Variables
 
-These must be set for MOCA Library to start.
+These must be set for Cortex to start.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -220,7 +220,7 @@ Configure image analysis capabilities for extracting and understanding images fr
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `PROMPT_SECURITY` | `boolean` | `true` | Enable built-in prompt injection protection. Scans for jailbreak patterns, sanitizes input, adds defensive prompts, and filters harmful output. Always enable in production. |
-| `CORS_ORIGINS` | `string` | `*` | Comma-separated list of allowed CORS origins. Use `*` for development. Restrict to your specific domains in production (e.g., `https://moca.yourdomain.com,https://app.yourdomain.com`). |
+| `CORS_ORIGINS` | `string` | `*` | Comma-separated list of allowed CORS origins. Use `*` for development. Restrict to your specific domains in production (e.g., `https://cortex.yourdomain.com,https://app.yourdomain.com`). |
 
 ### Rate Limiting
 
@@ -263,7 +263,7 @@ Configure image analysis capabilities for extracting and understanding images fr
 
 ## Compute3 Turbo Mode (Optional)
 
-GPU-accelerated inference via the Compute3 platform. When enabled and a turbo job is running, MOCA routes LLM calls through the Compute3 GPU cluster. Falls back to the standard LLM provider if the turbo job is not running.
+GPU-accelerated inference via the Compute3 platform. When enabled and a turbo job is running, Cortex routes LLM calls through the Compute3 GPU cluster. Falls back to the standard LLM provider if the turbo job is not running.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
@@ -282,7 +282,7 @@ GPU-accelerated inference via the Compute3 platform. When enabled and a turbo jo
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `NEXT_PUBLIC_API_URL` | `string` | `http://localhost:8000` | Backend API URL used by the Next.js frontend for client-side requests. Must be reachable from the user's browser. |
-| `NEXT_PUBLIC_LOGO_URL` | `string` | -- (uses default logo) | URL to a custom logo image. When set, replaces the default MOCA logo in the frontend. Supports any image URL. |
+| `NEXT_PUBLIC_LOGO_URL` | `string` | -- (uses default logo) | URL to a custom logo image. When set, replaces the default Cortex logo in the frontend. Supports any image URL. |
 | `NEXT_PUBLIC_ACCENT_COLOR` | `string` | -- (uses default) | Custom accent color for the frontend UI. Accepts any valid CSS color value: hex (`#3b82f6`), rgb (`rgb(59, 130, 246)`), hsl, oklch, etc. |
 
 ---

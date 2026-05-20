@@ -1,6 +1,6 @@
 # Communities API Reference
 
-Complete endpoint reference for the MOCA Communities API. For conceptual overview, common mistakes, typical workflow, and RAG integration, see `SKILL.md`.
+Complete endpoint reference for the Cortex Communities API. For conceptual overview, common mistakes, typical workflow, and RAG integration, see `SKILL.md`.
 
 ## Authentication
 

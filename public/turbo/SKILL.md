@@ -156,5 +156,5 @@ COMPUTE3_DEFAULT_RUNTIME=3600   # Default job duration in seconds (1 hour)
 
 ## Resources
 
-- [Turbo Mode Documentation](https://docs-library.moca.qwellco.de/features/turbo-mode)
+- [Turbo Mode Documentation](https://docs.cortex.eco/features/turbo-mode)
 - [Compute3](https://compute3.ai)

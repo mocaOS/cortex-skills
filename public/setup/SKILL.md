@@ -1,13 +1,13 @@
 ---
 name: setup
-description: Use this skill when deploying or configuring MOCA Library (the engine behind Cortex). Covers Docker installation, all 50+ environment variables, service URLs, health checks, production deployment, and troubleshooting.
+description: Use this skill when deploying or configuring Cortex. Covers Docker installation, all 50+ environment variables, service URLs, health checks, production deployment, and troubleshooting.
 ---
 
-# Setup — Deploy and Configure MOCA Library
+# Setup — Deploy and Configure Cortex
 
 ## What You Probably Got Wrong
 
-1. **MOCA Library is self-hosted, not a hosted SaaS.** You deploy it yourself via Docker Compose. There is no cloud-hosted API to call without deploying first.
+1. **Cortex is self-hosted, not a hosted SaaS.** You deploy it yourself via Docker Compose. There is no cloud-hosted API to call without deploying first.
 
 2. **Neo4j is required — it is the database for everything.** Chunks, entities, relationships, embeddings, and API keys all live in Neo4j. There is no Postgres or SQLite option.
 
@@ -27,8 +27,8 @@ description: Use this skill when deploying or configuring MOCA Library (the engi
 
 ```bash
 # Clone the repository
-git clone https://github.com/mocaOS/library.git
-cd library
+git clone https://github.com/mocaOS/cortex-app.git
+cd cortex-app
 
 # Copy environment template
 cp .env.example .env
@@ -318,6 +318,6 @@ curl -H "X-API-Key: {ADMIN_KEY}" {BASE_URL}/api/admin/config
 
 ## Resources
 
-- [Configuration Reference](https://docs-library.moca.qwellco.de/configuration)
-- [Deployment Guide](https://docs-library.moca.qwellco.de/guides/deployment)
-- [GitHub Repository](https://github.com/mocaOS/library)
+- [Configuration Reference](https://docs.cortex.eco/configuration)
+- [Deployment Guide](https://docs.cortex.eco/guides/deployment)
+- [GitHub Repository](https://github.com/mocaOS/cortex-app)

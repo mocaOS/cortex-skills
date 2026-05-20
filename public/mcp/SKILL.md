@@ -7,13 +7,13 @@ description: Use this skill when setting up or configuring the Cortex MCP server
 
 ## What This Is
 
-The Cortex MCP server gives any MCP-compatible AI client native access to your Cortex Library knowledge base. Instead of copy-pasting search results or manually querying APIs, your AI assistant can directly search, ask questions, and explore your knowledge graph.
+The Cortex MCP server gives any MCP-compatible AI client native access to your Cortex knowledge base. Instead of copy-pasting search results or manually querying APIs, your AI assistant can directly search, ask questions, and explore your knowledge graph.
 
 **Repo:** [github.com/mocaOS/cortex-mcp](https://github.com/mocaOS/cortex-mcp)
 
 ## What You Probably Got Wrong
 
-1. **The MCP server is a separate package, not part of Cortex Library.** It is a lightweight bridge that calls the Cortex Library REST API. You need a running Cortex Library instance first.
+1. **The MCP server is a separate package, not part of Cortex.** It is a lightweight bridge that calls the Cortex REST API. You need a running Cortex instance first.
 2. **Authentication uses environment variables, not config files.** Set `CORTEX_BASE_URL` and `CORTEX_API_KEY` in your MCP client config.
 3. **You need an API key with at least `read` permission.** Get one from `{YOUR_BASE_URL}/admin` → API Keys. Use `manage` permission if you also want upload capabilities.
 4. **The server communicates via stdio, not HTTP.** MCP uses JSON-RPC over stdin/stdout. You do not need to expose any ports.
@@ -144,7 +144,7 @@ Once the MCP server is connected, try these prompts in your AI client:
 
 | Variable | Required | Description |
 |----------|----------|-------------|
-| `CORTEX_BASE_URL` | Yes | Full URL to your Cortex Library instance (e.g., `http://localhost:8000`) |
+| `CORTEX_BASE_URL` | Yes | Full URL to your Cortex instance (e.g., `http://localhost:8000`) |
 | `CORTEX_API_KEY` | Yes | API key with at least `read` permission |
 
 ## Troubleshooting
@@ -152,7 +152,7 @@ Once the MCP server is connected, try these prompts in your AI client:
 | Issue | Solution |
 |-------|----------|
 | "Missing required environment variables" | Ensure both `CORTEX_BASE_URL` and `CORTEX_API_KEY` are set in your MCP client config |
-| Connection refused | Verify your Cortex Library instance is running: `curl {BASE_URL}/health` |
+| Connection refused | Verify your Cortex instance is running: `curl {BASE_URL}/health` |
 | 401 Unauthorized | API key is invalid or expired — generate a new one from the admin panel |
 | Tools not appearing | Restart your MCP client after config changes; check client logs for connection errors |
 | Slow responses on `ask_question` | Use `mode: "speed"` for faster answers; `quality` mode runs up to 10 research iterations |
