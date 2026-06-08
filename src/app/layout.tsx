@@ -17,12 +17,28 @@ export const metadata: Metadata = {
     siteName: "Cortex Skills",
     type: "website",
     locale: "en_US",
+    images: [
+      {
+        url: "/og.png",
+        width: 1200,
+        height: 630,
+        alt: "Cortex Skills",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "Cortex Skills — Knowledge Files for AI Agents",
     description:
       "Curated Markdown skill files that teach AI agents how to build on the Cortex intelligence ecosystem.",
+    images: ["/og.png"],
+  },
+  icons: {
+    icon: [
+      { url: "/favicon.ico", sizes: "any" },
+      { url: "/favicon.svg", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/apple-touch-icon.png", sizes: "180x180" }],
   },
   robots: {
     index: true,
@@ -54,9 +70,6 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <head>
-        <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
-      </head>
       <body>{children}</body>
     </html>
   );

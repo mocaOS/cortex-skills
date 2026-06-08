@@ -94,7 +94,11 @@ export function SkillsClient() {
         onClick={() => openSkill("", "Cortex Skills")}
       >
         <div className="skill-title">
-          <span className="skill-name">Cortex Skills</span>
+          <span className="skill-name skill-name-hero">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img className="hero-logo" src="/logo.svg" alt="Cortex" />
+            Cortex Skills
+          </span>
           <button className="skill-url" onClick={(e) => copyUrl(null, e)}>
             {copiedSlug === "__root__"
               ? "copied!"

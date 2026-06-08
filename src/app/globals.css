@@ -116,6 +116,19 @@ a:hover {
   letter-spacing: -0.04em;
 }
 
+.skill-name-hero {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.hero-logo {
+  width: 1.6em;
+  height: 1.6em;
+  flex-shrink: 0;
+  display: block;
+}
+
 .skill-item-hero .skill-desc {
   font-size: 1rem;
 }

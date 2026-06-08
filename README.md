@@ -1,6 +1,13 @@
-# CORTEXSKILLS
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="brand/cortex_banner_white.png">
+    <img alt="Cortex" src="brand/cortex_banner_black.png" width="420">
+  </picture>
+</p>
 
-The missing knowledge layer between AI agents and the Cortex ecosystem.
+<h1 align="center">CORTEXSKILLS</h1>
+
+<p align="center">The missing knowledge layer between AI agents and the Cortex ecosystem.</p>
 
 ## What is this?
 
