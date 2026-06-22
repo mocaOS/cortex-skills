@@ -14,7 +14,7 @@ Cortex emits webhook events when key operations complete: documents processed, e
 
 ```bash
 curl -X POST http://localhost:8000/api/webhooks \
-  -H "X-API-Key: moca_rw_your_key" \
+  -H "X-API-Key: cortex_user_your_key" \
   -H "Content-Type: application/json" \
   -d '{
     "url": "https://your-server.com/webhook",
@@ -47,11 +47,11 @@ curl -X POST http://localhost:8000/api/webhooks \
 ```bash
 # List all registered webhooks
 curl http://localhost:8000/api/webhooks \
-  -H "X-API-Key: moca_rw_your_key"
+  -H "X-API-Key: cortex_user_your_key"
 
 # Delete a webhook
 curl -X DELETE http://localhost:8000/api/webhooks/wh_abc123 \
-  -H "X-API-Key: moca_rw_your_key"
+  -H "X-API-Key: cortex_user_your_key"
 ```
 
 ---
@@ -344,7 +344,7 @@ Add an **HTTP Request** node after any trigger:
 | URL           | `http://your-cortex-host:8000/api/search` |
 | Authentication| Header Auth |
 | Header Name   | `X-API-Key` |
-| Header Value  | `moca_rw_your_key` |
+| Header Value  | `cortex_user_your_key` |
 | Body Type     | JSON |
 | Body          | See below |
 
@@ -364,7 +364,7 @@ Add an **HTTP Request** node after any trigger:
 | URL           | `http://your-cortex-host:8000/api/ask` |
 | Authentication| Header Auth |
 | Header Name   | `X-API-Key` |
-| Header Value  | `moca_rw_your_key` |
+| Header Value  | `cortex_user_your_key` |
 | Body Type     | JSON |
 
 **Body:**
@@ -385,7 +385,7 @@ Use the **HTTP Request** node with multipart form:
 | URL           | `http://your-cortex-host:8000/api/upload` |
 | Authentication| Header Auth |
 | Header Name   | `X-API-Key` |
-| Header Value  | `moca_rw_your_key` |
+| Header Value  | `cortex_user_your_key` |
 | Body Type     | Form-Data/Multipart |
 | Parameter Name| `file` |
 | Parameter Type| File (from previous node binary data) |
@@ -435,7 +435,7 @@ Add an **HTTP > Make a request** module:
 |------------------|-------|
 | URL              | `http://your-cortex-host:8000/api/search` |
 | Method           | `POST` |
-| Headers          | `X-API-Key: moca_rw_your_key` and `Content-Type: application/json` |
+| Headers          | `X-API-Key: cortex_user_your_key` and `Content-Type: application/json` |
 | Body type        | Raw |
 | Content type     | JSON (application/json) |
 | Request content  | See below |
@@ -499,7 +499,7 @@ Same HTTP module setup with URL `http://your-cortex-host:8000/api/ask`:
 | Method        | `POST` |
 | URL           | `http://your-cortex-host:8000/api/search` |
 | Data          | `{"query": "your search term", "top_k": 5}` |
-| Headers       | `X-API-Key\|moca_rw_your_key` and `Content-Type\|application/json` |
+| Headers       | `X-API-Key\|cortex_user_your_key` and `Content-Type\|application/json` |
 
 ### Action: Ask Cortex
 
@@ -508,7 +508,7 @@ Same HTTP module setup with URL `http://your-cortex-host:8000/api/ask`:
 | Method        | `POST` |
 | URL           | `http://your-cortex-host:8000/api/ask` |
 | Data          | `{"question": "your question here", "use_graph": true}` |
-| Headers       | `X-API-Key\|moca_rw_your_key` and `Content-Type\|application/json` |
+| Headers       | `X-API-Key\|cortex_user_your_key` and `Content-Type\|application/json` |
 
 ### Zapier Workflow Examples
 

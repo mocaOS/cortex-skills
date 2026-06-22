@@ -31,17 +31,22 @@ For a complete index, point your agent to the root:
 ### Core
 * `/setup` — Deploying Cortex via Docker, environment variables.
 * `/auth` — API keys, permissions, prompt security.
+* `/admin` — Instance management, AgentSkills, export/import, system reset.
 
 ### Features
 * `/upload` — Document ingestion, formats, chunking.
 * `/search` — Hybrid search (vector + keyword + graph).
-* `/ask` — RAG Q&A, streaming, agentic reasoning.
+* `/ask` — RAG Q&A, streaming, agentic reasoning, conversation memory.
 * `/graph` — Knowledge graph, entities, relationships.
 * `/collections` — Scoping documents by project/tenant.
 * `/communities` — Auto-clustering and summarization.
+* `/git-integration` — Connect GitHub/GitLab/Gitea repos; agent opens PRs.
+* `/web-import` — Harvest web pages into markdown via crawl4ai (MDHarvest).
 * `/turbo` — GPU acceleration via Compute3.
+* `/tasks` — Background task polling, cancellation, cleanup.
 
 ### Ecosystem
+* `/mcp` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP client.
 * `/integration` — LangChain, CrewAI, MCP, Slack, Webhooks.
 * `/apps` — Source and workflow apps (YouTube, Notion).
 * `/cortex-design` — The generative design principles for building Cortex UIs.

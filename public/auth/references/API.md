@@ -14,13 +14,21 @@ All endpoints (except `GET /health`) require the `X-API-Key` header:
 X-API-Key: {your_api_key}
 ```
 
-Key format indicates permission level:
+Keys carry an additive `permissions` array (`read`, `write`, `delete`, `admin`) rather than encoding the level in the prefix. The prefix only indicates key type:
 
-| Prefix | Tier | Access Level |
-|--------|------|-------------|
-| `moca_ro_` | read | Search, ask, list documents, stats, view graph, list collections |
-| `moca_rw_` | manage | Everything in read + upload, delete, create collections, move documents, reprocess |
-| `moca_admin_` | admin | Everything in manage + API key CRUD, system reset, config view, skill management |
+| Prefix | Key type | Created via |
+|--------|----------|-------------|
+| `cortex_user_` | User key | `POST /api/admin/api-keys` (with any combination of `read`/`write`/`delete`/`admin`) |
+| `cortex_admin_` | Admin key | `ADMIN_API_KEY` env var at startup |
+
+| Permission | Access Level |
+|------------|-------------|
+| `read` | Search, ask, list documents, stats, view graph, list collections |
+| `write` | Upload, create collections, move documents, reprocess |
+| `delete` | Delete documents and collections |
+| `admin` | API key CRUD, system reset, config view, skill management |
+
+Authenticate with either `X-API-Key: {key}` or `Authorization: Bearer {key}`. (Older builds used a `moca_` prefix with `read`/`manage`/`admin` tiers.)
 
 ---
 
@@ -61,8 +69,8 @@ curl -X POST "$CORTEX_URL/api/admin/api-keys" \
 {
   "id": "key_abc123",
   "name": "Production App",
-  "key": "moca_rw_a1b2c3d4e5f6g7h8i9j0...",
-  "key_prefix": "moca_rw_a1b2",
+  "key": "cortex_user_a1b2c3d4e5f6g7h8i9j0...",
+  "key_prefix": "cortex_user_a1b2",
   "permissions": ["read", "write"],
   "is_active": true,
   "created_at": "2026-03-15T10:00:00Z",
@@ -96,7 +104,7 @@ curl "$CORTEX_URL/api/admin/api-keys" \
   {
     "id": "key_abc123",
     "name": "Production App",
-    "key_prefix": "moca_rw_a1b2",
+    "key_prefix": "cortex_user_a1b2",
     "permissions": ["read", "write"],
     "is_active": true,
     "created_at": "2026-03-15T10:00:00Z",
@@ -135,7 +143,7 @@ curl "$CORTEX_URL/api/admin/api-keys/key_abc123" \
 {
   "id": "key_abc123",
   "name": "Production App",
-  "key_prefix": "moca_rw_a1b2",
+  "key_prefix": "cortex_user_a1b2",
   "permissions": ["read", "write"],
   "is_active": true,
   "created_at": "2026-03-15T10:00:00Z",
@@ -398,7 +406,7 @@ curl -X POST "$CORTEX_URL/api/admin/reset" \
 
 ## Permission Requirements by Endpoint
 
-### Read Permission (`moca_ro_`)
+### Read Permission (`read`)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -426,9 +434,9 @@ curl -X POST "$CORTEX_URL/api/admin/reset" \
 | `GET` | `/api/turbo/jobs` | List turbo jobs. |
 | `GET` | `/api/turbo/balance` | Compute3 balance. |
 
-### Manage Permission (`moca_rw_`)
+### Write / Delete Permission (`write`, `delete`)
 
-Everything in read, plus:
+Everything in read, plus (delete operations require the `delete` scope):
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -457,9 +465,9 @@ Everything in read, plus:
 | `POST` | `/api/turbo/start` | Start a turbo GPU job. |
 | `POST` | `/api/turbo/stop` | Stop the turbo GPU job. |
 
-### Admin Permission (`moca_admin_`)
+### Admin Permission (`admin`)
 
-Everything in manage, plus:
+Everything above, plus:
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -482,22 +490,14 @@ Everything in manage, plus:
 
 ## Rate Limiting
 
-All authenticated endpoints return rate limit headers:
-
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1705329600
-```
-
-Configure via environment variables:
+Per-API-key rate limiting on the ask/upload endpoints is off by default (token-bucket):
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `RATE_LIMIT_REQUESTS` | `100` | Max requests per window per API key. |
-| `RATE_LIMIT_WINDOW` | `60` | Window duration in seconds. |
+| `RATE_LIMIT_QPM` | `0` | Requests/minute per API key on ask/upload (0 = off). |
+| `RATE_LIMIT_BURST` | `10` | Token-bucket burst capacity. |
 
-When the limit is exceeded, the API returns `429 Too Many Requests`.
+When the limit is exceeded, the API returns `429 Too Many Requests` with a `Retry-After` header.
 
 ---
 

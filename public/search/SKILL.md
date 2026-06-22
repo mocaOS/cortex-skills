@@ -39,10 +39,21 @@ Content-Type: application/json
 | Field           | Type     | Required | Default | Description                                      |
 |-----------------|----------|----------|---------|--------------------------------------------------|
 | `query`         | string   | Yes      | —       | The search query. Natural language works best.    |
-| `top_k`         | integer  | No       | 10      | Number of results to return. Range: 1–50.        |
+| `limit`         | integer  | No       | 10      | Number of results to return. Range: 1–50.        |
+| `search_type`   | string   | No       | `hybrid`| `hybrid` \| `vector` \| `keyword` \| `graph`.        |
 | `filters`       | object   | No       | null    | Metadata filters to narrow results.              |
-| `collection_id` | string   | No       | null    | Scope search to a specific collection.           |
-| `fast_mode`     | boolean  | No       | false   | Skip cross-encoder re-ranking for faster results.|
+| `collection_id` | string   | No       | null    | Scope search to a specific collection or community id. |
+
+> Some older clients use `top_k`/`fast_mode`; the documented contract uses `limit` and `search_type`. Use `search_type: "vector"` for a fast semantic-only lookup.
+
+### Search Types
+
+| Type | Description |
+|------|-------------|
+| `hybrid` | All methods combined via RRF (default) |
+| `vector` | Semantic vector similarity only |
+| `keyword` | Full-text / BM25 only |
+| `graph` | Graph traversal only |
 
 ### Response
 
@@ -222,8 +233,9 @@ Latency depends on corpus size, graph density, and whether Turbo mode is active 
 | `VECTOR_WEIGHT`   | 0.5     | Weight for vector similarity in RRF fusion.      |
 | `KEYWORD_WEIGHT`  | 0.3     | Weight for BM25 keyword matching in RRF fusion.  |
 | `GRAPH_WEIGHT`    | 0.2     | Weight for graph traversal in RRF fusion.        |
-| `RERANK_MODEL`    | ms-marco-MiniLM-L-6-v2 | Cross-encoder model for re-ranking. |
-| `RRF_K`           | 60      | RRF constant. Higher values flatten rank scores. |
+| `ENABLE_RERANKING`| true    | Enable cross-encoder re-ranking.                 |
+| `RERANKING_MODEL` | cross-encoder/ms-marco-MiniLM-L-6-v2 | Cross-encoder model for re-ranking. |
+| `RERANK_TOP_K`    | 15      | Candidates kept/reranked per knowledge search.   |
 
 ---
 

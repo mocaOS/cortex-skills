@@ -78,7 +78,9 @@ All frontend routes (except `/login`) are protected by middleware that checks th
 
 ## AgentSkills System
 
-AgentSkills extend the researcher agent with external knowledge and tools. Each skill is a directory containing a `SKILL.md` file and an optional `tools.json` defining HTTP or script tools.
+AgentSkills extend the researcher agent with external knowledge and tools. Each skill is a directory containing a `SKILL.md` file (with optional frontmatter and config schema). Enabled skills are **automatically activated** at the start of every research session, in both Deep Research and Chat modes (Chat requires `ENABLE_AGENT_CHAT=true`, the default). Installed skills are **disabled by default** — toggle them on in Settings → Agent Skills.
+
+Skills call external APIs via the built-in `http_request` tool (`method`, `url`, optional `body`). Auth is **hostname-scoped**: a skill's auth header is applied only when the request URL matches the hostname derived from that skill's `base_url`. The LLM never sees tokens — only `auth_header` templates are used to build headers, secrets are masked as `********` in API responses, and tool results are capped at 4000 characters. Failed calls are surfaced (e.g. `API call failed: POST .../tickets → HTTP 403`), never silent.
 
 ### List Installed Skills
 
@@ -198,12 +200,16 @@ The system validates the manifest (including embedding model compatibility) befo
 curl -X POST "{BASE_URL}/api/admin/reset" \
   -H "X-API-Key: {ADMIN_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{"confirm": true}'
+  -d '{
+    "delete_documents": true,
+    "delete_uploaded_files": true,
+    "delete_custom_inputs": true,
+    "delete_collections": true,
+    "delete_api_keys": false
+  }'
 ```
 
-Removes all data: Documents, Chunks, Entities, Relationships, Communities, MergeHistory, SystemMeta. This is **destructive and irreversible**.
-
-For granular resets, the web UI provides options to reset specific data types independently.
+Reset is **granular** — each flag controls a data category independently. It removes Documents, Chunks, Entities, Relationships, Communities, and also cleans `MergeHistory` nodes, `SystemMeta` nodes (staleness timestamps), and client cache (dismissed dedup suggestions, regeneration flow state). This is **destructive and irreversible**.
 
 ---
 

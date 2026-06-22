@@ -68,7 +68,7 @@ NEO4J_URI=bolt://neo4j:7687
 NEO4J_USER=neo4j
 NEO4J_PASSWORD=your-secure-password-here
 
-# LLM Provider (at least one required)
+# LLM Provider (at least one required — any OpenAI-compatible endpoint)
 OPENAI_API_KEY=sk-your-api-key-here
 OPENAI_API_BASE=https://api.openai.com/v1
 OPENAI_MODEL=gpt-4o-mini
@@ -76,7 +76,7 @@ OPENAI_MODEL=gpt-4o-mini
 # Admin Authentication
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=your-secure-admin-password
-ADMIN_API_KEY=moca_admin_your-secure-key-here
+ADMIN_API_KEY=cortex_admin_your-secure-key-here
 SESSION_SECRET=a-random-string-at-least-32-characters-long
 ```
 
@@ -85,14 +85,41 @@ Generate a secure session secret:
 openssl rand -base64 32
 ```
 
+## Recommended Minimal Stack (bench-validated)
+
+A 2-model setup. Fill two API values and you're done — relationship + vision inherit from the extraction model and output budgets cascade automatically:
+
+```bash
+# Primary — agentic Q&A / researcher (MiniMax-M3: 192K context window)
+OPENAI_API_KEY=
+OPENAI_API_BASE=https://api.venice.ai/api/v1
+OPENAI_MODEL=minimax-m3
+OPENAI_MAX_CONTEXT=196608
+
+# Extraction — drives relationship via inheritance (Qwen3-27B: 256K window)
+GRAPH_EXTRACTION_MODEL=qwen3-6-27b
+GRAPH_EXTRACTION_MAX_CONTEXT=256000
+
+# Vision — image analysis (api_base/api_key inherit from OPENAI_*)
+VISION_MODEL=qwen3-6-27b
+
+# Embeddings — Qwen3-Embedding-8B (native 4096, MRL 32-4096)
+EMBEDDING_MODEL=text-embedding-qwen3-8b
+EMBEDDING_DIMENSION=4096            # Neo4j 5.26 supports up to 4096-dim vector indexes
+```
+
+> Both `*_MAX_CONTEXT` overrides are needed because the conservative default (32768) caps these models at a fraction of their real window. The embedding model inherits `OPENAI_API_BASE`/`OPENAI_API_KEY` unless overridden.
+
 ## Optional Environment Variables
 
 ### LLM Configuration
 
 ```bash
-OPENAI_MODEL=gpt-4o-mini              # Primary model
+OPENAI_MODEL=gpt-4o-mini              # Primary model (Q&A, research, chat)
 OPENAI_MODEL_FAST_MODE=gpt-4o-mini    # Faster/cheaper model for Fast Mode
 OPENAI_API_BASE=https://api.openai.com/v1
+OPENAI_MAX_OUTPUT_TOKENS=8000         # Floor of the output-token budget chain
+OPENAI_MAX_CONTEXT=32768              # Floor of the input-context budget chain
 ```
 
 ### Embedding Configuration
@@ -100,7 +127,10 @@ OPENAI_API_BASE=https://api.openai.com/v1
 ```bash
 EMBEDDING_MODEL=openai/text-embedding-3-small
 EMBEDDING_DIMENSION=1536
+EMBEDDING_SEND_DIMENSIONS=true        # set false for models with fixed output dim
 USE_OPENAI_EMBEDDINGS=true
+# EMBEDDING_API_BASE=                 # defaults to OPENAI_API_BASE
+# EMBEDDING_API_KEY=                  # defaults to OPENAI_API_KEY
 ```
 
 ### Chunking Configuration
@@ -152,11 +182,14 @@ MAX_COMMUNITIES=50
 ENABLE_GRAPH_SUMMARIZATION=true
 ```
 
-### Security
+### Security & Deployment Hardening
 
 ```bash
-PROMPT_SECURITY=true           # Prompt injection protection
-CORS_ORIGINS=*                 # Restrict in production
+PROMPT_SECURITY=true                  # Prompt injection protection
+ENVIRONMENT=production                # Fail fast on weak/default secrets at startup
+CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+EXPOSE_API_DOCS=auto                  # auto = docs on in dev, OFF in production
+ENCRYPTION_KEY=                       # At-rest encryption for git PATs + skill secrets (Fernet keys)
 ```
 
 ### Resource Limits
@@ -189,13 +222,44 @@ PROCESSING_THREAD_WORKERS=4         # Thread workers for document processing
 ### Relationship Analysis (Phase B)
 
 ```bash
-RELATIONSHIP_EXTRACTION_MODEL=gpt-4o-mini    # Dedicated model for relationship extraction
-RELATIONSHIP_MAX_CONTEXT=65536                # Max input context for batching
-RELATIONSHIP_MAX_OUTPUT_TOKENS=16000          # Max output tokens per LLM response
+RELATIONSHIP_EXTRACTION_MODEL=gpt-4o-mini     # Dedicated model (inherits GRAPH_EXTRACTION_MODEL → OPENAI_MODEL)
+RELATIONSHIP_MAX_CONTEXT=0                     # 0 = inherit GRAPH_EXTRACTION_MAX_CONTEXT → OPENAI_MAX_CONTEXT
+RELATIONSHIP_MAX_OUTPUT_TOKENS=0              # 0 = inherit; feeds per-chunk + candidate scan
+RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS=16000    # Phase 2 batch budget (standalone, NOT in chain)
 RELATIONSHIP_TARGET_RATIO=1.0                 # Target ERR (higher = more relationships)
 RELATIONSHIP_MAX_ROUNDS=3                     # Max discovery rounds per batch
 RELATIONSHIP_MAX_PER_ENTITY=50                # Soft cap to prevent hub entities
 RELATIONSHIP_MAX_HOURS=0                      # Time limit (0 = no limit)
+```
+
+> **Budget fallback chain.** Sub-tier token knobs default to `0` (= inherit from the next tier up), so a multi-model stack needs only two or three env vars.
+> Output: `OPENAI_MAX_OUTPUT_TOKENS` → `EXTRACTION_MAX_OUTPUT_TOKENS` → `RELATIONSHIP_MAX_OUTPUT_TOKENS` → `VISION_MAX_OUTPUT_TOKENS`.
+> Input: `OPENAI_MAX_CONTEXT` → `GRAPH_EXTRACTION_MAX_CONTEXT` → `RELATIONSHIP_MAX_CONTEXT`.
+> `RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS` (16000) is standalone (Phase 2 batch only). Migration: `EXTRACTION_MAX_CONTEXT` was renamed to `GRAPH_EXTRACTION_MAX_CONTEXT` (legacy name honored one release with a startup WARN).
+
+### Reasoning Control for Ingestion
+
+Force reasoning OFF so reasoning-capable models (GPT-5/5.1, Claude 4.x, Qwen3, DeepSeek-R1, GLM-4.6, Kimi K2, MiniMax M3) can be used for structured extraction without drift, hidden-token cost, or malformed JSON. Provider auto-detected from `base_url`. Values: `off | minimal | auto | low | medium | high`.
+
+```bash
+EXTRACTION_REASONING_MODE=off        # extraction, summaries, communities, query-entity extraction
+RELATIONSHIP_REASONING_MODE=off      # candidate scan, gleaning, per-chunk + batch relationships
+VISION_REASONING_MODE=off            # vision-model image descriptions (e.g. Qwen3-VL)
+DEFAULT_REASONING_MODE=off           # chat/answer path; deep-research stays AUTO
+# REASONING_MODEL_OVERRIDES=gpt-5.8:none,custom-llm:minimal   # escape hatch
+```
+
+> Caveats: `gpt-5-pro` is pinned to `high`; `gpt-5-codex` downgrades `minimal`→`low`; Anthropic Opus 4.7+ uses adaptive thinking. On OpenAI GPT-5/o-series, `DEFAULT_REASONING_MODE=off` can disable parallel tool calls — set `auto` there.
+
+### Performance Tuning (Venice-validated)
+
+Crank ingestion throughput on Venice or large self-hosted vLLM endpoints. Dial back for stock OpenAI or smaller hosts to avoid rate limits.
+
+```bash
+BATCH_PROCESSING_CONCURRENCY=3    # docs processed in parallel (default 2)
+CONCURRENT_EXTRACTIONS=4          # entity-extraction threads per doc (default 3 — biggest multiplier)
+CONCURRENT_RELATIONS=4            # per-chunk relationship threads per doc (default 3)
+VISION_MAX_CONCURRENT=4           # system-wide vision-API semaphore (default 3)
 ```
 
 ### Agent Skills
@@ -213,7 +277,7 @@ MAX_SKILL_TOOLS=10                  # Max skill tools per researcher conversatio
 
 ```bash
 ENABLE_AGENT_RESEARCH=true                    # Agent pipeline for Deep Research
-ENABLE_AGENT_CHAT=false                       # Agent pipeline for standard Chat (opt-in)
+ENABLE_AGENT_CHAT=true                        # Agent pipeline for standard Chat (required for skills in chat)
 RESEARCHER_MAX_ITERATIONS_SPEED=2             # Chat mode iterations
 RESEARCHER_MAX_ITERATIONS_QUALITY=10          # Deep Research iterations
 WRITER_MAX_TOKENS_SPEED=1200                  # Chat answer max tokens
@@ -238,6 +302,73 @@ COMPUTE3_GPU_COUNT=4
 COMPUTE3_MODEL=MiniMaxAI/MiniMax-M2.1
 COMPUTE3_DOCKER_IMAGE=vllm/vllm-openai:latest
 COMPUTE3_DEFAULT_RUNTIME=3600
+```
+
+### Git Integration (Optional)
+
+Connect GitHub/GitLab/Gitea repos as a knowledge source. See the [git-integration skill](../git-integration/SKILL.md).
+
+```bash
+ENABLE_GIT_INTEGRATION=true
+GIT_WORK_DIR=/data/git_repos      # Mount a volume in production
+GIT_CLONE_DEPTH=1
+GIT_MAX_REPO_SIZE_MB=500
+GIT_SYNC_MAX_FILE_SIZE_MB=5
+GIT_SYNC_POLL_INTERVAL=5          # Minutes between scheduled-sync checks
+GIT_HTTP_TIMEOUT=30
+```
+
+### Web Import / Crawl4ai (Optional)
+
+Harvest web pages into markdown via a self-hosted crawl4ai service. See the [web-import skill](../web-import/SKILL.md).
+
+```bash
+ENABLE_WEB_CRAWL=true
+CRAWL_SERVICE_URL=http://crawl4ai:11235
+CRAWL_SERVICE_TOKEN=
+CRAWL_CONTENT_FILTER=fit          # fit (readable) | raw (full) | bm25 (ranked)
+CRAWL_CONCURRENCY=5
+CRAWL_MAX_URLS_PER_JOB=100
+```
+
+### Shared Model Services (cortex-helper)
+
+Offload the cross-encoder reranker and Docling converter to a per-machine service so many tenant stacks don't each load their own copy. Falls back to local automatically when unset.
+
+```bash
+RERANKER_SERVICE_URL=http://cortex-helper:3030
+DOCLING_SERVICE_URL=http://cortex-helper:3030
+HELPER_SERVICE_TOKEN=             # shared secret (match helper's HELPER_TOKEN)
+RERANKER_PRELOAD=false            # eager-load reranker at startup
+RERANKER_IDLE_TTL_SECONDS=1800    # unload idle reranker (0 = never)
+```
+
+### Observability, Limits & Resilience
+
+```bash
+LOG_FORMAT=plain                  # plain | json (json adds request_id correlation)
+METRICS_ENABLED=true              # Prometheus metrics at GET /metrics (admin key)
+RATE_LIMIT_QPM=0                  # Per-key requests/minute on ask/upload (0 = off)
+RATE_LIMIT_BURST=10               # Token-bucket burst capacity
+NEO4J_MAX_POOL_SIZE=100
+NEO4J_CONNECTION_TIMEOUT=10
+```
+
+> **Slim image:** build with `--build-arg INSTALL_LOCAL_ML=false` for a torch-free backend (~1.2 GB) when reranking + conversion are offloaded to cortex-helper. Requires OpenAI embeddings; pair with `HELPER_STRICT_REMOTE=true`.
+
+### Efficiency Flags (v-next, default off)
+
+Enable per stack after an A/B bench run. None change API shapes or graph semantics.
+
+```bash
+ENTITY_DEDUP_PREFILTER=false              # score only top-50 fulltext candidates for dedup
+ENABLE_BATCHED_KG_WRITES=false            # UNWIND batch writes (~10 round trips/doc)
+ENABLE_BATCHED_CHUNK_RELATIONSHIPS=false  # pack several chunks per relationship LLM call
+RELATIONSHIP_CHUNKS_PER_CALL=4
+ENABLE_PHASEB_CHECKPOINTING=false         # resume Phase B after crash/redeploy
+ENABLE_REPROCESS_DELTA=false              # skip reprocess when bytes + config unchanged
+RESEARCHER_STABLE_PROMPT=true             # byte-stable researcher prompt for prefix caching
+ENABLE_PROMPT_CACHE_CONTROL=false         # Anthropic cache_control via OpenRouter
 ```
 
 ## Common Docker Commands
@@ -272,11 +403,12 @@ docker compose -f docker-compose.prod.yml up -d
 ```
 
 Key production considerations:
-- Set `CORS_ORIGINS` to your specific domains
+- Set `ENVIRONMENT=production` (fails fast on weak/default secrets at startup)
+- Set `CORS_ALLOWED_ORIGINS` to your specific domains (defaults to `*`)
 - Use strong, unique values for `NEO4J_PASSWORD`, `ADMIN_PASSWORD`, `SESSION_SECRET`
 - Enable HTTPS via reverse proxy (nginx)
 - Block direct access to Neo4j ports (7474, 7687) from public internet
-- Set `PROMPT_SECURITY=true`
+- Set `PROMPT_SECURITY=true`; interactive API docs auto-disable in production (`EXPOSE_API_DOCS`)
 
 ## Troubleshooting
 

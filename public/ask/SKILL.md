@@ -15,9 +15,11 @@ description: Use this skill when building RAG-powered Q&A features on Cortex. Co
 
 4. **`use_agentic` and `use_fast_search` are independent toggles.** Agentic mode does multi-step reasoning. Fast search skips graph traversal and re-ranking for speed. You can combine them.
 
-5. **Answers always include source citations.** The `sources` array in the response contains chunk references with document IDs, content, and scores. Never present an answer without showing its sources.
+5. **Answers always include source citations.** The `sources` array in the response contains chunk references with document IDs, content, and scores — each carries a conversation-stable `sid`. Never present an answer without showing its sources.
 
-6. **Collection scoping applies to all three endpoints.** Pass `collection_id` to restrict retrieval to documents in that collection.
+6. **Collection scoping applies to every endpoint.** Pass `collection_id` to restrict retrieval to documents in that collection. Pass a community id as `collection_id` (e.g. `"comm_1"`) to scope to a community.
+
+7. **Conversation memory is opt-in and client-carried — the backend stays stateless.** Send an opaque `conversation_memory` blob, read the updated blob back from the `memory_update` SSE event, and replay it next turn. Follow-ups answerable from memory can skip retrieval entirely (memory fast-path).
 
 ## Endpoints
 
@@ -129,19 +131,42 @@ data: {"type": "source", "sources": [...]}
 data: {"type": "done", "answer": "..."}
 ```
 
+## SSE Event Reference
+
+The streaming endpoint emits these event keys (the exact `data:` payload shape may vary by build — switch on the event key):
+
+| Event | Mode | Description |
+|-------|------|-------------|
+| `status` | All (if `STREAM_REASONING_STEPS`) | Stage updates: `analyzing` → `searching` → `reranking` → `generating` |
+| `content` | All | Answer token |
+| `sources` | All | `SearchResult[]` with scores; each source has a stable `sid` |
+| `graph_context` | All | Entities / relationships / community data |
+| `thinking` | Deep Research | Reasoning step status |
+| `sub_questions` | Deep Research | Decomposed sub-questions |
+| `retrieval` | Deep Research | Per-sub-question retrieval progress |
+| `retrieval_stats` | Deep Research | `total_sources`, `unique_sources`, `communities_used` |
+| `memory_update` | When `conversation_memory` sent | Updated memory blob to replay next turn |
+| `done` | All | `true` when complete (Deep Research includes `communities_used`) |
+| `error` | All | Error message |
+
+- **Chat sequence:** `sources` → `graph_context` → `content` (many) → `done`.
+- **Deep Research sequence:** `thinking` → `retrieval` → `sources` → `graph_context` → `retrieval_stats` → `content` → `done`.
+- During silent windows (≥ 8s with no event), the server emits SSE comment keep-alives (`: ping`) to prevent proxy idle-timeouts.
+
 ## Request Body Schema
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `question` | string | required | The question to ask |
-| `top_k` | integer | 10 | Number of chunks to retrieve (1-20) |
+| `top_k` | integer | 5 | Number of chunks to retrieve (1-20) |
 | `use_graph` | boolean | true | Include graph traversal in retrieval |
 | `max_hops` | integer | 2 | Graph traversal depth (1-3) |
-| `conversation_history` | array | [] | Previous messages: `[{role, content}]` |
+| `conversation_history` | array | null | Previous messages: `[{role, content}]` |
+| `conversation_memory` | object | null | Opt-in client-carried memory blob (see below) |
 | `use_reranking` | boolean | true | Apply cross-encoder re-ranking |
-| `use_agentic` | boolean | false | Enable multi-step reasoning |
+| `use_agentic` | boolean | false | Enable deep research (multi-step reasoning) |
 | `use_fast_search` | boolean | false | Vector-only search (skip graph + reranking) |
-| `collection_id` | string | null | Scope to a specific collection |
+| `collection_id` | string | null | Scope to a specific collection or community id |
 
 ## Conversation History
 
@@ -159,16 +184,31 @@ Pass previous messages to maintain context across turns:
 }
 ```
 
-Maximum 6 messages in history. The system automatically manages context window size.
+The backend keeps the most recent messages via `MAX_CONVERSATION_HISTORY` (default 6) and automatically manages context window size.
+
+## Conversation Memory (opt-in)
+
+Memory lets multi-turn chats carry compacted context without the backend storing anything. The blob is **opaque** — treat it as a token to round-trip:
+
+1. Turn 1: send `"conversation_memory": {}` (or omit it).
+2. Read the `memory_update` SSE event from the response and keep its payload.
+3. Next turn: send that payload back as `conversation_memory` (along with the full `conversation_history`).
+
+The `memory_update` payload includes: `version`, `transcript` (`summary`, `summarized_count`), `facts[]`, `open_questions[]`, `intent`, `source_ledger[]` (`sid`/`filename`/`gist`), and `kg_context` (`entities`/`communities`). Compaction runs after the answer streams via a cheap fast-model call. Questions answerable from memory skip retrieval (memory fast-path); toggle with `ENABLE_MEMORY_FAST_PATH`.
 
 ## Agentic Mode (Deep Research)
 
 When `use_agentic: true`, the system uses a **researcher/writer agent architecture**:
 
-1. A **Researcher Agent** iteratively gathers information using tool-calling (knowledge search, community search, entity lookup, reasoning)
+1. A **Researcher Agent** iteratively gathers information using these tools:
+   - `knowledge_search` — hybrid RRF search (vector + keyword + graph) + cross-encoder rerank; up to 3 queries per call
+   - `community_search` — search entity community summaries
+   - `entity_lookup` — look up entities by name
+   - `reasoning` — plan the next step (streamed as `thinking` events)
+   - `done` — signal completion with a summary
 2. A **Writer LLM** synthesizes the gathered context into a streamed answer
 
-The researcher decides dynamically how many searches to perform and when to stop (up to `RESEARCHER_MAX_ITERATIONS_QUALITY` iterations, default 10). This is fundamentally different from legacy fixed-step reasoning.
+The researcher decides dynamically how many searches to perform and when to stop (up to `RESEARCHER_MAX_ITERATIONS_QUALITY` iterations, default 10). This is fundamentally different from legacy fixed-step reasoning. Deep Research requires `ENABLE_AGENTIC_RAG=true` AND `ENABLE_AGENT_RESEARCH=true`.
 
 Best for complex, multi-part questions that span multiple documents or require cross-referencing.
 

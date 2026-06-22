@@ -17,16 +17,20 @@ from cortex_client import CortexClient
 
 client = CortexClient(
     base_url="http://localhost:8000",  # No trailing slash
-    api_key="moca_rw_your_key_here"    # Read-write key for mutations; read-only key for queries
+    api_key="cortex_user_your_key_here"    # Read-write key for mutations; read-only key for queries
 )
 ```
 
-### API Key Types
+### API Key Permissions
 
-| Prefix     | Permissions                          |
-|------------|--------------------------------------|
-| `moca_rw_` | Full access: upload, delete, search, ask, graph mutations |
-| `moca_ro_` | Read-only: search, ask, list documents, graph queries     |
+User keys (`cortex_user_` prefix) carry an additive `permissions` array set at creation:
+
+| Permissions | Access |
+|-------------|--------|
+| `["read"]` | Read-only: search, ask, list documents, graph queries |
+| `["read", "write"]` | Add upload, create collections, move, reprocess |
+| `["read", "write", "delete"]` | Add document/collection deletion |
+| `["read", "write", "delete", "admin"]` | Full access incl. key management |
 
 ---
 
@@ -705,7 +709,7 @@ def safe_search(client, query, **kwargs):
 from cortex_client import CortexClient
 import time
 
-client = CortexClient("http://localhost:8000", "moca_rw_your_key_here")
+client = CortexClient("http://localhost:8000", "cortex_user_your_key_here")
 
 # 1. Verify server health
 health = client.health()

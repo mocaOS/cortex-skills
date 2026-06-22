@@ -96,6 +96,22 @@ export const skills: Skill[] = [
     category: "features",
   },
   {
+    slug: "git-integration",
+    name: "Git Integration",
+    description:
+      "Connect GitHub, GitLab, and Gitea repos as a living knowledge source. Incremental sync, file filtering, and a read/write agent that opens pull requests for review.",
+    icon: "GitBranch",
+    category: "features",
+  },
+  {
+    slug: "web-import",
+    name: "Web Import",
+    description:
+      "Harvest web pages into clean markdown via a self-hosted crawl4ai service (MDHarvest). Link discovery, readable/full/relevance filters, and graph ingestion.",
+    icon: "Globe",
+    category: "features",
+  },
+  {
     slug: "mcp",
     name: "MCP",
     description:

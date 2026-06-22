@@ -63,12 +63,12 @@ description: Use this skill when working with the Cortex knowledge graph — que
 
 ## Relationship Types
 
-Relationships have a `type` field (string), a `description` field, and a `weight` (0-10) indicating strength.
+Relationships have a `type` field, a `description`, and a `weight` (0-10). The type is constrained to **14 standardized types** — extracted types are fuzzy-matched at an 80% threshold, falling back to `RELATED_TO`. `MENTIONS` is intentionally excluded from entity-to-entity relationships.
 
-Common types extracted by the LLM:
-- `WORKS_FOR`, `LOCATED_IN`, `USES`, `RELATED_TO`, `PART_OF`
-- `CREATED_BY`, `MANAGES`, `DEPENDS_ON`, `COMPETES_WITH`
-- `MENTIONED_IN`, `PRECEDED_BY`, `FOLLOWED_BY`
+```
+RELATED_TO, CREATED_BY, WORKS_FOR, PART_OF, USES, LOCATED_IN, IMPLEMENTS,
+DEPENDS_ON, IS_A, HAS_PROPERTY, FOUNDED_BY, FEATURES, CONTAINS, INTERACTS_WITH
+```
 
 ## API Endpoints
 
@@ -218,6 +218,21 @@ curl -X PATCH "{BASE_URL}/api/graph/entity/OpenAI" \
 
 ---
 
+## Generate Graph (One-Click 3-Step Chain)
+
+The Knowledge Graph page exposes a single **Generate Graph / Regenerate Graph** button that runs three steps server-side as a chained background flow: entity extraction → relationship analysis → community detection. Trigger it via the `chain` query parameter (accepted on `/api/documents/reprocess`, `/api/documents/process-pending`, and `/api/graph/relationships/analyze`):
+
+```bash
+curl -X POST "{BASE_URL}/api/documents/reprocess?chain=relationship_analysis,community_detection" \
+  -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"document_ids": ["doc_abc123"]}'
+```
+
+Each step produces its own task (`task_id`, `task_type`, progress messages). Step 1 stays `running` until background image analysis completes. The flow survives navigation/reload/browser close (resumed via a saved task id). Single-step buttons ("Extract Entities", "Analyze Relationships", "Detect Communities") never auto-chain.
+
+**Full regenerate cleanup order:** `DELETE /api/graph/communities` → `DELETE /api/graph/relationships` → `DELETE /api/graph/entities` → reprocess all documents → relationship analysis (rebuild mode) → community detection.
+
 ## Cross-Document Relationship Analysis
 
 After documents are processed with per-chunk entity and relationship extraction (Phase A), you can run a deeper cross-document analysis (Phase B) that discovers relationships between entities across different documents:
@@ -302,6 +317,17 @@ RELATIONSHIP_MAX_ROUNDS=3             # Max discovery rounds per batch
 RELATIONSHIP_MAX_PER_ENTITY=50        # Soft cap to prevent hub domination
 ENABLE_SEMANTIC_ENTITY_RESOLUTION=true
 ENTITY_SIMILARITY_THRESHOLD=0.85
+```
+
+### Reasoning Control
+
+Reasoning hurts structured extraction (drift, hidden-token cost, malformed JSON). Force it OFF so reasoning-capable models (GPT-5/5.1, Claude 4.x, Qwen3, DeepSeek-R1) can be used for ingestion. Values: `off | minimal | auto | low | medium | high`.
+
+```bash
+EXTRACTION_REASONING_MODE=off         # extraction, summaries, communities, query-entity extraction
+RELATIONSHIP_REASONING_MODE=off       # candidate scan + relationship extraction
+VISION_REASONING_MODE=off             # vision-model image descriptions
+# REASONING_MODEL_OVERRIDES=gpt-5.8:none,custom:minimal
 ```
 
 ## Skill Files

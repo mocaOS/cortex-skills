@@ -1,6 +1,6 @@
 ---
 name: communities
-description: Detects clusters of related entities in the knowledge graph using the Louvain algorithm (or connected components as fallback), then generates LLM-powered descriptive names and summaries for each community to enrich RAG retrieval context and improve answer quality across broad or exploratory queries.
+description: Detects clusters of related entities in the knowledge graph using the Leiden algorithm (preferred), Louvain, or a BFS connected-components fallback, then generates LLM-powered descriptive names and summaries for each community to enrich RAG retrieval context and improve answer quality across broad or exploratory queries.
 ---
 
 # Communities — Automatic Entity Clustering and Summarization
@@ -25,9 +25,10 @@ Here is what people consistently get wrong:
    because summarization costs LLM tokens and you may want to summarize only specific
    communities.
 
-3. **Louvain is not always available.** It requires the Neo4j Graph Data Science (GDS) plugin.
-   If GDS is not installed, the system falls back to connected components, which produces
-   larger, less granular communities. Check your Neo4j setup if results seem too coarse.
+3. **The algorithm degrades gracefully.** Detection prefers **Leiden** (finest-grained), then
+   **Louvain** — both require the Neo4j Graph Data Science (GDS) plugin. If GDS is not installed,
+   the system falls back to **BFS connected components**, which produces larger, less granular
+   communities. Check your Neo4j setup if results seem too coarse.
 
 4. **MIN_COMMUNITY_SIZE filters small clusters.** Entities in communities smaller than the
    threshold are silently dropped. If you are missing entities, lower `MIN_COMMUNITY_SIZE`.

@@ -42,7 +42,7 @@ Documents / Memory → Cortex Backend (FastAPI) → Neo4j (Graph + Vector)
 
 1. **Cortex is not a SaaS with a fixed URL.** It is self-hosted via Docker. The base URL is wherever you deployed it (e.g., `http://localhost:8000`). Always use `{BASE_URL}` as a placeholder.
 2. **It is not just a vector database.** Cortex builds a full knowledge graph with entities, relationships, and communities using GraphRAG on top of Neo4j.
-3. **Authentication is X-API-Key header, not Bearer tokens.** Every API call (except `/health`) requires `X-API-Key`. Keys have permission tiers: read, manage, admin.
+3. **Authentication is the `X-API-Key` header (or `Authorization: Bearer`).** Every API call (except `/health`) requires a key. Keys hold an additive permission array: `read`, `write`, `delete`, `admin`, and can be scoped to specific collections.
 4. **Documents are processed asynchronously.** Upload returns immediately with a document ID. Chunking, embedding, and entity extraction happen in the background.
 5. **Streaming uses Server-Sent Events (SSE)**, not WebSockets. Use `POST /api/ask/stream` with `Accept: text/event-stream`.
 
@@ -80,14 +80,14 @@ curl -X POST "{BASE_URL}/api/ask" \
 |--------|----------|-----------|---------|
 | `GET` | `/health` | None | Health check |
 | `GET` | `/api/stats` | read | Knowledge base statistics |
-| `POST` | `/api/upload` | manage | Upload a document |
+| `POST` | `/api/upload` | write | Upload a document |
 | `GET` | `/api/documents` | read | List documents |
 | `POST` | `/api/search` | read | Hybrid search |
 | `POST` | `/api/ask` | read | RAG Q&A |
 | `POST` | `/api/ask/stream` | read | Streaming RAG Q&A (SSE) |
 | `GET` | `/api/graph/entities` | read | List entities |
 | `GET` | `/api/collections` | read | List collections |
-| `POST` | `/api/collections` | manage | Create collection |
+| `POST` | `/api/collections` | write | Create collection |
 | `GET` | `/api/graph/communities` | read | List communities |
 | `POST` | `/api/admin/api-keys` | admin | Create API key |
 
@@ -152,10 +152,12 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 
 - `cortexskills.org/upload/SKILL.md` — Document ingestion for PDF, DOCX, images, audio, and more.
 - `cortexskills.org/search/SKILL.md` — Hybrid search combining vector, keyword, and graph traversal.
-- `cortexskills.org/ask/SKILL.md` — RAG Q&A with streaming SSE and agentic deep research.
+- `cortexskills.org/ask/SKILL.md` — RAG Q&A with streaming SSE, agentic deep research, and conversation memory.
 - `cortexskills.org/graph/SKILL.md` — Knowledge graph — entities, relationships, subgraph queries.
 - `cortexskills.org/collections/SKILL.md` — Scope documents and graphs by project or tenant.
 - `cortexskills.org/communities/SKILL.md` — Auto-clustering entities with LLM-generated summaries.
+- `cortexskills.org/git-integration/SKILL.md` — Connect GitHub/GitLab/Gitea repos; agent opens pull requests.
+- `cortexskills.org/web-import/SKILL.md` — Harvest web pages into clean markdown via crawl4ai (MDHarvest).
 - `cortexskills.org/turbo/SKILL.md` — GPU-accelerated processing via Compute3.
 - `cortexskills.org/tasks/SKILL.md` — Background task polling, cancellation, and cleanup.
 

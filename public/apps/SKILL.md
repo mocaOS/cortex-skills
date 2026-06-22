@@ -150,7 +150,7 @@ Any app that can make HTTP requests can integrate with Cortex. The core pattern:
 import requests
 
 BASE_URL = "http://your-cortex-instance:8000"
-API_KEY = "moca_rw_your_key"
+API_KEY = "cortex_user_your_key"
 
 # 1. Ingest: Upload content to the knowledge graph
 requests.post(f"{BASE_URL}/api/upload",

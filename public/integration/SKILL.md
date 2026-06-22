@@ -124,7 +124,7 @@ class CortexClient:
 Usage:
 
 ```python
-client = CortexClient("http://localhost:8000", "moca_rw_your_key_here")
+client = CortexClient("http://localhost:8000", "cortex_user_your_key_here")
 
 # Upload a document
 client.upload("report.pdf")
@@ -248,7 +248,7 @@ Cortex is MCP-server compatible. Configure for Claude Desktop:
       "args": ["path/to/cortex-mcp-server.js"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "moca_ro_your_key"
+        "CORTEX_API_KEY": "cortex_user_your_key"
       }
     }
   }
@@ -265,7 +265,7 @@ Flask-based Slack bot with `/ask` and `/search` commands:
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-client = CortexClient("http://localhost:8000", "moca_ro_your_key")
+client = CortexClient("http://localhost:8000", "cortex_user_your_key")
 
 @app.route("/slack/ask", methods=["POST"])
 def slack_ask():

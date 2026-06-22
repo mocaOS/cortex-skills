@@ -15,7 +15,7 @@ The Cortex MCP server gives any MCP-compatible AI client native access to your C
 
 1. **The MCP server is a separate package, not part of Cortex.** It is a lightweight bridge that calls the Cortex REST API. You need a running Cortex instance first.
 2. **Authentication uses environment variables, not config files.** Set `CORTEX_BASE_URL` and `CORTEX_API_KEY` in your MCP client config.
-3. **You need an API key with at least `read` permission.** Get one from `{YOUR_BASE_URL}/admin` → API Keys. Use `manage` permission if you also want upload capabilities.
+3. **You need an API key with at least `read` permission.** Get one from `{YOUR_BASE_URL}/admin` → API Keys. Add `write` permission if you also want upload capabilities.
 4. **The server communicates via stdio, not HTTP.** MCP uses JSON-RPC over stdin/stdout. You do not need to expose any ports.
 5. **AgentSkills are not MCP tools.** The AgentSkills system (installing skills from the skills.sh registry) is a separate admin feature that extends the built-in researcher agent. It has nothing to do with the MCP server. See the [Admin skill](../admin/SKILL.md) for AgentSkills management.
 
@@ -33,7 +33,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
       "args": ["-y", "@cortex/mcp-server"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "moca_ro_your_key_here"
+        "CORTEX_API_KEY": "cortex_user_your_key_here"
       }
     }
   }
@@ -52,7 +52,7 @@ Add to `.cursor/mcp.json` in your project root:
       "args": ["-y", "@cortex/mcp-server"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "moca_ro_your_key_here"
+        "CORTEX_API_KEY": "cortex_user_your_key_here"
       }
     }
   }
@@ -71,7 +71,7 @@ Add to `~/.windsurf/mcp.json`:
       "args": ["-y", "@cortex/mcp-server"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "moca_ro_your_key_here"
+        "CORTEX_API_KEY": "cortex_user_your_key_here"
       }
     }
   }
@@ -88,7 +88,7 @@ Set environment variables in your shell or pass them via `--env`:
 
 ```bash
 export CORTEX_BASE_URL="http://localhost:8000"
-export CORTEX_API_KEY="moca_ro_your_key_here"
+export CORTEX_API_KEY="cortex_user_your_key_here"
 ```
 
 ### VS Code (GitHub Copilot)
@@ -103,7 +103,7 @@ Add to `.vscode/mcp.json`:
       "args": ["-y", "@cortex/mcp-server"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "moca_ro_your_key_here"
+        "CORTEX_API_KEY": "cortex_user_your_key_here"
       }
     }
   }

@@ -18,7 +18,7 @@ These must be set for Cortex to start.
 | `OPENAI_API_KEY` | `string` | -- | API key for the primary LLM provider. Despite the name, any OpenAI-compatible endpoint works (Anthropic via LiteLLM, local Ollama, etc.). |
 | `ADMIN_EMAIL` | `string` | -- | Email address for the admin account used to log into the frontend web UI. |
 | `ADMIN_PASSWORD` | `string` | -- | Password for the admin frontend login. Use a strong, unique value. |
-| `ADMIN_API_KEY` | `string` | -- | Root admin API key, created at startup. Must start with `moca_admin_`. This is the only way to create the admin key -- it cannot be created through the API. |
+| `ADMIN_API_KEY` | `string` | -- | Root admin API key, created at startup. Must start with `cortex_admin_`. This is the only way to create the admin key -- it cannot be created through the API. |
 | `SESSION_SECRET` | `string` | -- | Secret used to sign JWT session tokens for frontend auth. Must be at least 32 characters. Generate with `openssl rand -base64 32`. |
 
 ---
@@ -31,8 +31,10 @@ These must be set for Cortex to start.
 |----------|------|---------|-------------|
 | `OPENAI_API_KEY` | `string` | -- | API key for the primary LLM. Required. |
 | `OPENAI_API_BASE` | `string` | `https://api.openai.com/v1` | Base URL for the primary LLM API. Change this to point at any OpenAI-compatible endpoint (LiteLLM, Ollama, vLLM, etc.). |
-| `OPENAI_MODEL` | `string` | `gpt-4o-mini` | Model ID for the primary LLM used for Q&A, research, and chat. Recommended: powerful reasoning models (e.g. Minimax M2.7, GLM5, Kimi K2.5). |
+| `OPENAI_MODEL` | `string` | `gpt-4o-mini` | Model ID for the primary LLM used for Q&A, research, and chat. Recommended: powerful reasoning models (e.g. MiniMax M3, GLM5, Kimi K2.5). |
 | `OPENAI_MODEL_FAST_MODE` | `string` | `gpt-4o-mini` | Model ID for Fast Mode -- a cheaper/faster model used when the user selects fast search. Falls back to `OPENAI_MODEL` if not set. |
+| `OPENAI_MAX_OUTPUT_TOKENS` | `integer` | `8000` | Floor of the output-token budget chain. Default output tokens for every LLM call. |
+| `OPENAI_MAX_CONTEXT` | `integer` | `32768` | Floor of the input-context budget chain. Default input context budget. |
 
 ### Embedding Configuration
 
@@ -94,7 +96,8 @@ These must be set for Cortex to start.
 | `GRAPH_EXTRACTION_API_KEY` | `string` | value of `OPENAI_API_KEY` | API key for the extraction model, if different from primary. |
 | `MAX_GRAPH_HOPS` | `integer` | `2` | Number of graph traversal hops during search context retrieval. Range: 1-3. Higher values pull in more distantly connected context at the cost of relevance. |
 | `CONCURRENT_EXTRACTIONS` | `integer` | `3` | Number of parallel entity extraction operations during document processing. Increase if your LLM endpoint can handle higher concurrency. |
-| `EXTRACTION_MAX_CONTEXT` | `integer` | `32768` | Maximum context window tokens for entity extraction batching. Increase if your extraction model supports a larger context window. Determines how many chunks are batched into a single LLM call. |
+| `GRAPH_EXTRACTION_MAX_CONTEXT` | `integer` | `0` (=inherit) | Maximum context window tokens for entity extraction batching. `0` inherits `OPENAI_MAX_CONTEXT`. Renamed from `EXTRACTION_MAX_CONTEXT` (deprecated alias honored one release with a startup WARN). |
+| `EXTRACTION_MAX_OUTPUT_TOKENS` | `integer` | `0` (=inherit) | Output budget for entity-extraction LLM calls. `0` inherits `OPENAI_MAX_OUTPUT_TOKENS`. Bump to 3500-4000 for Qwen3-family models. |
 
 ### Relationship Extraction Model
 
@@ -113,8 +116,9 @@ Cross-document relationship discovery using co-occurrence batching and multi-rou
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `RELATIONSHIP_MAX_CONTEXT` | `integer` | `65536` | Maximum INPUT context window tokens for relationship analysis batching. Must match the context window of your `RELATIONSHIP_EXTRACTION_MODEL`. |
-| `RELATIONSHIP_MAX_OUTPUT_TOKENS` | `integer` | `16000` | Maximum OUTPUT tokens for relationship analysis LLM responses. |
+| `RELATIONSHIP_MAX_CONTEXT` | `integer` | `0` (=inherit) | Maximum INPUT context window tokens for Phase 2 batch analysis. `0` inherits `GRAPH_EXTRACTION_MAX_CONTEXT` → `OPENAI_MAX_CONTEXT`. |
+| `RELATIONSHIP_MAX_OUTPUT_TOKENS` | `integer` | `0` (=inherit) | Output budget for **per-chunk + candidate scan** (was the Phase 2 batch budget in old releases — see migration note). `0` inherits `EXTRACTION_MAX_OUTPUT_TOKENS`. |
+| `RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS` | `integer` | `16000` | Output budget for **Phase 2 batch** relationship analysis (standalone, NOT in the inheritance chain). Batch processes hundreds of entity pairs per call. |
 | `PARALLEL_RELATIONSHIP_BATCHES` | `integer` | `5` | Number of relationship analysis batches processed in parallel. |
 | `RELATIONSHIP_TARGET_RATIO` | `float` | `1.0` | Target Entity-Relationship Ratio (ERR metric). Higher values cause the system to discover more relationships per entity. Displayed on the Knowledge Graph page as a quality indicator. |
 | `RELATIONSHIP_MAX_ROUNDS` | `integer` | `3` | Maximum discovery rounds per batch for initial analysis. Re-analyze ("Find more") always does 1 round. Progress is tracked cumulatively across rounds. |
@@ -130,6 +134,37 @@ Cross-document relationship discovery using co-occurrence batching and multi-rou
 | `ENABLE_SEMANTIC_ENTITY_RESOLUTION` | `boolean` | `true` | Use embedding-based vector similarity (via Neo4j vector index) for entity deduplication during storage. Catches semantic matches like "Museum of Crypto Art" and "MOCA". Falls back to Levenshtein string matching when disabled. |
 | `ENTITY_SIMILARITY_THRESHOLD` | `float` | `0.85` | Similarity threshold for merging entities. Range: 0.0-1.0. Lower values merge more aggressively. |
 | `ENTITY_EMBEDDING_MODEL` | `string` | value of `EMBEDDING_MODEL` | Model used for entity embedding vectors during semantic resolution. |
+
+### Reasoning Control (Ingestion)
+
+Force reasoning OFF so reasoning-capable models (GPT-5/5.1, Claude 4.x, Qwen3, DeepSeek-R1, GLM-4.6, Kimi K2, MiniMax M3) can be used for structured extraction without drift or hidden-token cost. Provider auto-detected from `base_url`. Accepted values: `off | minimal | auto | low | medium | high`.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `EXTRACTION_REASONING_MODE` | `string` | `off` | Reasoning for entity extraction, summaries, communities, query-entity extraction. |
+| `RELATIONSHIP_REASONING_MODE` | `string` | `off` | Reasoning for candidate scan, gleaning, per-chunk + batch relationship extraction. |
+| `VISION_REASONING_MODE` | `string` | `off` | Reasoning for the vision-model image-description call (e.g. Qwen3-VL). |
+| `DEFAULT_REASONING_MODE` | `string` | `auto` | Reasoning for the chat/answer path. Researcher/deep-research stays AUTO to preserve parallel tool calls. |
+| `REASONING_MODEL_OVERRIDES` | `string` | -- | Per-model override. Format: `model1:mode1,model2:mode2` (e.g. `gpt-5.8:none,custom:minimal`). |
+
+> Caveats: `gpt-5-pro` is pinned to `high`; `gpt-5-codex` downgrades `minimal`→`low`; Anthropic Opus 4.7+ uses adaptive thinking (manual `thinking` returns 400). On OpenAI GPT-5/o-series, `DEFAULT_REASONING_MODE=off` can disable parallel tool calls — set `auto` there.
+
+### Budget Fallback Chain
+
+Sub-tier token knobs default to `0` (= inherit from the next tier up):
+
+```
+OUTPUT TOKENS:                          INPUT CONTEXT:
+  OPENAI_MAX_OUTPUT_TOKENS=8000           OPENAI_MAX_CONTEXT=32768
+       ↓                                       ↓
+  EXTRACTION_MAX_OUTPUT_TOKENS            GRAPH_EXTRACTION_MAX_CONTEXT
+       ↓                                       ↓
+  RELATIONSHIP_MAX_OUTPUT_TOKENS          RELATIONSHIP_MAX_CONTEXT
+       ↓
+  VISION_MAX_OUTPUT_TOKENS
+
+  RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS=16000   (standalone, Phase 2 only)
+```
 
 ---
 
@@ -212,29 +247,41 @@ Configure image analysis capabilities for extracting and understanding images fr
 | `VISION_MODEL_API_BASE` | `string` | value of `OPENAI_API_BASE` | API endpoint for the vision model. |
 | `VISION_MODEL_API_KEY` | `string` | value of `OPENAI_API_KEY` | API key for the vision model. |
 | `VISION_MAX_CONCURRENT` | `integer` | `3` | Maximum number of concurrent vision API calls system-wide. Increase for faster image-heavy document processing. With 200 images at ~30s each: 3 concurrency ~33 min, 10 concurrency ~10 min. |
+| `VISION_MAX_OUTPUT_TOKENS` | `integer` | `0` (=inherit) | Output budget for image analysis. Inherits `RELATIONSHIP_MAX_OUTPUT_TOKENS` → extraction → primary. |
+| `VISION_MAX_IMAGE_SIDE` | `integer` | `1568` | Caps the longer image side (Lanczos downscale) before the vision call. `0` disables. |
+| `VISION_JPEG_QUALITY` | `integer` | `85` | JPEG recompression quality before vision call (RGBA stays PNG). |
+| `VISION_REASONING_MODE` | `string` | `off` | Force reasoning OFF on the vision-model call (lets Qwen3-VL etc. be used without `<think>` tokens). |
 
 ---
 
-## Security
+## Security & Deployment Hardening
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `PROMPT_SECURITY` | `boolean` | `true` | Enable built-in prompt injection protection. Scans for jailbreak patterns, sanitizes input, adds defensive prompts, and filters harmful output. Always enable in production. |
-| `CORS_ORIGINS` | `string` | `*` | Comma-separated list of allowed CORS origins. Use `*` for development. Restrict to your specific domains in production (e.g., `https://cortex.yourdomain.com,https://app.yourdomain.com`). |
+| `ENVIRONMENT` | `string` | `development` | `production` makes startup fail fast on weak/default secrets (empty/`password123` `NEO4J_PASSWORD`, or `SESSION_SECRET` < 32 chars when `ADMIN_PASSWORD` is set). |
+| `CORS_ALLOWED_ORIGINS` | `string` | `*` | Comma-separated CORS allowlist. Default `*` (credentials disabled, since auth is header-based). Restrict to your domains in production. |
+| `EXPOSE_API_DOCS` | `string` | `auto` | Interactive API docs (`/docs`, `/redoc`, `/openapi.json`). `auto` = on in development, off in production. Set `true`/`false` to force. |
+| `ENCRYPTION_KEY` | `string` | -- | At-rest encryption for git PATs + skill secrets. Comma-separated Fernet keys (first encrypts, all decrypt). |
 
 ### Rate Limiting
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `RATE_LIMIT_REQUESTS` | `integer` | `100` | Maximum number of API requests per window per API key. |
-| `RATE_LIMIT_WINDOW` | `integer` | `60` | Rate limit window duration in seconds. |
+| `RATE_LIMIT_QPM` | `integer` | `0` | Per-API-key requests/minute on ask/upload endpoints (0 = off). Returns `429` + `Retry-After` on excess. |
+| `RATE_LIMIT_BURST` | `integer` | `10` | Token-bucket burst capacity for `RATE_LIMIT_QPM`. |
 
-### Audit Logging
+### Observability & Resilience
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `ENABLE_AUDIT_LOG` | `boolean` | -- | Enable audit logging for compliance. Logs API key usage, document operations, search queries, config changes, and auth events. |
-| `AUDIT_LOG_PATH` | `string` | `/var/log/moca/audit.log` | File path for audit log output. |
+| `LOG_FORMAT` | `string` | `plain` | `plain` keeps the legacy format; `json` emits structured lines with `request_id` (from/echoed as `X-Request-ID`). |
+| `METRICS_ENABLED` | `boolean` | `true` | Prometheus metrics at `GET /metrics` (admin API key required; not exposed through prod nginx). |
+| `HELPER_STRICT_REMOTE` | `boolean` | `false` | With `DOCLING_SERVICE_URL` set: conversion failure marks the document failed instead of falling back to local docling. |
+| `INSTANCE_ID` | `string` | hostname | Stack identity sent to cortex-helper (`X-Tenant-ID`) for fair queuing. |
+| `NEO4J_MAX_POOL_SIZE` | `integer` | `100` | Neo4j driver connection pool size. |
+| `NEO4J_CONNECTION_TIMEOUT` | `integer` | `10` | Neo4j TCP connect timeout (seconds). |
+| `NEO4J_CONNECTION_ACQUISITION_TIMEOUT` | `integer` | `60` | Max wait for a pooled connection (seconds). |
 
 ---
 
@@ -274,6 +321,71 @@ GPU-accelerated inference via the Compute3 platform. When enabled and a turbo jo
 | `COMPUTE3_MODEL` | `string` | `MiniMaxAI/MiniMax-M2.1` | Model to serve on the Compute3 GPU cluster. Supports open-source models like Llama, Mistral, etc. |
 | `COMPUTE3_DOCKER_IMAGE` | `string` | `vllm/vllm-openai:latest` | Docker image for the vLLM inference server running on Compute3. |
 | `COMPUTE3_DEFAULT_RUNTIME` | `integer` | `3600` | Default job runtime in seconds (maximum duration before auto-shutdown). |
+
+---
+
+## Re-ranking Lifecycle & Shared Model Services
+
+The local cross-encoder pulls ~780 MB into the process. Lazy-loaded by default; offload to a shared `cortex-helper` service to keep many tenant stacks lean.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `RERANKER_PRELOAD` | `boolean` | `false` | Eager-load the cross-encoder at startup. Off = lazy, leaner idle instances. |
+| `RERANKER_IDLE_TTL_SECONDS` | `integer` | `1800` | Unload idle reranker to reclaim ~1 GB. `0` = never unload. |
+| `RERANKER_SERVICE_URL` | `string` | -- | Offload reranking to cortex-helper (no local cross-encoder loaded when set). |
+| `DOCLING_SERVICE_URL` | `string` | -- | Offload Docling conversion to cortex-helper's warm service. |
+| `HELPER_SERVICE_TOKEN` | `string` | -- | Shared secret → `X-Helper-Token` (match helper's `HELPER_TOKEN`). |
+
+---
+
+## Git Integration (Optional)
+
+Connect GitHub/GitLab/Gitea repositories as a knowledge source; optionally let the agent open pull requests.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ENABLE_GIT_INTEGRATION` | `boolean` | `false` | Master switch (connector, endpoints, scheduler, agent `git_repo` tool). |
+| `GIT_WORK_DIR` | `string` | `./git_repos` | Where clone working copies are cached (mount a volume in production). |
+| `GIT_CLONE_DEPTH` | `integer` | `1` | Shallow-clone depth. |
+| `GIT_MAX_REPO_SIZE_MB` | `integer` | `500` | Abort a sync above this repo size (0 = unlimited). |
+| `GIT_SYNC_MAX_FILE_SIZE_MB` | `integer` | `5` | Skip individual files larger than this (0 = no limit). |
+| `GIT_SYNC_POLL_INTERVAL` | `integer` | `5` | Minutes between scheduled-sync checks. |
+| `GIT_HTTP_TIMEOUT` | `integer` | `30` | Timeout (seconds) for git provider REST calls. |
+| `GIT_HTTP_INSECURE_HOSTS` | `string` | -- | Comma-separated hosts allowed to skip TLS verification (self-hosted self-signed). |
+
+---
+
+## Web Import / Crawl4ai (Optional)
+
+Harvest web pages into clean markdown via a self-hosted crawl4ai service (MDHarvest).
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ENABLE_WEB_CRAWL` | `boolean` | `false` | Master switch — Web Import appears only when true AND `CRAWL_SERVICE_URL` is set. |
+| `CRAWL_SERVICE_URL` | `string` | -- | crawl4ai service base URL (e.g. `http://crawl4ai:11235`). Empty = feature off. |
+| `CRAWL_SERVICE_TOKEN` | `string` | -- | Optional bearer token (must match crawl4ai's `security.api_token`). |
+| `CRAWL_CONTENT_FILTER` | `string` | `fit` | Default content filter: `fit` (readable) \| `raw` (full page) \| `bm25` (ranked). |
+| `CRAWL_HTTP_TIMEOUT` | `integer` | `60` | Per-page crawl timeout (seconds). |
+| `CRAWL_CONCURRENCY` | `integer` | `5` | Concurrency within one import job. |
+| `CRAWL_MAX_URLS_PER_JOB` | `integer` | `100` | Maximum URLs accepted per import (0 = unlimited). |
+| `CRAWL_DISCOVER_MAX_LINKS` | `integer` | `200` | Cap on links returned by the Discover sub-flow. |
+
+---
+
+## Efficiency Flags (v-next)
+
+All default **off** (except `RESEARCHER_STABLE_PROMPT`); enable per stack after an A/B bench run. None change API shapes or graph semantics.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ENTITY_DEDUP_PREFILTER` | `boolean` | `false` | Levenshtein dedup scores only the top-50 fulltext-index candidates instead of scanning every entity. |
+| `ENABLE_BATCHED_KG_WRITES` | `boolean` | `false` | Write entities/links/relationships via UNWIND batches (~10 Neo4j round trips per doc). |
+| `ENABLE_BATCHED_CHUNK_RELATIONSHIPS` | `boolean` | `false` | Pack several chunks into one per-chunk relationship LLM call. |
+| `RELATIONSHIP_CHUNKS_PER_CALL` | `integer` | `4` | Max chunks per batched relationship-extraction call. |
+| `ENABLE_PHASEB_CHECKPOINTING` | `boolean` | `false` | Persist Phase B batch progress — crash/redeploy resumes. |
+| `ENABLE_REPROCESS_DELTA` | `boolean` | `false` | Skip reprocessing when file bytes + extraction config are unchanged. |
+| `RESEARCHER_STABLE_PROMPT` | `boolean` | `true` | Keep the researcher system prompt byte-stable for provider prefix-cache hits. |
+| `ENABLE_PROMPT_CACHE_CONTROL` | `boolean` | `false` | Anthropic `cache_control` breakpoints when routed via OpenRouter to `anthropic/*` models. |
 
 ---
 

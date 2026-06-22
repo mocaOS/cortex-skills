@@ -7,15 +7,17 @@ description: Use this skill when implementing authentication, managing API keys,
 
 ## What You Probably Got Wrong
 
-1. **Authentication is X-API-Key header, not Bearer tokens or OAuth.** Every request (except `GET /health`) must include `X-API-Key: {your_key}` in the header.
+1. **Two header styles work: `X-API-Key` or `Authorization: Bearer`.** Every request (except `GET /health`) must authenticate. `X-API-Key: {your_key}` is canonical; `Authorization: Bearer {your_key}` is also accepted. There is no OAuth.
 
-2. **There are three permission tiers, not four.** The tiers are `read`, `manage`, and `admin`. The Cortex marketing site mentions four levels for clarity, but the actual API uses three: read (search, ask, list), manage (upload, delete, create), and admin (key management, system config).
+2. **Permissions are a list of four scopes, not tiers.** A key holds any combination of `read`, `write`, `delete`, and `admin`. Earlier docs called these "tiers" — the API model is an additive permission array: read (search, ask, list), write (upload, create collections), delete (delete documents/collections), admin (key management, system reset, config).
 
-3. **API key format has a prefix indicating permission level.** Read-only keys start with `moca_ro_`, read-write keys with `moca_rw_`. The admin key is set via environment variable, not created through the API.
+3. **API key format uses a `cortex_` prefix.** User keys start with `cortex_user_`; the admin key starts with `cortex_admin_` and is set via the `ADMIN_API_KEY` environment variable, not created through the API. (Older builds used a `moca_` prefix.)
 
-4. **Keys are hashed before storage.** The raw key is only shown once at creation time. Keys are SHA-256 hashed before being stored in Neo4j. You cannot retrieve a key after creation.
+4. **Keys are hashed before storage.** The raw key is only shown once at creation time. Keys are hashed before being stored in Neo4j. You cannot retrieve a key after creation — only its `key_prefix`.
 
-5. **Prompt injection protection is built-in**, not something you need to implement yourself. Set `PROMPT_SECURITY=true` and the backend handles pattern detection, input sanitization, and output filtering.
+5. **Keys can be scoped to specific collections.** A restricted key (`collection_scope: "restricted"` + `allowed_collections`) can only read/write the collections you list. New collections are never auto-granted to existing restricted keys.
+
+6. **Prompt injection protection is built-in**, not something you need to implement yourself. Set `PROMPT_SECURITY=true` and the backend handles pattern detection, input sanitization, and output filtering.
 
 ## Authentication Pattern
 
@@ -27,18 +29,47 @@ curl -X {METHOD} "{BASE_URL}/api/{endpoint}" \
   -H "Content-Type: application/json"
 ```
 
+Or with a Bearer token:
+
+```bash
+curl "{BASE_URL}/api/documents" \
+  -H "Authorization: Bearer {API_KEY}"
+```
+
 The only unauthenticated endpoint is:
 ```bash
 curl {BASE_URL}/health
 ```
 
-## Permission Tiers
+## Permissions
 
-| Tier | Prefix | Can Do |
-|------|--------|--------|
-| **read** | `moca_ro_` | Search, ask, list documents, stats, view graph, list collections |
-| **manage** | `moca_rw_` | Everything in read + upload, delete, create collections, move documents, reprocess |
-| **admin** | `moca_admin_` | Everything in manage + API key CRUD, system reset, config view |
+A key's `permissions` is an array of any combination of these scopes:
+
+| Permission | Can Do |
+|------------|--------|
+| **read** | Search, ask, list documents, stats, view graph, list collections |
+| **write** | Upload documents, create collections, move documents, reprocess |
+| **delete** | Delete documents and collections |
+| **admin** | Everything above + API key CRUD, system reset, config view |
+
+### Key Prefixes
+
+| Key type | Prefix | Created via |
+|----------|--------|-------------|
+| User key | `cortex_user_` | `POST /api/admin/api-keys` |
+| Admin key | `cortex_admin_` | `ADMIN_API_KEY` env var (at startup) |
+
+### Permission Checks per Endpoint
+
+| Endpoint | Required Permission |
+|----------|---------------------|
+| `GET /api/documents` | `read` |
+| `POST /api/search` | `read` |
+| `POST /api/ask` | `read` |
+| `POST /api/upload` | `write` |
+| `POST /api/collections` | `write` |
+| `DELETE /api/documents/*` | `delete` |
+| `POST /api/admin/api-keys` | `admin` |
 
 ## API Key Management
 
@@ -49,8 +80,9 @@ curl -X POST "{BASE_URL}/api/admin/api-keys" \
   -H "X-API-Key: {ADMIN_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "My Read-Only Key",
-    "permissions": ["read"]
+    "name": "Production App",
+    "permissions": ["read", "write"],
+    "expires_at": "2026-12-31T23:59:59Z"
   }'
 ```
 
@@ -58,14 +90,34 @@ Response (key shown only once):
 ```json
 {
   "id": "key_abc123",
-  "name": "My Read-Only Key",
-  "key": "moca_ro_a1b2c3d4e5f6...",
-  "key_prefix": "moca_ro_a1b2",
-  "permissions": ["read"],
-  "is_active": true,
-  "created_at": "2026-03-15T10:00:00Z"
+  "name": "Production App",
+  "key": "cortex_user_abc123xyz789",
+  "permissions": ["read", "write"],
+  "expires_at": "2026-12-31T23:59:59Z",
+  "created_at": "2026-03-15T10:30:00Z",
+  "message": "Store this key securely - it won't be shown again"
 }
 ```
+
+`expires_at` is optional (ISO 8601). Expired keys return `401 API key has expired`.
+
+### Create a collection-scoped (restricted) key
+
+Limit a key to specific collections for multi-tenancy:
+
+```bash
+curl -X POST "{BASE_URL}/api/admin/api-keys" \
+  -H "X-API-Key: {ADMIN_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Tenant A - Read Only",
+    "permissions": ["read"],
+    "collection_scope": "restricted",
+    "allowed_collections": ["coll_abc123"]
+  }'
+```
+
+Restricted keys get `403` when touching any collection (or its documents) not in `allowed_collections`. New collections are never auto-accessible to existing restricted keys. Update scope later via `PATCH /api/admin/api-keys/{key_id}` with `collection_scope` + `allowed_collections`.
 
 ### List all keys
 
@@ -163,19 +215,14 @@ When an attack is detected:
 
 ## Rate Limiting
 
-The API returns rate limit headers:
+Per-API-key rate limiting on the ask/upload endpoints is off by default. Enable it with a token-bucket limiter:
 
-```
-X-RateLimit-Limit: 100
-X-RateLimit-Remaining: 95
-X-RateLimit-Reset: 1705329600
-```
-
-Configure via:
 ```bash
-RATE_LIMIT_REQUESTS=100
-RATE_LIMIT_WINDOW=60   # seconds
+RATE_LIMIT_QPM=0      # requests/minute per API key (0 = off)
+RATE_LIMIT_BURST=10   # token-bucket burst capacity
 ```
+
+When exceeded, the API returns `429 Too Many Requests` with a `Retry-After` header.
 
 ## API Usage Tracking
 
@@ -188,12 +235,24 @@ curl "{BASE_URL}/api/admin/api-keys/{key_id}" \
 
 Response includes `last_used_at` and usage statistics by endpoint category.
 
+## Deployment Hardening
+
+```bash
+ENVIRONMENT=production            # fail fast on weak/default secrets at startup
+CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
+EXPOSE_API_DOCS=auto              # auto = docs on in dev, OFF in production
+```
+
+With `ENVIRONMENT=production`, startup refuses to boot if `NEO4J_PASSWORD` is empty or the default `password123`, or if `SESSION_SECRET` is shorter than 32 characters while `ADMIN_PASSWORD` is set. `CORS_ALLOWED_ORIGINS` defaults to `*` (credentials disabled, since auth is header-based) — set an explicit allowlist in production. Interactive API docs (`/docs`, `/redoc`, `/openapi.json`) auto-disable in production so a directly-exposed backend doesn't leak its schema; force with `EXPOSE_API_DOCS=true`/`false`.
+
+Set `ENCRYPTION_KEY` (comma-separated Fernet keys; first encrypts, all decrypt) to encrypt git PATs and skill secrets at rest.
+
 ## Security Best Practices
 
-1. **Use the strongest key you need, no more.** Read-only for search/ask, manage for upload/delete, admin only for key management.
+1. **Use the least privilege you need.** `read` for search/ask, add `write`/`delete` only where required, `admin` only for key management. Scope keys to collections for multi-tenancy.
 2. **Rotate keys regularly.** Create a new key, update your integrations, revoke the old one.
 3. **Set `PROMPT_SECURITY=true`** in production. Always.
-4. **Restrict `CORS_ORIGINS`** to your specific domains in production.
+4. **Set `ENVIRONMENT=production`** and an explicit `CORS_ALLOWED_ORIGINS` allowlist.
 5. **Block Neo4j ports** (7474, 7687) from public access.
 6. **Use HTTPS** via reverse proxy (nginx/Caddy).
 7. **Set strong `SESSION_SECRET`** (32+ characters, randomly generated).
