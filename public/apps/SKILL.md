@@ -1,6 +1,6 @@
 ---
 name: apps
-description: Use this skill when working with the Cortex app ecosystem — browsing available apps, understanding source vs workflow apps, launching integrations, or requesting custom app development. Covers all available apps, pricing, and the app architecture.
+description: Use this skill when working with the Cortex app ecosystem — browsing available apps, understanding source vs workflow apps, launching integrations, or requesting custom app development. Covers all available apps, plan availability, and the app architecture.
 ---
 
 # Apps — Extend Your Knowledge Graph with Source and Workflow Apps
@@ -11,9 +11,9 @@ description: Use this skill when working with the Cortex app ecosystem — brows
 
 2. **There are two categories.** Source apps ingest knowledge from external platforms into your graph. Workflow apps provide better UIs and integrations on top of your existing graph.
 
-3. **Free apps are included on every plan.** You do not need a paid plan to use the Web Crawler or Research Dashboard. Premium apps are one-time purchases (not subscriptions).
+3. **Free apps are included on every plan.** You do not need a paid plan to use the Web Crawler or Research Dashboard. Premium apps are purchased individually (not subscriptions).
 
-4. **Business tier includes all premium apps.** If you are on the Business plan ($249/mo), every premium app is already unlocked.
+4. **Business tier includes all premium apps.** If you are on the Business plan, every premium app is already unlocked.
 
 5. **Custom apps are built by the Cortex team, not community-developed.** You describe what you need, receive a quote, and the team builds it for your specific requirements.
 
@@ -113,14 +113,14 @@ Features:
 - Request history
 - Code generation (curl, Python, JavaScript)
 
-## Pricing by Plan
+## App Availability by Plan
 
 | Plan | Free Apps | Premium Apps |
 |------|-----------|-------------|
-| Free ($0/mo) | Included | Purchase individually |
-| Individual ($19/mo) | Included | Purchase individually |
-| Enthusiast ($79/mo) | Included | Select premium apps included |
-| Business ($249/mo) | Included | All premium apps included |
+| Free (7-day trial) | Included | Purchase individually |
+| Individual | Included | Purchase individually |
+| Enthusiast | Included | Select premium apps included |
+| Business | Included | All premium apps included |
 | Enterprise (Custom) | Included | All premium apps included |
 
 ## Custom App Development
@@ -171,7 +171,7 @@ for result in results:
 
 | File | Description |
 |------|-------------|
-| [references/CATALOG.md](references/CATALOG.md) | Full app catalog and pricing details |
+| [references/CATALOG.md](references/CATALOG.md) | Full app catalog and plan availability |
 
 ## Resources
 

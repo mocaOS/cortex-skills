@@ -23,7 +23,7 @@ Apps are **standalone services** that interact with your Cortex instance via the
 |---|---|
 | **Category** | Source |
 | **Price** | Premium (one-time purchase) |
-| **Plans included** | Business ($249/mo), Enterprise |
+| **Plans included** | Business, Enterprise |
 
 **Description:** Paste a YouTube channel URL and Cortex transcribes every video, converts transcripts to structured markdown, and feeds them into your knowledge graph via the upload API. Hours of video become queryable knowledge in minutes.
 
@@ -82,7 +82,7 @@ Apps are **standalone services** that interact with your Cortex instance via the
 |---|---|
 | **Category** | Source |
 | **Price** | Premium (one-time purchase) |
-| **Plans included** | Business ($249/mo), Enterprise |
+| **Plans included** | Business, Enterprise |
 
 **Description:** Two-way sync between your Notion workspace and your Cortex knowledge graph. Pages, databases, and documents flow seamlessly between both systems.
 
@@ -112,7 +112,7 @@ Apps are **standalone services** that interact with your Cortex instance via the
 |---|---|
 | **Category** | Source |
 | **Price** | Premium (one-time purchase) |
-| **Plans included** | Business ($249/mo), Enterprise |
+| **Plans included** | Business, Enterprise |
 
 **Description:** Import entire Slack channel histories into your knowledge graph. Conversations, decisions, and institutional knowledge become searchable and connected through entity extraction.
 
@@ -184,20 +184,21 @@ Apps are **standalone services** that interact with your Cortex instance via the
 
 ---
 
-## Pricing by Plan
+## App Availability by Plan
 
-| Plan | Monthly Cost | Free Apps | Premium Apps |
-|------|-------------|-----------|--------------|
-| **Free** | $0/mo | All included | Purchase individually |
-| **Individual** | $19/mo | All included | Purchase individually |
-| **Enthusiast** | $79/mo | All included | Select premium apps included |
-| **Business** | $249/mo | All included | All premium apps included |
-| **Enterprise** | Custom | All included | All premium apps included |
+| Plan | Free Apps | Premium Apps |
+|------|-----------|--------------|
+| **Free** (7-day trial) | All included | Purchase individually |
+| **Individual** | All included | Purchase individually |
+| **Enthusiast** | All included | Select premium apps included |
+| **Business** | All included | All premium apps included |
+| **Enterprise** | All included | All premium apps included |
 
 **Key points:**
 
 - Free apps (Web Crawler, Research Dashboard, API Playground) are available on every plan at no additional cost.
-- Premium apps (YouTube Channel Importer, Notion Sync, Slack Archive Importer) are one-time purchases, not subscriptions.
+- The Free plan is a 7-day trial; after that, upgrade to Individual (or higher) to keep your instance running.
+- Premium apps (YouTube Channel Importer, Notion Sync, Slack Archive Importer) are purchased individually, not as subscriptions.
 - Business and Enterprise plans include all premium apps automatically.
 
 ---
