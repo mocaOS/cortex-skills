@@ -6,22 +6,23 @@ Exhaustive list of supported file formats, processing behavior, size limits, and
 
 ## Format Table
 
-| Category      | Format      | Extensions                  | Extraction Method                          | Vision Analysis          |
-|---------------|-------------|-----------------------------|--------------------------------------------|--------------------------|
-| Documents     | PDF         | `.pdf`                      | Docling with layout preservation; pypdf fallback for large files; PyPdfium fallback for memory-constrained scenarios | Yes: embedded images, charts, diagrams |
-| Documents     | Word        | `.docx`                     | Docling XML extraction                     | Yes: embedded images     |
-| Documents     | PowerPoint  | `.pptx`                     | Docling extraction                         | Yes: charts, diagrams, images |
-| Documents     | Excel       | `.xlsx`                     | Docling extraction                         | Yes: embedded images     |
-| Documents     | Plain Text  | `.txt`                      | Direct text ingestion                      | N/A                      |
-| Documents     | Markdown    | `.md`                       | Direct ingestion; preserves headers, code blocks, formatting | N/A                      |
-| Markup        | HTML        | `.html`                     | Text extraction with tag stripping         | N/A                      |
-| Markup        | XML         | `.xml`                      | Text extraction                            | N/A                      |
-| Markup        | LaTeX       | `.tex`, `.latex`            | Text extraction                            | N/A                      |
-| Images        | PNG         | `.png`                      | Vision model or OCR                        | Yes (primary content)    |
-| Images        | JPEG        | `.jpg`, `.jpeg`             | Vision model or OCR                        | Yes (primary content)    |
-| Images        | TIFF        | `.tiff`, `.tif`             | Vision model or OCR                        | Yes (primary content)    |
-| Images        | BMP         | `.bmp`                      | Vision model or OCR                        | Yes (primary content)    |
-| Audio         | Audio files | Supported extensions        | Transcription-based extraction             | N/A                      |
+| Category      | Format      | Extensions                        | Extraction Method                          | Vision Analysis          |
+|---------------|-------------|-----------------------------------|--------------------------------------------|--------------------------|
+| Documents     | PDF         | `.pdf`                            | Docling with layout preservation; PyPdfium backend fallback for large/memory-constrained files (page count via pypdf) | Yes: embedded images, charts, diagrams |
+| Documents     | Word        | `.docx`, `.doc`                   | Docling XML extraction                     | Yes: embedded images     |
+| Documents     | PowerPoint  | `.pptx`, `.ppt`                   | Docling extraction                         | Yes: charts, diagrams, images |
+| Documents     | Excel       | `.xlsx`, `.xls`                   | Docling extraction                         | Yes: embedded images     |
+| Documents     | Plain Text  | `.txt`                            | Direct text ingestion                      | N/A                      |
+| Documents     | Markdown    | `.md`, `.mdx`, `.markdown`        | Direct ingestion; preserves headers, code blocks, formatting | N/A                      |
+| Documents     | reStructuredText | `.rst`                       | Text extraction                            | N/A                      |
+| Markup        | HTML        | `.html`, `.htm`                   | Text extraction with tag stripping         | N/A                      |
+| Markup        | XML         | `.xml`                            | Text extraction                            | N/A                      |
+| Markup        | LaTeX       | `.tex`, `.latex`                  | Text extraction                            | N/A                      |
+| Images        | PNG         | `.png`                            | Vision model or OCR                        | Yes (primary content)    |
+| Images        | JPEG        | `.jpg`, `.jpeg`                   | Vision model or OCR                        | Yes (primary content)    |
+| Images        | TIFF        | `.tiff`, `.tif`                   | Vision model or OCR                        | Yes (primary content)    |
+| Images        | BMP         | `.bmp`                            | Vision model or OCR                        | Yes (primary content)    |
+| Audio         | Audio (ASR) | `.wav`, `.mp3`, `.webvtt`, `.vtt` | Transcription-based extraction             | N/A                      |
 
 ---
 
@@ -45,7 +46,7 @@ Exhaustive list of supported file formats, processing behavior, size limits, and
 - Lightweight page counting via pypdf before conversion
 - Fallback to PyPdfium for large files when Docling encounters memory constraints
 - Embedded images extracted and analyzed when vision model is configured
-- Without vision model: Docling's built-in SmolDocling generates basic image descriptions (`do_picture_description=True`)
+- Without vision model: Docling's built-in picture-description model generates basic image descriptions (`do_picture_description=True`)
 - OCR via Tesseract for scanned documents
 - System dependencies required: X11 libraries, Tesseract OCR (included in Docker image)
 
@@ -96,7 +97,7 @@ Exhaustive list of supported file formats, processing behavior, size limits, and
 ### Images (PNG, JPG, TIFF, BMP)
 
 - When `VISION_MODEL` is configured: full vision model analysis (object identification, OCR, chart interpretation, context understanding)
-- When `VISION_MODEL` is not set: Docling's built-in SmolDocling description, or basic OCR via EasyOCR/Tesseract
+- When `VISION_MODEL` is not set: Docling's built-in picture-description model, or basic OCR via EasyOCR/Tesseract
 - Image chunks stored with `chunk_index` starting at 1000 and `type: image_analysis`
 
 ### Audio
@@ -108,7 +109,7 @@ Exhaustive list of supported file formats, processing behavior, size limits, and
 
 ## Vision Model Configuration
 
-Image analysis activates only when `VISION_MODEL` is set. Without it, images use Docling's built-in SmolDocling or basic OCR.
+Image analysis activates only when `VISION_MODEL` is set. Without it, images use Docling's built-in picture-description model or basic OCR.
 
 | Variable                  | Required | Default              | Description                                       |
 |---------------------------|----------|----------------------|---------------------------------------------------|
@@ -129,7 +130,7 @@ Image analysis activates only when `VISION_MODEL` is set. Without it, images use
 ### Image Analysis Fallback Chain
 
 1. **Vision model** (if `VISION_MODEL` is configured) -- detailed analysis with object identification, OCR, chart/diagram interpretation
-2. **Docling SmolDocling** (always available) -- basic image classification and simple descriptions, generated during conversion via `do_picture_description=True`
+2. **Docling's built-in picture-description model** (always available) -- basic image classification and simple descriptions, generated during conversion via `do_picture_description=True`
 3. **Basic metadata** -- page number and caption only
 
 ### Performance

@@ -65,26 +65,33 @@ Returns all entity nodes and relationship edges for graph rendering.
     {"id": "ent_2", "label": "GPT-4", "type": "Technology"}
   ],
   "edges": [
-    {"source": "ent_1", "target": "ent_2", "type": "CREATED"}
+    {"source": "ent_1", "target": "ent_2", "type": "CREATED_BY", "description": "...", "weight": 9}
   ]
 }
 ```
+
+Node `id` and `label` are both the entity name (the graph is keyed by name, not a synthetic id).
 
 **Node object:**
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `id` | string | Entity ID (e.g., `ent_1`) |
-| `label` | string | Display name of the entity |
+| `id` | string | Entity name (used as the node identifier) |
+| `label` | string | Display name of the entity (same as `id`) |
 | `type` | string | One of the 10 entity types |
+| `description` | string | LLM-generated description |
+| `community_id` | string \| null | Community the entity belongs to, if assigned |
+| `mention_count` | integer | Number of chunk mentions |
 
 **Edge object:**
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `source` | string | Source entity ID |
-| `target` | string | Target entity ID |
+| `source` | string | Source entity name |
+| `target` | string | Target entity name |
 | `type` | string | One of the 14 relationship types |
+| `description` | string | LLM-generated description of the relationship |
+| `weight` | float | Strength score (0-10) |
 
 ---
 
@@ -114,50 +121,49 @@ curl "{BASE_URL}/api/graph/entities?search=neural&type=Concept&limit=20" \
   -H "X-API-Key: {API_KEY}"
 ```
 
-### GET /api/graph/entities/{entity_id}
+### GET /api/graph/entity/{entity_name}
 
-Get full details for a single entity by ID.
+Get details about a single entity and its relationships. Entities are keyed by **name** (URL-encoded), not by a synthetic id — there is no id-based entity endpoint.
 
 **Path parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `entity_id` | string | Entity ID (e.g., `ent_abc123`) |
+| `entity_name` | string | Entity name, URL-encoded (e.g., `OpenAI`, `Machine%20Learning`) |
 
-**Response:**
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `max_hops` | integer | 2 | Traversal depth for related context (1-3) |
+
+```bash
+curl "{BASE_URL}/api/graph/entity/OpenAI" \
+  -H "X-API-Key: {API_KEY}"
+```
+
+**Response** (traversal context — `entities`, `relationships`, and `chunks`):
 
 ```json
 {
-  "id": "ent_abc123",
-  "name": "OpenAI",
-  "type": "Organization",
-  "description": "AI research company",
-  "mention_count": 45,
-  "related_documents": ["doc_1", "doc_2", "doc_3"],
+  "entities": [
+    {"name": "OpenAI", "type": "Organization", "description": "AI research company", "community_id": "comm_1"}
+  ],
   "relationships": [
-    {"target": "GPT-4", "type": "CREATED"},
-    {"target": "ChatGPT", "type": "CREATED"},
-    {"target": "Sam Altman", "type": "LED_BY"}
-  ]
+    {"source": "OpenAI", "target": "GPT-4", "type": "CREATED_BY", "description": "...", "weight": 9}
+  ],
+  "chunks": []
 }
 ```
 
-| Field | Type | Description |
-|-------|------|-------------|
-| `id` | string | Entity ID |
-| `name` | string | Canonical entity name |
-| `type` | string | Entity type |
-| `description` | string | LLM-generated description |
-| `mention_count` | integer | Number of chunk mentions |
-| `related_documents` | string[] | Document IDs where entity appears |
-| `relationships` | object[] | Direct relationships to other entities |
+Returns `404` if the entity name is not found.
 
-### GET /api/graph/entities/{entity_id}/relationships
+### GET /api/graph/entity/{entity_name}/relationships
 
-Get all relationships for a specific entity.
+Get an entity and all its relationships up to `max_depth` hops. See [Multi-Hop Traversal](#multi-hop-traversal) below for the full parameter and response reference.
 
 ```bash
-curl "{BASE_URL}/api/graph/entities/ent_abc123/relationships" \
+curl "{BASE_URL}/api/graph/entity/OpenAI/relationships" \
   -H "X-API-Key: {API_KEY}"
 ```
 
@@ -205,7 +211,7 @@ Trigger Phase B cross-document relationship analysis as a background task. Disco
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `collection_id` | string | `"default"` | Target collection |
-| `mode` | string | `"incremental"` | `"incremental"` builds on existing relationships; `"rebuild"` deletes batch-analysis relationships (preserving per-chunk) and re-analyzes |
+| `mode` | string | `"incremental"` | `"incremental"` builds on existing relationships; `"rebuild"` deletes cross-document Phase B relationships (`extraction_method != 'per_chunk'`, preserving per-chunk) and re-analyzes |
 
 **Response:**
 
@@ -227,7 +233,7 @@ Track progress via `GET /api/tasks/{task_id}`.
 | `description` | string | LLM-generated description of the relationship |
 | `weight` | float | Strength score (0-10) |
 | `confidence` | float | LLM confidence score (0.0-1.0), only for Phase B relationships |
-| `extraction_method` | string | `"per_chunk"` (Phase A) or `"batch_analysis"` (Phase B) |
+| `extraction_method` | string | `"per_chunk"` (Phase A), `"cross_collection"` (Phase B, default `targeted` mode) or `"batch_analysis"` (Phase B, legacy `llm_scan` mode) |
 | `extracted_at` | datetime | When the relationship was extracted |
 | `source_document_id` | string | Source document for per-chunk relationships |
 
@@ -237,33 +243,28 @@ Track progress via `GET /api/tasks/{task_id}`.
 
 ### POST /api/graph/subgraph
 
-Get a subgraph centered on a specific entity, traversing outward to a configurable depth.
+Get the subgraph connecting a set of named entities. The request body is a **bare JSON array** of entity names (not an object).
 
-**Request body:**
-
-```json
-{
-  "entity_name": "Machine Learning",
-  "max_depth": 2,
-  "limit": 50
-}
-```
-
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `entity_name` | string | **required** | Starting entity name |
-| `max_depth` | integer | 2 | Maximum traversal hops from starting entity |
-| `limit` | integer | 50 | Maximum total nodes to return |
-
-**Alternative form** (from SKILL.md style, multiple entities):
+**Request body:** a JSON array of entity names (`entity_names: List[str]`).
 
 ```json
-{
-  "entity_names": ["OpenAI", "GPT-4", "Sam Altman"]
-}
+["OpenAI", "GPT-4", "Sam Altman"]
 ```
 
-Returns the subgraph connecting the specified entities with intermediate nodes and edges.
+**Query parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `include_connections` | boolean | `true` | Also include bridging entities that connect the specified entities |
+
+```bash
+curl -X POST "{BASE_URL}/api/graph/subgraph?include_connections=true" \
+  -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '["OpenAI", "GPT-4", "Sam Altman"]'
+```
+
+Returns `{ "nodes": [...], "edges": [...] }` for the subgraph connecting the specified entities.
 
 ---
 
@@ -280,7 +281,7 @@ Fuzzy search across entity names using the full-text index. This is case-insensi
 | `q` | string | Search query |
 
 ```bash
-curl "{BASE_URL}/api/graph/search?q=open" \
+curl "{BASE_URL}/api/graph/search?query=open" \
   -H "X-API-Key: {API_KEY}"
 ```
 
@@ -403,35 +404,52 @@ Remove orphaned entities (entities not mentioned by any document) and orphaned c
 
 ## Multi-Hop Traversal
 
-### GET /api/graph/entity/{name}/relationships
+### GET /api/graph/entity/{entity_name}/relationships
 
-Traverse entity relationships to configurable depth.
+Traverse an entity's relationships to a configurable depth. Keyed by entity **name** (URL-encoded).
 
 **Path parameters:**
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `name` | string | Entity name (case-sensitive) |
+| `entity_name` | string | Entity name, URL-encoded (case-sensitive) |
 
 **Query parameters:**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `max_hops` | integer | 1 | Traversal depth (1-3) |
+| `max_depth` | integer | 2 | Traversal depth (1-3) |
+| `limit` | integer | 50 | Maximum relationships to return (1-200) |
 
 ```bash
-# Direct relationships
-curl "{BASE_URL}/api/graph/entity/OpenAI/relationships?max_hops=1" \
+# Default (2 hops)
+curl "{BASE_URL}/api/graph/entity/OpenAI/relationships" \
   -H "X-API-Key: {API_KEY}"
 
-# 2 hops
-curl "{BASE_URL}/api/graph/entity/OpenAI/relationships?max_hops=2" \
+# 1 hop (direct relationships only)
+curl "{BASE_URL}/api/graph/entity/OpenAI/relationships?max_depth=1" \
   -H "X-API-Key: {API_KEY}"
 
 # Maximum depth
-curl "{BASE_URL}/api/graph/entity/OpenAI/relationships?max_hops=3" \
+curl "{BASE_URL}/api/graph/entity/OpenAI/relationships?max_depth=3&limit=100" \
   -H "X-API-Key: {API_KEY}"
 ```
+
+**Response:**
+
+```json
+{
+  "entity": {"name": "OpenAI", "type": "Organization", "description": "...", "community_id": "comm_1", "mention_count": 45},
+  "related_entities": [
+    {"name": "GPT-4", "type": "Technology", "description": "...", "community_id": "comm_1"}
+  ],
+  "relationships": [
+    {"source": "OpenAI", "target": "GPT-4", "type": "CREATED_BY", "description": "...", "weight": 9}
+  ]
+}
+```
+
+Returns `404` if the entity name is not found.
 
 ---
 
@@ -472,8 +490,9 @@ All environment variables that affect Graph API behavior:
 | `RELATIONSHIP_MAX_CONTEXT` | `65536` | Max input context for Phase B batching |
 | `RELATIONSHIP_MAX_OUTPUT_TOKENS` | `16000` | Max output tokens for Phase B LLM responses |
 | `PARALLEL_RELATIONSHIP_BATCHES` | `5` | Batches processed in parallel during Phase B |
-| `RELATIONSHIP_TARGET_RATIO` | `1.0` | Target entity-to-relationship ratio (ERR) |
-| `RELATIONSHIP_MAX_ROUNDS` | `3` | Max discovery rounds per batch (initial analysis) |
+| `RELATIONSHIP_DISCOVERY_MODE` | `targeted` | Phase B engine: `targeted` (kNN + co-mention candidates, LLM verifies pairs — default) or `llm_scan` (legacy batch scan) |
+| `RELATIONSHIP_TARGET_RATIO` | `1.0` | Target entity-to-relationship ratio (ERR) — legacy `llm_scan` mode only |
+| `RELATIONSHIP_MAX_ROUNDS` | `3` | Max discovery rounds per batch — legacy `llm_scan` mode only (targeted mode is single-pass) |
 | `RELATIONSHIP_MAX_HOURS` | `0` | Max hours for relationship analysis (0 = no limit) |
 | `RELATIONSHIP_MAX_PER_ENTITY` | `50` | Soft cap on relationships per entity (0 = no cap) |
 | `AUTO_RELATIONSHIP_ANALYSIS_AFTER_BATCH` | `false` | Auto-trigger Phase B after batch processing |

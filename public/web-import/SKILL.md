@@ -9,7 +9,7 @@ description: Use this skill when importing web pages into Cortex as clean markdo
 
 1. **Cortex does not embed its own browser.** Web Import (MDHarvest) calls a separate [crawl4ai](https://github.com/unclecode/crawl4ai) service over HTTP. You run crawl4ai once and point Cortex at it via `CRAWL_SERVICE_URL`.
 
-2. **The feature is hidden unless both the switch AND the service URL are set.** The Web Import option appears on the **Add Knowledge** page only when `ENABLE_WEB_CRAWL=true` AND `CRAWL_SERVICE_URL` is set.
+2. **The feature is hidden unless both the switch AND the service URL are set.** The Web Import option appears in the split **Upload** button dropdown on the **Documents** page only when `ENABLE_WEB_CRAWL=true` AND `CRAWL_SERVICE_URL` is set.
 
 3. **Imported pages become real documents.** Harvested markdown is chunked, embedded, and run through entity/relationship extraction like any uploaded file — it shows up in Search, Ask AI, the knowledge graph, and communities.
 
@@ -37,7 +37,7 @@ When `CRAWL_SERVICE_TOKEN` is set, Cortex sends it as `Authorization: Bearer …
 docker run -d --name crawl4ai \
   -p 11235:11235 \
   --shm-size=1g \
-  unclecode/crawl4ai:0.7.4
+  unclecode/crawl4ai:0.9.0   # Cortex targets crawl4ai 0.9.0 or newer
 ```
 
 Then in the Cortex backend `.env`:
@@ -52,7 +52,7 @@ It uses a headless browser pool (~4 GB RAM). A single instance can serve many Co
 
 ## Using Web Import
 
-1. Open the **Add Knowledge** page and select **Web Import**.
+1. On the **Documents** page, open the split **Upload** button dropdown and select **Web Import** to open the Web Import modal.
 2. **Discover links** (optional) — enter a single page URL; Cortex returns same-site links with checkboxes so you can pick which to import.
 3. Choose a **content filter** (see below).
 4. Optionally select a collection.

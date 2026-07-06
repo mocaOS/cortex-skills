@@ -9,7 +9,7 @@ description: Use this skill when working with background tasks in Cortex — pol
 
 1. **Tasks are not created directly.** They are spawned by other operations — community detection, community summarization, cross-document relationship analysis, and bulk document processing. You poll and manage them, but you don't create them.
 
-2. **Task results are only available when status is `completed`.** Calling `GET /api/tasks/{id}/result` on a `running` task returns nothing useful.
+2. **Task results are only available when status is `completed`.** Calling `GET /api/tasks/{id}/result` on a still-running task returns HTTP `202 Accepted` (with the current status), not the result. Poll until it returns `200`.
 
 3. **Cancel uses DELETE, not POST.** To cancel a running task: `DELETE /api/tasks/{task_id}`.
 
@@ -53,8 +53,8 @@ Response:
   "status": "running",
   "progress_percent": 65,
   "message": "Analyzing graph structure...",
-  "created_at": "2026-03-15T10:30:00Z",
-  "updated_at": "2026-03-15T10:31:15Z"
+  "started_at": "2026-03-15T10:30:00Z",
+  "completed_at": null
 }
 ```
 

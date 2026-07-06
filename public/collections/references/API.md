@@ -17,16 +17,16 @@ X-API-Key: your-api-key
 | Method | Endpoint | Permission | Description |
 |--------|----------|------------|-------------|
 | `GET` | `/api/collections` | `read` | List all collections |
-| `POST` | `/api/collections` | `write` | Create a collection |
+| `POST` | `/api/collections` | `manage` | Create a collection |
 | `GET` | `/api/collections/{collection_id}` | `read` | Get collection details |
-| `PUT` | `/api/collections/{collection_id}` | `write` | Update a collection |
-| `DELETE` | `/api/collections/{collection_id}` | `delete` | Delete a collection |
-| `POST` | `/api/collections/{collection_id}/documents/{document_id}` | `write` | Add a document to a collection |
+| `PUT` | `/api/collections/{collection_id}` | `manage` | Update a collection |
+| `DELETE` | `/api/collections/{collection_id}` | `manage` | Delete a collection |
+| `POST` | `/api/collections/{collection_id}/documents/{document_id}` | `manage` | Add a document to a collection |
 | `GET` | `/api/collections/{collection_id}/entities` | `read` | Get entities in a collection |
 | `GET` | `/api/graph/visualization?collection_id={id}` | `read` | Get collection knowledge graph |
-| `POST` | `/api/documents/move` | `write` | Move documents between collections |
+| `POST` | `/api/documents/move` | `manage` | Move documents between collections |
 | `GET` | `/api/documents?collection_id={id}` | `read` | List documents in a collection |
-| `POST` | `/api/upload?collection_id={id}` | `write` | Upload directly to a collection |
+| `POST` | `/api/upload?collection_id={id}` | `manage` | Upload directly to a collection |
 
 ---
 
@@ -452,7 +452,7 @@ Collection scoping works identically in both Chat and Deep Research modes. When 
 
 ```json
 {
-  "detail": "Permission 'write' required for this operation"
+  "detail": "Insufficient permissions: MANAGE access required"
 }
 ```
 
@@ -748,13 +748,13 @@ await fetch(`${BASE_URL}/api/collections/${newCol.id}`, {
 | Endpoint | Required Permission |
 |----------|---------------------|
 | `GET /api/collections` | `read` |
-| `POST /api/collections` | `write` |
+| `POST /api/collections` | `manage` |
 | `GET /api/collections/{id}` | `read` |
-| `PUT /api/collections/{id}` | `write` |
-| `DELETE /api/collections/{id}` | `delete` |
-| `POST /api/collections/{id}/documents/{doc_id}` | `write` |
+| `PUT /api/collections/{id}` | `manage` |
+| `DELETE /api/collections/{id}` | `manage` |
+| `POST /api/collections/{id}/documents/{doc_id}` | `manage` |
 | `GET /api/collections/{id}/entities` | `read` |
-| `POST /api/documents/move` | `write` |
-| `POST /api/upload?collection_id={id}` | `write` |
+| `POST /api/documents/move` | `manage` |
+| `POST /api/upload?collection_id={id}` | `manage` |
 | `POST /api/search` (with `collection_id`) | `read` |
 | `POST /api/ask` (with `collection_id`) | `read` |

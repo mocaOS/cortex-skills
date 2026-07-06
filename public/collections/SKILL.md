@@ -11,7 +11,7 @@ description: Use this skill when organizing documents into collections in Cortex
 
 2. **Documents can only belong to one collection at a time.** Use the move endpoint to transfer documents between collections. Moving a document re-scopes its entities.
 
-3. **You scope queries by passing `collection_id` in the request body**, not as a URL parameter. This applies to both `/api/search` and `/api/ask`.
+3. **How you scope queries depends on the endpoint.** For `/api/ask` (and its streaming variants), pass `collection_id` as a top-level field in the request body. For `/api/search`, `collection_id` lives *inside* the `filters` object (`filters.collection_id`) — there is no top-level `collection_id` on the search request.
 
 4. **The default collection is implicit.** Documents uploaded without a `collection_id` go into a default/uncategorized pool. They are searchable globally but not scoped to any collection.
 
@@ -28,16 +28,19 @@ curl "{BASE_URL}/api/collections" \
 
 Response:
 ```json
-[
-  {
-    "id": "col_abc123",
-    "name": "Q4 Reports",
-    "description": "All quarterly reports for Q4 2025",
-    "created_at": "2026-01-15T10:00:00Z",
-    "document_count": 12,
-    "entity_count": 245
-  }
-]
+{
+  "collections": [
+    {
+      "id": "col_abc123",
+      "name": "Q4 Reports",
+      "description": "All quarterly reports for Q4 2025",
+      "created_at": "2026-01-15T10:00:00Z",
+      "document_count": 12,
+      "entity_count": 245
+    }
+  ],
+  "total": 1
+}
 ```
 
 ### Create a collection
@@ -101,7 +104,7 @@ curl -X POST "{BASE_URL}/api/upload?collection_id={collection_id}" \
 
 ## Search Within a Collection
 
-Pass `collection_id` in the search request body:
+Pass `collection_id` inside the `filters` object in the search request body (not as a top-level field):
 
 ```bash
 curl -X POST "{BASE_URL}/api/search" \
@@ -110,7 +113,7 @@ curl -X POST "{BASE_URL}/api/search" \
   -d '{
     "query": "deployment architecture",
     "top_k": 10,
-    "collection_id": "col_abc123"
+    "filters": {"collection_id": "col_abc123"}
   }'
 ```
 

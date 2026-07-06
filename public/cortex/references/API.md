@@ -10,13 +10,14 @@ Complete API reference for Cortex. All endpoints require the `X-API-Key` header 
 
 All API requests require an API key passed via the `X-API-Key` header.
 
-**Permission levels:**
+**Permissions:** Keys carry one or both of two permissions. Keys can also be scoped to a specific collection.
 
-| Level | Access |
+| Permission | Access |
 |-------|--------|
-| `read` | Search, ask, list documents, view stats |
-| `manage` (write) | Upload, delete, create collections |
-| `admin` | Full access including API key management, system reset |
+| `read` | Ask AI, search, list documents, view stats and graphs |
+| `manage` | Upload, edit, delete documents and collections |
+
+Full-instance operations (API key management, system reset) require the root **admin API key**, set via the `ADMIN_API_KEY` env var at startup. This is not a permission tier -- it is a single privileged key that cannot be created through the API.
 
 ---
 
@@ -36,7 +37,7 @@ curl "{BASE_URL}/health"
 {
   "status": "healthy",
   "neo4j_connected": true,
-  "version": "2.0.0"
+  "version": "1.0.0"
 }
 ```
 
@@ -282,16 +283,15 @@ Add knowledge manually without uploading files.
 curl -X POST "{BASE_URL}/api/custom-input" \
   -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{"type": "qa", "title": "FAQ", "question": "What is X?", "answer": "X is..."}'
+  -d '{"input_type": "qa", "content": "What is X?", "answer": "X is...", "title": "FAQ"}'
 ```
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | Yes | `"qa"`, `"text"`, or `"markdown"` |
-| `title` | string | Yes | Display title |
-| `question` | string | For `qa` | The question |
-| `answer` | string | For `qa` | The answer |
-| `content` | string | For `text`/`markdown` | The content body |
+| `input_type` | string | Yes | `"qa"`, `"text"`, or `"markdown"` |
+| `content` | string | Yes | Main content body. For `qa`, this is the question. |
+| `answer` | string | For `qa` | The answer (Q&A only) |
+| `title` | string | No | Optional title/topic hint |
 
 ---
 
@@ -305,16 +305,14 @@ Hybrid search combining vector (0.5), keyword (0.3), and graph traversal (0.2) w
 curl -X POST "{BASE_URL}/api/search" \
   -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{"query": "your search query", "limit": 10}'
+  -d '{"query": "your search query", "top_k": 5}'
 ```
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
 | `query` | string | **required** | Search query |
-| `limit` | integer | 10 | Max results (alias: `top_k`) |
-| `collection_id` | string | null | Scope to a specific collection |
-| `search_type` | string | `"hybrid"` | `"hybrid"`, `"vector"`, `"keyword"`, or `"graph"` |
-| `filters` | object | null | Filter criteria (e.g., `{"document_type": "pdf"}`) |
+| `top_k` | integer | 5 | Max results (range 1-50) |
+| `filters` | object | null | Filter criteria. Scope to a collection with `{"collection_id": "coll_abc123"}`. |
 
 **Response:**
 
@@ -358,7 +356,7 @@ Non-streaming RAG query.
 curl -X POST "{BASE_URL}/api/ask" \
   -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{"question": "What do I know about topic X?", "mode": "speed"}'
+  -d '{"question": "What do I know about topic X?", "use_agentic": false}'
 ```
 
 ### POST /api/ask/stream

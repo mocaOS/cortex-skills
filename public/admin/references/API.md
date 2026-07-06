@@ -2,7 +2,7 @@
 
 Complete endpoint reference for instance management, AgentSkills, export/import, and system operations.
 
-All endpoints require authentication via `X-API-Key: {API_KEY}` header. Most admin endpoints require `admin` permission unless noted.
+All endpoints require authentication via `X-API-Key: {API_KEY}` header. Most admin endpoints require the root **admin API key** (the `ADMIN_API_KEY` env value) unless noted — this is a distinct credential, not a `read`/`manage` permission tier.
 
 ---
 
@@ -42,30 +42,11 @@ Returns aggregate counts for all graph data.
 
 ## Admin Session Auth
 
-### POST /api/admin/login
+**There is no `POST /api/admin/login` or `POST /api/admin/logout` HTTP endpoint** — you cannot `curl` a login.
 
-**Permission:** None (unauthenticated)
+Web-UI login is a **Next.js server action** (`frontend/src/lib/auth.ts`, `"use server"`), not an API route. It validates the submitted email/password against the `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars in the frontend layer, sets an HTTP-only session cookie (via the Next.js session layer, not the FastAPI backend), and returns the `ADMIN_API_KEY` value for the client to store. Logout clears the cookie through the same layer.
 
-Authenticate as admin for the web UI.
-
-**Request body:**
-
-```json
-{
-  "email": "admin@example.com",
-  "password": "your-password"
-}
-```
-
-Credentials validated against `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables.
-
-**Response:** Sets an HTTP-only JWT cookie.
-
-### POST /api/admin/logout
-
-**Permission:** Authenticated session
-
-Clears the session cookie.
+**For programmatic/API access, skip login** and pass the `ADMIN_API_KEY` value directly as the `X-API-Key` header.
 
 ---
 
@@ -172,30 +153,29 @@ The system validates:
 
 ### POST /api/admin/reset
 
-Full system reset. Removes all documents, chunks, entities, relationships, communities, merge history, and system metadata.
+Selectively delete data from the system. Granular — each flag controls a data category independently; there is no `confirm` field.
 
 **Request body:**
 
+| Field | Type | Default | Description |
+|-------|------|---------|-------------|
+| `delete_documents` | `boolean` | `true` | Delete all documents, chunks, entities, relationships, communities, merge history, and system metadata. |
+| `delete_uploaded_files` | `boolean` | `true` | Delete uploaded files from disk. |
+| `delete_custom_inputs` | `boolean` | `true` | Delete custom input entries (Q&A, text, markdown). |
+| `delete_collections` | `boolean` | `true` | Delete all non-default collections. |
+| `delete_api_keys` | `boolean` | `false` | Delete all non-admin API keys. The admin key (from env var) is preserved. |
+
 ```json
 {
-  "confirm": true
+  "delete_documents": true,
+  "delete_uploaded_files": true,
+  "delete_custom_inputs": true,
+  "delete_collections": true,
+  "delete_api_keys": false
 }
 ```
 
-**Response:**
-
-```json
-{
-  "message": "System reset complete",
-  "deleted": {
-    "documents": 156,
-    "chunks": 4280,
-    "entities": 1542,
-    "relationships": 3891,
-    "communities": 23
-  }
-}
-```
+**Response:** confirms completion and reports per-category deletion counts.
 
 ---
 

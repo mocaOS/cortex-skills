@@ -32,11 +32,11 @@ Content-Type: multipart/form-data
 
 ```json
 {
+  "document_id": "doc_abc123",
   "filename": "document.pdf",
-  "doc_id": "doc_abc123",
   "status": "processing",
   "message": "Document uploaded and processing started",
-  "collection_id": "default"
+  "source": "upload"
 }
 ```
 

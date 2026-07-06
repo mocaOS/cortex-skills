@@ -30,17 +30,17 @@ Triggers community detection as a background task. The system projects the entit
 
 ```json
 {
-  "collection_id": "default",
-  "min_community_size": 3,
-  "force_regenerate": true
+  "min_size": 5,
+  "collection_id": "default"
 }
 ```
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `collection_id` | string | `"default"` | Collection scope for detection |
-| `min_community_size` | integer | `MIN_COMMUNITY_SIZE` env (3) | Minimum entities to form a community. Entities in smaller clusters are dropped |
-| `force_regenerate` | boolean | `false` | When `true`, deletes existing communities before re-detecting |
+| `min_size` | integer | `3` | Minimum entities to form a community (range 2–20). Entities in smaller clusters are dropped |
+| `collection_id` | string | `null` | Collection scope for detection. Omit to detect across all entities |
+
+Existing communities are always cleaned up before re-detection (see the pipeline details below), so there is no separate `force_regenerate` flag.
 
 **Response:**
 
@@ -143,8 +143,8 @@ Returns full details for a single community including all member entities, key r
     {"name": "Deep Learning", "type": "Concept", "mentions": 38}
   ],
   "key_relationships": [
-    {"source": "TrainingPipeline", "target": "FeatureStore", "type": "READS_FROM"},
-    {"source": "TrainingPipeline", "target": "ModelRegistry", "type": "PUBLISHES_TO"}
+    {"source": "Deep Learning", "target": "Neural Network", "type": "IS_A"},
+    {"source": "Neural Network", "target": "Gradient Descent", "type": "USES"}
   ],
   "documents": [
     {"id": "doc_1", "title": "Deep Learning Fundamentals.pdf"},
@@ -169,41 +169,7 @@ Returns full details for a single community including all member entities, key r
 
 ---
 
-## Get Community Documents
-
-### GET /api/graph/communities/{id}/documents
-
-Returns documents associated with a community's member entities.
-
-```bash
-curl "{BASE_URL}/api/graph/communities/comm_1/documents" \
-  -H "X-API-Key: {API_KEY}"
-```
-
----
-
 ## Summarization
-
-### POST /api/graph/communities/{id}/summarize
-
-Generate an LLM summary for a single community.
-
-**Path parameters:**
-
-| Parameter | Type | Description |
-|-----------|------|-------------|
-| `id` | string | Community ID |
-
-**Response:**
-
-```json
-{
-  "community_id": "comm_1",
-  "summary": "This community contains 12 documents focused on machine learning fundamentals. Key topics include:\n\n1. Neural network architectures (CNNs, RNNs, Transformers)\n2. Training algorithms and optimization (SGD, Adam, learning rate scheduling)\n3. Regularization techniques (dropout, batch normalization)\n\nThe documents span from introductory material to advanced research papers.",
-  "key_topics": ["Neural Networks", "Optimization", "Regularization"],
-  "generated_at": "2024-01-15T10:30:00Z"
-}
-```
 
 ### POST /api/graph/communities/summarize
 
@@ -298,34 +264,6 @@ curl -X DELETE "{BASE_URL}/api/graph/communities" \
 
 ---
 
-## Community-Scoped Queries
-
-### Search Within a Community
-
-```bash
-curl -X POST "{BASE_URL}/api/search" \
-  -H "X-API-Key: {API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "backpropagation algorithm",
-    "community_id": "comm_1"
-  }'
-```
-
-### Ask AI About a Community
-
-```bash
-curl -X POST "{BASE_URL}/api/ask" \
-  -H "X-API-Key: {API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "question": "What are the key topics covered in this community?",
-    "collection_id": "comm_1"
-  }'
-```
-
----
-
 ## Background Task Tracking
 
 Community detection and summarization run as background tasks.
@@ -339,8 +277,8 @@ Community detection and summarization run as background tasks.
   "status": "running",
   "progress_percent": 65,
   "message": "Analyzing graph structure...",
-  "created_at": "2026-03-15T10:30:00Z",
-  "updated_at": "2026-03-15T10:31:15Z"
+  "started_at": "2026-03-15T10:30:00Z",
+  "completed_at": null
 }
 ```
 

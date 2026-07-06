@@ -7,7 +7,7 @@ description: Use this skill when working with the Cortex app ecosystem — brows
 
 ## What You Probably Got Wrong
 
-1. **Apps are not plugins or extensions you install into Cortex.** They are standalone services that interact with your Cortex instance via the API. They run externally and push/pull data through the 60+ REST endpoints.
+1. **Apps are not plugins or extensions you install into Cortex.** They are standalone services that interact with your Cortex instance via the API. They run externally and push/pull data through the 100+ REST endpoints.
 
 2. **There are two categories.** Source apps ingest knowledge from external platforms into your graph. Workflow apps provide better UIs and integrations on top of your existing graph.
 
@@ -108,7 +108,7 @@ Features:
 **Category:** Workflow | **Price:** Free
 
 Features:
-- Test any of the 60+ API endpoints
+- Test any of the 100+ API endpoints
 - Formatted JSON responses
 - Request history
 - Code generation (curl, Python, JavaScript)

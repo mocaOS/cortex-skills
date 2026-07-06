@@ -6,7 +6,7 @@ Complete catalog of all Cortex apps -- source apps that ingest knowledge and wor
 
 ## Architecture
 
-Apps are **standalone services** that interact with your Cortex instance via the REST API. They are not plugins or extensions installed into Cortex itself. Any app that can make HTTP requests can integrate with Cortex through the 60+ API endpoints.
+Apps are **standalone services** that interact with your Cortex instance via the REST API. They are not plugins or extensions installed into Cortex itself. Any app that can make HTTP requests can integrate with Cortex through the 100+ API endpoints.
 
 **Two categories:**
 
@@ -170,7 +170,7 @@ Apps are **standalone services** that interact with your Cortex instance via the
 | **Price** | Free |
 | **Plans included** | All plans |
 
-**Description:** Test queries and prototype integrations directly in the browser. Send requests to any of the 60+ API endpoints and see formatted responses.
+**Description:** Test queries and prototype integrations directly in the browser. Send requests to any of the 100+ API endpoints and see formatted responses.
 
 **Features:**
 

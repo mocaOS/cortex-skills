@@ -181,11 +181,13 @@ The `MENTIONS` type was intentionally excluded (lazy co-occurrence catch-all). N
 | `description` | string | LLM-generated description of the relationship |
 | `weight` | float | Strength score (0-10 scale) |
 | `confidence` | float | LLM confidence (0.0-1.0), Phase B only. Relationships with confidence < 0.5 are filtered |
-| `extraction_method` | string | `"per_chunk"` (Phase A, high confidence) or `"batch_analysis"` (Phase B, cross-document) |
+| `extraction_method` | string | `"per_chunk"` (Phase A, high confidence), `"cross_collection"` (Phase B, default `targeted` mode) or `"batch_analysis"` (Phase B, legacy `llm_scan` mode) |
 | `extracted_at` | datetime | Extraction timestamp |
 | `source_document_id` | string | Source document, for per-chunk relationships |
 
 Self-referential relationships (source == target) are automatically filtered at both extraction and storage levels.
+
+Phase B discovery has two engines, selected by `RELATIONSHIP_DISCOVERY_MODE`. The default `targeted` mode (kNN + co-mention candidates verified pair-by-pair by the LLM) is a single pass and stores `extraction_method='cross_collection'`. The legacy `llm_scan` mode runs multi-round batch discovery and stores `extraction_method='batch_analysis'`; `RELATIONSHIP_MAX_ROUNDS` (and the `RELATIONSHIP_TARGET_RATIO`/ERR target) apply only to that legacy mode.
 
 ---
 
@@ -203,7 +205,7 @@ Entity nodes also have optional `embedding` properties used for semantic entity 
 
 ### Full-Text Indexes
 
-- **Entity name + description:** Full-text index on `Entity.name` and `Entity.description` for fuzzy entity search (`GET /api/graph/search?q=...` and `GET /api/graph/entities?search=...`)
+- **Entity name + description:** Full-text index on `Entity.name` and `Entity.description` for fuzzy entity search (`GET /api/graph/search?query=...` and `GET /api/graph/entities?search=...`)
 
 ---
 

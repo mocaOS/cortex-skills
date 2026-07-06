@@ -64,7 +64,7 @@ Response:
   "reranked": true,
   "reasoning_steps": null,
   "sub_questions": null,
-  "communities_used": ["Financial Performance"],
+  "communities_used": [3, 7],
   "retrieval_stats": {
     "vector_results": 10,
     "keyword_results": 8,
@@ -92,15 +92,15 @@ curl -X POST "{BASE_URL}/api/ask/stream" \
   }'
 ```
 
-SSE event stream:
+SSE event stream (each event is a flat-keyed JSON object — switch on which key is present, there is no `type` field):
 ```
-data: {"type": "token", "content": "The"}
-data: {"type": "token", "content": " main"}
-data: {"type": "token", "content": " themes"}
-data: {"type": "token", "content": " across"}
+data: {"sources": [{"document_id": "doc_1", "content": "...", "metadata": {"filename": "report.pdf", "chunk_index": 5, "rerank_score": 0.91}}]}
+data: {"graph_context": {"entities": [...], "relationships": [...]}}
+data: {"content": "The"}
+data: {"content": " main"}
+data: {"content": " themes"}
 ...
-data: {"type": "source", "sources": [{"document_id": "doc_1", "content": "..."}]}
-data: {"type": "done", "answer": "The main themes across all documents..."}
+data: {"done": true}
 ```
 
 ### Streaming with Reasoning: POST /api/ask/stream/thinking
@@ -119,16 +119,17 @@ curl -X POST "{BASE_URL}/api/ask/stream/thinking" \
   }'
 ```
 
-SSE event stream with reasoning:
+SSE event stream with reasoning (flat-keyed; the `thinking` key carries each reasoning step):
 ```
-data: {"type": "thinking", "step": 1, "content": "Decomposing question into sub-questions..."}
-data: {"type": "thinking", "step": 2, "content": "Sub-question 1: What was the Q3 strategy?"}
-data: {"type": "thinking", "step": 3, "content": "Sub-question 2: What were the Q4 results?"}
-data: {"type": "token", "content": "Comparing"}
-data: {"type": "token", "content": " the"}
+data: {"thinking": "Decomposing question into sub-questions..."}
+data: {"thinking": "Searching: Q3 strategy, Q4 results, strategy vs results comparison"}
+data: {"retrieval": "Found 8 sources"}
+data: {"sources": [...]}
+data: {"graph_context": {"entities": [...], "relationships": [...]}}
+data: {"content": "Comparing"}
+data: {"content": " the"}
 ...
-data: {"type": "source", "sources": [...]}
-data: {"type": "done", "answer": "..."}
+data: {"done": true, "communities_used": [1, 4]}
 ```
 
 ## SSE Event Reference
@@ -145,12 +146,13 @@ The streaming endpoint emits these event keys (the exact `data:` payload shape m
 | `sub_questions` | Deep Research | Decomposed sub-questions |
 | `retrieval` | Deep Research | Per-sub-question retrieval progress |
 | `retrieval_stats` | Deep Research | `total_sources`, `unique_sources`, `communities_used` |
-| `memory_update` | When `conversation_memory` sent | Updated memory blob to replay next turn |
-| `done` | All | `true` when complete (Deep Research includes `communities_used`) |
+| `done` | All | `{"done": true}` when complete. Deep Research adds `communities_used`. When memory is active, this frame carries `pending_memory: true` to signal one more frame follows |
+| `memory_update` | When `conversation_memory` sent | Updated memory blob to replay next turn — emitted **after** the `done` frame |
 | `error` | All | Error message |
 
 - **Chat sequence:** `sources` → `graph_context` → `content` (many) → `done`.
 - **Deep Research sequence:** `thinking` → `retrieval` → `sources` → `graph_context` → `retrieval_stats` → `content` → `done`.
+- **With conversation memory** (default `EMIT_DONE_BEFORE_MEMORY=true`): the `done` frame is emitted first as `{"done": true, "pending_memory": true}` so clients can finalize the turn immediately, then a final `{"memory_update": {...}}` frame follows before the stream closes.
 - During silent windows (≥ 8s with no event), the server emits SSE comment keep-alives (`: ping`) to prevent proxy idle-timeouts.
 
 ## Request Body Schema
@@ -208,7 +210,7 @@ When `use_agentic: true`, the system uses a **researcher/writer agent architectu
    - `done` — signal completion with a summary
 2. A **Writer LLM** synthesizes the gathered context into a streamed answer
 
-The researcher decides dynamically how many searches to perform and when to stop (up to `RESEARCHER_MAX_ITERATIONS_QUALITY` iterations, default 10). This is fundamentally different from legacy fixed-step reasoning. Deep Research requires `ENABLE_AGENTIC_RAG=true` AND `ENABLE_AGENT_RESEARCH=true`.
+The researcher decides dynamically how many searches to perform and when to stop (up to `RESEARCHER_MAX_ITERATIONS_QUALITY` iterations, default 8). This is fundamentally different from legacy fixed-step reasoning. Deep Research requires `ENABLE_AGENTIC_RAG=true` AND `ENABLE_AGENT_RESEARCH=true`.
 
 Best for complex, multi-part questions that span multiple documents or require cross-referencing.
 
@@ -218,8 +220,8 @@ There are two operational modes that affect iteration depth and output length:
 
 | Mode | Trigger | Max Iterations | Max Output Tokens | Use Case |
 |------|---------|----------------|-------------------|----------|
-| **Chat (Speed)** | `use_agentic: false` or standard chat | 2 | 1,200 | Quick answers, conversational Q&A |
-| **Deep Research (Quality)** | `use_agentic: true` | 10 | 4,000 | Comprehensive analysis, cross-document comparison |
+| **Chat (Speed)** | `use_agentic: false` or standard chat | 3 (5 when skills active) | 1,200 | Quick answers, conversational Q&A |
+| **Deep Research (Quality)** | `use_agentic: true` | 8 | 4,000 | Comprehensive analysis, cross-document comparison |
 
 The `POST /api/ask/stream/thinking` endpoint streams the researcher's reasoning steps as `thinking` events, giving visibility into the research process. Use this when building UIs that surface the "thought process."
 
@@ -265,9 +267,10 @@ while (true) {
   for (const line of lines) {
     if (line.startsWith("data: ")) {
       const event = JSON.parse(line.slice(6));
-      if (event.type === "token") process.stdout.write(event.content);
-      if (event.type === "source") console.log("\nSources:", event.sources);
-      if (event.type === "done") console.log("\nDone.");
+      // Events are flat-keyed — switch on which key is present, not event.type
+      if ("content" in event) process.stdout.write(event.content);
+      if ("sources" in event) console.log("\nSources:", event.sources);
+      if ("done" in event) console.log("\nDone.");
     }
   }
 }
@@ -289,11 +292,12 @@ response = requests.post(
 for line in response.iter_lines(decode_unicode=True):
     if line.startswith("data: "):
         event = json.loads(line[6:])
-        if event["type"] == "token":
+        # Events are flat-keyed — switch on presence of a key, not event["type"]
+        if "content" in event:
             print(event["content"], end="", flush=True)
-        elif event["type"] == "source":
+        elif "sources" in event:
             print(f"\n\nSources: {len(event['sources'])} chunks")
-        elif event["type"] == "done":
+        elif "done" in event:
             print("\n--- Done ---")
 ```
 

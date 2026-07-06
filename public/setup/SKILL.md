@@ -1,6 +1,6 @@
 ---
 name: setup
-description: Use this skill when deploying or configuring Cortex. Covers Docker installation, all 50+ environment variables, service URLs, health checks, production deployment, and troubleshooting.
+description: Use this skill when deploying or configuring Cortex, including self-hosting a full instance on your own machine or VM. Covers Docker installation, the 160+ environment variables, service URLs, health checks, production deployment, and troubleshooting.
 ---
 
 # Setup — Deploy and Configure Cortex
@@ -40,6 +40,38 @@ nano .env
 docker compose up -d
 ```
 
+### Autonomous install (for an agent self-hosting on its own VM)
+
+No interactive editor needed — write `.env` directly, bring the stack up, then poll health until Neo4j finishes initializing (30–60s):
+
+```bash
+git clone https://github.com/mocaOS/cortex-app.git && cd cortex-app
+cp .env.example .env
+
+# Write the required values non-interactively (generate strong secrets)
+cat >> .env <<EOF
+NEO4J_PASSWORD=$(openssl rand -base64 24)
+OPENAI_API_KEY=${OPENAI_API_KEY:?export your LLM API key first}
+OPENAI_API_BASE=https://api.openai.com/v1
+OPENAI_MODEL=google-gemma-4-26b-a4b-it
+ADMIN_EMAIL=admin@example.com
+ADMIN_PASSWORD=$(openssl rand -base64 18)
+ADMIN_API_KEY=cortex_admin_$(openssl rand -hex 24)
+SESSION_SECRET=$(openssl rand -base64 32)
+EOF
+
+docker compose up -d
+
+# Wait for the backend to report healthy (Neo4j needs ~30-60s on first boot)
+until curl -sf http://localhost:8000/health >/dev/null; do sleep 5; done
+echo "Cortex is up at http://localhost:8000"
+
+# Grab the admin key you just generated — use it as X-API-Key for all calls
+grep '^ADMIN_API_KEY=' .env
+```
+
+> `.env.example` already contains sensible defaults for the other ~160 variables; only the values above are required to boot. After it's healthy, drive the instance with the `cortex` + feature skills against `http://localhost:8000`.
+
 ## Service URLs
 
 | Service | URL | Description |
@@ -71,7 +103,7 @@ NEO4J_PASSWORD=your-secure-password-here
 # LLM Provider (at least one required — any OpenAI-compatible endpoint)
 OPENAI_API_KEY=sk-your-api-key-here
 OPENAI_API_BASE=https://api.openai.com/v1
-OPENAI_MODEL=gpt-4o-mini
+OPENAI_MODEL=google-gemma-4-26b-a4b-it
 
 # Admin Authentication
 ADMIN_EMAIL=admin@example.com
@@ -90,13 +122,12 @@ openssl rand -base64 32
 A 2-model setup. Fill two API values and you're done — relationship + vision inherit from the extraction model and output budgets cascade automatically:
 
 ```bash
-# Primary — agentic Q&A / researcher (MiniMax-M3: 192K context window)
+# Primary — agentic Q&A / researcher (Gemma4 26B A4B)
 OPENAI_API_KEY=
 OPENAI_API_BASE=https://api.venice.ai/api/v1
-OPENAI_MODEL=minimax-m3
-OPENAI_MAX_CONTEXT=196608
+OPENAI_MODEL=google-gemma-4-26b-a4b-it
 
-# Extraction — drives relationship via inheritance (Qwen3-27B: 256K window)
+# Extraction — drives relationship via inheritance (Qwen3.6 27B: 256K window)
 GRAPH_EXTRACTION_MODEL=qwen3-6-27b
 GRAPH_EXTRACTION_MAX_CONTEXT=256000
 
@@ -108,15 +139,15 @@ EMBEDDING_MODEL=text-embedding-qwen3-8b
 EMBEDDING_DIMENSION=4096            # Neo4j 5.26 supports up to 4096-dim vector indexes
 ```
 
-> Both `*_MAX_CONTEXT` overrides are needed because the conservative default (32768) caps these models at a fraction of their real window. The embedding model inherits `OPENAI_API_BASE`/`OPENAI_API_KEY` unless overridden.
+> The `GRAPH_EXTRACTION_MAX_CONTEXT` override is needed because the conservative default (32768) caps Qwen3.6 27B at a fraction of its real 256K window. The embedding model inherits `OPENAI_API_BASE`/`OPENAI_API_KEY` unless overridden.
 
 ## Optional Environment Variables
 
 ### LLM Configuration
 
 ```bash
-OPENAI_MODEL=gpt-4o-mini              # Primary model (Q&A, research, chat)
-OPENAI_MODEL_FAST_MODE=gpt-4o-mini    # Faster/cheaper model for Fast Mode
+OPENAI_MODEL=google-gemma-4-26b-a4b-it       # Primary model (Q&A, research, chat)
+OPENAI_MODEL_FAST_MODE=google-gemma-4-26b-a4b-it   # Faster/cheaper model for Fast Mode
 OPENAI_API_BASE=https://api.openai.com/v1
 OPENAI_MAX_OUTPUT_TOKENS=8000         # Floor of the output-token budget chain
 OPENAI_MAX_CONTEXT=32768              # Floor of the input-context budget chain
@@ -147,7 +178,7 @@ SENTENCES_PER_CHUNK=5          # Sentences per chunk (sentence mode)
 ```bash
 ENABLE_GRAPH_EXTRACTION=true
 MAX_GRAPH_HOPS=2                          # Hops for context retrieval (1-3)
-CONCURRENT_EXTRACTIONS=20                  # Parallel extraction operations
+CONCURRENT_EXTRACTIONS=3                   # Parallel extraction operations
 ENABLE_SEMANTIC_ENTITY_RESOLUTION=true     # Merge similar entities
 ENTITY_SIMILARITY_THRESHOLD=0.85           # Merge threshold (0.0-1.0)
 ```
@@ -185,7 +216,12 @@ ENABLE_GRAPH_SUMMARIZATION=true
 ### Security & Deployment Hardening
 
 ```bash
-PROMPT_SECURITY=true                  # Prompt injection protection
+PROMPT_SECURITY=true                  # Prompt injection protection (heuristic detector + filters)
+PROMPT_GUARD=true                     # Query-time Prompt Guard classifier gate (active only when a service URL or local guard is set)
+PROMPT_GUARD_SERVICE_URL=             # Offload classification to cortex-helper /classify (remote path wins when set)
+PROMPT_GUARD_LOCAL=false              # Run the guard in-process instead (needs torch)
+PROMPT_GUARD_THRESHOLD=0.5            # Injection-probability cutoff
+INGESTION_INJECTION_SCAN=true         # Scan ingested documents for injection payloads
 ENVIRONMENT=production                # Fail fast on weak/default secrets at startup
 CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 EXPOSE_API_DOCS=auto                  # auto = docs on in dev, OFF in production
@@ -197,6 +233,10 @@ ENCRYPTION_KEY=                       # At-rest encryption for git PATs + skill 
 ```bash
 MAX_FILES=0            # 0 = unlimited
 MAX_COLLECTIONS=0      # 0 = unlimited
+MAX_ENTITIES=0         # Max total entities (global). 0 = unlimited
+MAX_QUERIES_PER_MONTH=0   # Monthly quota, unit-denominated: counts internal LLM completions
+                          # (Q&A loop calls + document/graph processing calls; embeddings excluded),
+                          # instance-wide, UTC calendar month. 0 = unlimited
 MAX_FILE_SIZE_MB=50
 ```
 
@@ -222,15 +262,18 @@ PROCESSING_THREAD_WORKERS=4         # Thread workers for document processing
 ### Relationship Analysis (Phase B)
 
 ```bash
-RELATIONSHIP_EXTRACTION_MODEL=gpt-4o-mini     # Dedicated model (inherits GRAPH_EXTRACTION_MODEL → OPENAI_MODEL)
+RELATIONSHIP_EXTRACTION_MODEL=qwen3-6-27b     # Dedicated model (inherits GRAPH_EXTRACTION_MODEL → OPENAI_MODEL)
 RELATIONSHIP_MAX_CONTEXT=0                     # 0 = inherit GRAPH_EXTRACTION_MAX_CONTEXT → OPENAI_MAX_CONTEXT
 RELATIONSHIP_MAX_OUTPUT_TOKENS=0              # 0 = inherit; feeds per-chunk + candidate scan
 RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS=16000    # Phase 2 batch budget (standalone, NOT in chain)
-RELATIONSHIP_TARGET_RATIO=1.0                 # Target ERR (higher = more relationships)
-RELATIONSHIP_MAX_ROUNDS=3                     # Max discovery rounds per batch
+RELATIONSHIP_DISCOVERY_MODE=targeted          # DEFAULT: kNN + co-mention candidates, LLM verifies pairs ('llm_scan' = legacy)
 RELATIONSHIP_MAX_PER_ENTITY=50                # Soft cap to prevent hub entities
 RELATIONSHIP_MAX_HOURS=0                      # Time limit (0 = no limit)
+RELATIONSHIP_TARGET_RATIO=1.0                 # Legacy 'llm_scan' only: target ERR (higher = more relationships)
+RELATIONSHIP_MAX_ROUNDS=3                     # Legacy 'llm_scan' only: max discovery rounds per batch
 ```
+
+> `RELATIONSHIP_DISCOVERY_MODE=targeted` is now the default: candidates come from entity-embedding kNN + document co-mention, and the LLM only verifies ranked pairs (orders of magnitude fewer/cheaper calls). `RELATIONSHIP_TARGET_RATIO` and `RELATIONSHIP_MAX_ROUNDS` apply only to the legacy `llm_scan` mode.
 
 > **Budget fallback chain.** Sub-tier token knobs default to `0` (= inherit from the next tier up), so a multi-model stack needs only two or three env vars.
 > Output: `OPENAI_MAX_OUTPUT_TOKENS` → `EXTRACTION_MAX_OUTPUT_TOKENS` → `RELATIONSHIP_MAX_OUTPUT_TOKENS` → `VISION_MAX_OUTPUT_TOKENS`.
@@ -278,8 +321,8 @@ MAX_SKILL_TOOLS=10                  # Max skill tools per researcher conversatio
 ```bash
 ENABLE_AGENT_RESEARCH=true                    # Agent pipeline for Deep Research
 ENABLE_AGENT_CHAT=true                        # Agent pipeline for standard Chat (required for skills in chat)
-RESEARCHER_MAX_ITERATIONS_SPEED=2             # Chat mode iterations
-RESEARCHER_MAX_ITERATIONS_QUALITY=10          # Deep Research iterations
+RESEARCHER_MAX_ITERATIONS_SPEED=3             # Chat mode iterations
+RESEARCHER_MAX_ITERATIONS_QUALITY=8           # Deep Research iterations
 WRITER_MAX_TOKENS_SPEED=1200                  # Chat answer max tokens
 WRITER_MAX_TOKENS_QUALITY=4000                # Deep Research answer max tokens
 ```
@@ -289,19 +332,7 @@ WRITER_MAX_TOKENS_QUALITY=4000                # Deep Research answer max tokens
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8000
 NEXT_PUBLIC_LOGO_URL=https://example.com/logo.png    # Custom logo
-NEXT_PUBLIC_ACCENT_COLOR=#3b82f6                      # Custom accent color
-```
-
-### Turbo Mode / Compute3 (Optional)
-
-```bash
-COMPUTE3_API_KEY=your-c3-api-key
-COMPUTE3_API_BASE=https://api.compute3.ai
-COMPUTE3_GPU_TYPE=h100
-COMPUTE3_GPU_COUNT=4
-COMPUTE3_MODEL=MiniMaxAI/MiniMax-M2.1
-COMPUTE3_DOCKER_IMAGE=vllm/vllm-openai:latest
-COMPUTE3_DEFAULT_RUNTIME=3600
+ACCENT_COLOR=#3b82f6                                  # Custom accent color (server-side, read at runtime — no rebuild needed)
 ```
 
 ### Git Integration (Optional)
@@ -340,7 +371,7 @@ RERANKER_SERVICE_URL=http://cortex-helper:3030
 DOCLING_SERVICE_URL=http://cortex-helper:3030
 HELPER_SERVICE_TOKEN=             # shared secret (match helper's HELPER_TOKEN)
 RERANKER_PRELOAD=false            # eager-load reranker at startup
-RERANKER_IDLE_TTL_SECONDS=1800    # unload idle reranker (0 = never)
+RERANKER_IDLE_TTL_SECONDS=0       # 0 = never unload (default); set >0 to unload idle reranker after N seconds
 ```
 
 ### Observability, Limits & Resilience

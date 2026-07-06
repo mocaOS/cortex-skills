@@ -17,7 +17,7 @@ description: Use this skill when working with the Cortex knowledge graph — que
 
 5. **Graph traversal is one of three search methods.** It is automatically included in hybrid search (weight 0.2) and Ask AI queries when `use_graph: true`. You do not need to query the graph API separately for search — it is integrated.
 
-6. **Entity names are case-sensitive in the API.** Use `GET /api/graph/search?q={query}` for fuzzy matching instead of exact name lookups.
+6. **Entity names are case-sensitive in the API.** Use `GET /api/graph/search?query={query}` for fuzzy matching instead of exact name lookups.
 
 ## Neo4j Schema
 
@@ -92,11 +92,11 @@ Response:
 ```json
 {
   "nodes": [
-    {"id": "entity_1", "name": "OpenAI", "type": "Organization", "description": "..."},
-    {"id": "entity_2", "name": "GPT-4", "type": "Technology", "description": "..."}
+    {"id": "OpenAI", "label": "OpenAI", "type": "Organization", "description": "...", "community_id": "comm_1", "mention_count": 45},
+    {"id": "GPT-4", "label": "GPT-4", "type": "Technology", "description": "...", "community_id": "comm_1", "mention_count": 30}
   ],
   "edges": [
-    {"source": "entity_1", "target": "entity_2", "type": "CREATED_BY", "weight": 9}
+    {"source": "OpenAI", "target": "GPT-4", "type": "CREATED_BY", "description": "...", "weight": 9}
   ]
 }
 ```
@@ -128,7 +128,7 @@ Response:
   "description": "AI research company...",
   "relationships": [
     {"target": "GPT-4", "type": "CREATED_BY", "description": "...", "weight": 9},
-    {"target": "Sam Altman", "type": "MANAGES", "description": "...", "weight": 8}
+    {"target": "Sam Altman", "type": "FOUNDED_BY", "description": "...", "weight": 8}
   ],
   "mentioned_in": ["doc_abc123", "doc_def456"]
 }
@@ -152,13 +152,13 @@ curl "{BASE_URL}/api/graph/entity/OpenAI/relationships?max_hops=3" \
 
 ### Get a subgraph
 
-Returns the subgraph connecting specific entities.
+Returns the subgraph connecting specific entities. The request body is a **bare JSON array** of entity names; use the `include_connections` query flag to add bridging entities.
 
 ```bash
-curl -X POST "{BASE_URL}/api/graph/subgraph" \
+curl -X POST "{BASE_URL}/api/graph/subgraph?include_connections=true" \
   -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
-  -d '{"entity_names": ["OpenAI", "GPT-4", "Sam Altman"]}'
+  -d '["OpenAI", "GPT-4", "Sam Altman"]'
 ```
 
 ### Search entities by name
@@ -166,7 +166,7 @@ curl -X POST "{BASE_URL}/api/graph/subgraph" \
 Fuzzy search across entity names:
 
 ```bash
-curl "{BASE_URL}/api/graph/search?q=open" \
+curl "{BASE_URL}/api/graph/search?query=open" \
   -H "X-API-Key: {API_KEY}"
 ```
 
@@ -244,9 +244,9 @@ curl -X POST "{BASE_URL}/api/graph/relationships/analyze" \
   -d '{"mode": "incremental"}'
 ```
 
-This runs as a background task. `mode: "incremental"` builds on existing relationships; `mode: "rebuild"` deletes batch-analysis relationships and re-analyzes from scratch.
+This runs as a background task. `mode: "incremental"` builds on existing relationships; `mode: "rebuild"` deletes cross-document Phase B relationships (everything with `extraction_method != "per_chunk"`) and re-analyzes from scratch, preserving per-chunk Phase A relationships.
 
-Phase B relationships carry a `confidence` score (0.0-1.0) and are tagged with `extraction_method: "batch_analysis"` to distinguish them from per-chunk Phase A relationships.
+Phase B relationships carry a `confidence` score (0.0-1.0). The default `targeted` mode tags them `extraction_method: "cross_collection"`; the legacy `llm_scan` mode tags them `extraction_method: "batch_analysis"`. Both distinguish Phase B relationships from per-chunk Phase A relationships (`extraction_method: "per_chunk"`).
 
 ---
 
@@ -295,14 +295,23 @@ For each chunk in a document:
 
 ### Phase B: Cross-Document Relationship Analysis (On Demand)
 
-Triggered via `POST /api/graph/relationships/analyze`. Uses Union-Find co-occurrence clustering to batch entities that share chunks, then runs multi-round LLM discovery:
+Triggered via `POST /api/graph/relationships/analyze`. The engine is selected by `RELATIONSHIP_DISCOVERY_MODE`.
 
-1. **Candidate Scanning** — Groups co-occurring entities into batches
-2. **LLM Relationship Proposals** — Each batch is analyzed for cross-document relationships
-3. **Confidence Scoring** — Relationships below 0.5 confidence are filtered
-4. **Early Stopping** — Stops when the ERR (Entity-Relationship Ratio) target is met or max rounds are reached
+**Targeted mode (`targeted`, the default):** candidate entity pairs are generated **without the LLM** using kNN embedding similarity plus document co-mention, then the LLM only verifies/classifies the ranked pairs. This replaces hundreds of near-context-window batch scans (hours) with a few hundred small verification calls (minutes):
 
-The **ERR metric** (Entity-Relationship Ratio) measures graph density. Displayed on the Knowledge Graph UI page as a quality indicator. Target is configurable via `RELATIONSHIP_TARGET_RATIO` (default 1.0).
+1. **Candidate Generation** — kNN + co-mention produce ranked candidate pairs (no LLM)
+2. **LLM Pair Verification** — pairs are grouped per call; the LLM confirms and classifies each relationship
+3. **Confidence Scoring** — relationships below 0.5 confidence are filtered; degree caps applied
+4. **Single Pass** — no multi-round loop (`RELATIONSHIP_MAX_ROUNDS` does not apply); relationships are stored with `extraction_method: "cross_collection"`
+
+**Legacy mode (`llm_scan`):** the older two-phase batch scan — Union-Find co-occurrence clustering batches entities that share chunks, then multi-round LLM discovery runs until the ERR target is met or `RELATIONSHIP_MAX_ROUNDS` is reached. Relationships are stored with `extraction_method: "batch_analysis"`.
+
+1. **Candidate Scanning** — groups co-occurring entities into batches
+2. **LLM Relationship Proposals** — each batch is analyzed for cross-document relationships
+3. **Confidence Scoring** — relationships below 0.5 confidence are filtered
+4. **Early Stopping** — stops when the ERR (Entity-Relationship Ratio) target is met or max rounds are reached
+
+The **ERR metric** (Entity-Relationship Ratio) measures graph density. Displayed on the Knowledge Graph UI page as a quality indicator. In legacy `llm_scan` mode the target is configurable via `RELATIONSHIP_TARGET_RATIO` (default 1.0).
 
 ### Configuration
 
@@ -311,9 +320,10 @@ ENABLE_GRAPH_EXTRACTION=true
 MAX_GRAPH_HOPS=2
 CONCURRENT_EXTRACTIONS=3              # Parallel entity extraction operations
 CONCURRENT_RELATIONS=3                # Per-chunk relationship extractions per document
+RELATIONSHIP_DISCOVERY_MODE=targeted  # Phase B engine: targeted (default) | llm_scan (legacy)
 PARALLEL_RELATIONSHIP_BATCHES=5       # Batches processed in parallel during Phase B
-RELATIONSHIP_TARGET_RATIO=1.0         # Target ERR — higher = more relationships per entity
-RELATIONSHIP_MAX_ROUNDS=3             # Max discovery rounds per batch
+RELATIONSHIP_TARGET_RATIO=1.0         # Target ERR (legacy llm_scan mode only)
+RELATIONSHIP_MAX_ROUNDS=3             # Max discovery rounds per batch (legacy llm_scan mode only)
 RELATIONSHIP_MAX_PER_ENTITY=50        # Soft cap to prevent hub domination
 ENABLE_SEMANTIC_ENTITY_RESOLUTION=true
 ENTITY_SIMILARITY_THRESHOLD=0.85

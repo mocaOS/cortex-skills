@@ -2,7 +2,7 @@
 
 Full API endpoint reference for Cortex authentication, API key management, session auth, and admin operations. Includes request/response schemas, error codes, and curl examples.
 
-This file complements the main `auth/SKILL.md` which covers the authentication pattern, permission tiers, prompt injection protection, and security best practices. Refer here for exhaustive endpoint specifications.
+This file complements the main `auth/SKILL.md` which covers the authentication pattern, the read/manage permission model, prompt injection protection, and security best practices. Refer here for exhaustive endpoint specifications.
 
 ---
 
@@ -14,27 +14,27 @@ All endpoints (except `GET /health`) require the `X-API-Key` header:
 X-API-Key: {your_api_key}
 ```
 
-Keys carry an additive `permissions` array (`read`, `write`, `delete`, `admin`) rather than encoding the level in the prefix. The prefix only indicates key type:
+Keys carry a `permissions` array holding any combination of exactly two values — `read` and `manage` — rather than encoding the level in the prefix. The prefix only indicates key type:
 
 | Prefix | Key type | Created via |
 |--------|----------|-------------|
-| `cortex_user_` | User key | `POST /api/admin/api-keys` (with any combination of `read`/`write`/`delete`/`admin`) |
+| `cortex_user_` | User key | `POST /api/admin/api-keys` (with any combination of `read`/`manage`) |
 | `cortex_admin_` | Admin key | `ADMIN_API_KEY` env var at startup |
 
 | Permission | Access Level |
 |------------|-------------|
-| `read` | Search, ask, list documents, stats, view graph, list collections |
-| `write` | Upload, create collections, move documents, reprocess |
-| `delete` | Delete documents and collections |
-| `admin` | API key CRUD, system reset, config view, skill management |
+| `read` | Ask AI, search, list documents, stats, view graph, list collections |
+| `manage` | Everything in read, plus upload, edit, move, reprocess, and delete documents & collections |
 
-Authenticate with either `X-API-Key: {key}` or `Authorization: Bearer {key}`. (Older builds used a `moca_` prefix with `read`/`manage`/`admin` tiers.)
+There is no `write`, `delete`, or `admin` permission value. Full-instance operations (API-key CRUD, system reset, config changes, skill management) are gated on the **root admin API key** — the `ADMIN_API_KEY` env value — not on a permission. Keys are also scoped by `collection_scope` (`all` or `restricted` + `allowed_collections`).
+
+Authenticate with either `X-API-Key: {key}` or `Authorization: Bearer {key}`. (Older builds used a `moca_` prefix.)
 
 ---
 
 ## API Key Management Endpoints
 
-All key management endpoints require **admin** permission.
+All key management endpoints require the **root admin API key** (the `ADMIN_API_KEY` env value), not a `read`/`manage` permission.
 
 ### Create API Key
 
@@ -47,7 +47,7 @@ POST /api/admin/api-keys
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
 | `name` | `string` | Yes | Human-readable name for the key. |
-| `permissions` | `string[]` | Yes | Array of permission strings. Valid values: `"read"`, `"write"`, `"delete"`, `"admin"`. |
+| `permissions` | `string[]` | Yes | Array of permission strings. Valid values: `"read"`, `"manage"`. |
 | `expires_at` | `string` (ISO 8601) | No | Expiration datetime. Key becomes invalid after this time. |
 
 **Example Request:**
@@ -58,7 +58,7 @@ curl -X POST "$CORTEX_URL/api/admin/api-keys" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Production App",
-    "permissions": ["read", "write"],
+    "permissions": ["read", "manage"],
     "expires_at": "2026-12-31T23:59:59Z"
   }'
 ```
@@ -71,7 +71,7 @@ curl -X POST "$CORTEX_URL/api/admin/api-keys" \
   "name": "Production App",
   "key": "cortex_user_a1b2c3d4e5f6g7h8i9j0...",
   "key_prefix": "cortex_user_a1b2",
-  "permissions": ["read", "write"],
+  "permissions": ["read", "manage"],
   "is_active": true,
   "created_at": "2026-03-15T10:00:00Z",
   "expires_at": "2026-12-31T23:59:59Z"
@@ -105,7 +105,7 @@ curl "$CORTEX_URL/api/admin/api-keys" \
     "id": "key_abc123",
     "name": "Production App",
     "key_prefix": "cortex_user_a1b2",
-    "permissions": ["read", "write"],
+    "permissions": ["read", "manage"],
     "is_active": true,
     "created_at": "2026-03-15T10:00:00Z",
     "last_used_at": "2026-03-28T14:30:00Z",
@@ -144,7 +144,7 @@ curl "$CORTEX_URL/api/admin/api-keys/key_abc123" \
   "id": "key_abc123",
   "name": "Production App",
   "key_prefix": "cortex_user_a1b2",
-  "permissions": ["read", "write"],
+  "permissions": ["read", "manage"],
   "is_active": true,
   "created_at": "2026-03-15T10:00:00Z",
   "last_used_at": "2026-03-28T14:30:00Z",
@@ -188,7 +188,7 @@ curl -X PATCH "$CORTEX_URL/api/admin/api-keys/key_abc123" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Renamed Key",
-    "permissions": ["read", "write", "delete"]
+    "permissions": ["read", "manage"]
   }'
 ```
 
@@ -198,7 +198,7 @@ curl -X PATCH "$CORTEX_URL/api/admin/api-keys/key_abc123" \
 {
   "id": "key_abc123",
   "name": "Renamed Key",
-  "permissions": ["read", "write", "delete"],
+  "permissions": ["read", "manage"],
   "is_active": true
 }
 ```
@@ -288,53 +288,19 @@ curl -X DELETE "$CORTEX_URL/api/admin/api-keys/key_abc123" \
 
 Separate from API key auth. Used by the Next.js web UI for human users.
 
-### Login
+**There is no `POST /api/auth/login` (or `/api/admin/login`) HTTP endpoint** — you cannot `curl` a login. Login is a **Next.js server action** (`frontend/src/lib/auth.ts`, `"use server"`), not an API route:
 
-```
-POST /api/auth/login
-```
-
-**Request Body:**
-
-| Field | Type | Required | Description |
-|-------|------|----------|-------------|
-| `email` | `string` | Yes | Admin email. Validated against the `ADMIN_EMAIL` env var. |
-| `password` | `string` | Yes | Admin password. Validated against the `ADMIN_PASSWORD` env var. |
-
-**Example Request:**
-
-```bash
-curl -X POST "$CORTEX_URL/api/auth/login" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "admin@example.com",
-    "password": "your-admin-password"
-  }'
-```
-
-**Response `200 OK`:**
-
-Returns an encrypted JWT token in an HTTP-only cookie. The response body confirms success:
-
-```json
-{
-  "message": "Login successful"
-}
-```
-
-**Response `401 Unauthorized`:**
-
-```json
-{
-  "detail": "Invalid email or password"
-}
-```
+- The action validates the submitted `email` / `password` against the `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars in the frontend layer.
+- On success it sets an HTTP-only session cookie (set by the Next.js session layer, **not** the FastAPI backend) and returns the `ADMIN_API_KEY` value to the client for subsequent API calls.
+- Logout clears that cookie through the same server-action layer.
 
 **Session Details:**
-- Tokens are encrypted JWTs stored in HTTP-only cookies
-- Session secret is derived from the `SESSION_SECRET` env var (must be 32+ characters)
-- All frontend routes except `/login` are protected by Next.js middleware
-- Sessions are not related to API keys -- API keys are for programmatic access, sessions are for the web UI
+- The session cookie is set/cleared by the Next.js session layer, not the API.
+- Session secret is derived from the `SESSION_SECRET` env var (must be 32+ characters).
+- Frontend routes (except `/login`) are protected by `proxy.ts`.
+- Sessions are not related to API keys — API keys are for programmatic access, the session is for the web UI.
+
+**Programmatic access:** skip login entirely. Pass the `ADMIN_API_KEY` value as the `X-API-Key` header on `/api/*` requests.
 
 ---
 
@@ -430,13 +396,10 @@ curl -X POST "$CORTEX_URL/api/admin/reset" \
 | `GET` | `/api/entities/merge-history` | View merge history. |
 | `GET` | `/api/tasks` | List background tasks. |
 | `GET` | `/api/tasks/{id}` | Get task status. |
-| `GET` | `/api/turbo/status` | Turbo mode status. |
-| `GET` | `/api/turbo/jobs` | List turbo jobs. |
-| `GET` | `/api/turbo/balance` | Compute3 balance. |
 
-### Write / Delete Permission (`write`, `delete`)
+### Manage Permission (`manage`)
 
-Everything in read, plus (delete operations require the `delete` scope):
+Everything in read, plus all write/edit/delete operations below (there is no separate `write` or `delete` value — `manage` covers them):
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -462,12 +425,10 @@ Everything in read, plus (delete operations require the `delete` scope):
 | `POST` | `/api/entities/merge` | Merge duplicate entities. |
 | `POST` | `/api/cleanup/orphaned-entities` | Clean orphaned entities and communities. |
 | `DELETE` | `/api/tasks/{id}` | Cancel a background task. |
-| `POST` | `/api/turbo/start` | Start a turbo GPU job. |
-| `POST` | `/api/turbo/stop` | Stop the turbo GPU job. |
 
-### Admin Permission (`admin`)
+### Root Admin API Key
 
-Everything above, plus:
+Not a permission value — these endpoints require the root **admin API key** (the `ADMIN_API_KEY` env value):
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
@@ -547,9 +508,9 @@ All error responses follow this schema:
 {"detail": "API key has been revoked"}
 ```
 
-**Insufficient permissions:**
+**Insufficient permissions:** (e.g. a `read`-only key hitting a `manage` endpoint)
 ```json
-{"detail": "Insufficient permissions. Required: admin"}
+{"detail": "Insufficient permissions: MANAGE access required"}
 ```
 
 ### Prompt Security Error
@@ -604,6 +565,5 @@ Every API request is automatically tracked per API key. Categories tracked:
 | `graph` | `/api/graph/*` |
 | `collections` | `/api/collections/*` |
 | `admin` | `/api/admin/*` |
-| `turbo` | `/api/turbo/*` |
 
 View usage via `GET /api/admin/api-keys/{key_id}` (see response schema above) or the admin dashboard's API Key Analytics panel.

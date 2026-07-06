@@ -15,7 +15,7 @@ The Cortex MCP server gives any MCP-compatible AI client native access to your C
 
 1. **The MCP server is a separate package, not part of Cortex.** It is a lightweight bridge that calls the Cortex REST API. You need a running Cortex instance first.
 2. **Authentication uses environment variables, not config files.** Set `CORTEX_BASE_URL` and `CORTEX_API_KEY` in your MCP client config.
-3. **You need an API key with at least `read` permission.** Get one from `{YOUR_BASE_URL}/admin` → API Keys. Add `write` permission if you also want upload capabilities.
+3. **You need an API key with at least `read` permission.** Get one from `{YOUR_BASE_URL}/admin` → API Keys. Add `manage` permission if you also want upload/mutation capabilities.
 4. **The server communicates via stdio, not HTTP.** MCP uses JSON-RPC over stdin/stdout. You do not need to expose any ports.
 5. **AgentSkills are not MCP tools.** The AgentSkills system (installing skills from the skills.sh registry) is a separate admin feature that extends the built-in researcher agent. It has nothing to do with the MCP server. See the [Admin skill](../admin/SKILL.md) for AgentSkills management.
 
@@ -115,7 +115,7 @@ Add to `.vscode/mcp.json`:
 | Tool | Description | Key Parameters |
 |------|-------------|----------------|
 | `search_knowledge` | Hybrid search (vector + keyword + graph traversal) | `query`, `top_k`, `collection_id` |
-| `ask_question` | RAG Q&A with source citations | `question`, `mode` (speed/quality), `collection_id` |
+| `ask_question` | RAG Q&A with source citations | `question`, `use_graph`, `use_agentic`, `collection_id` |
 | `list_documents` | List documents in the knowledge base | `collection_id`, `status`, `limit` |
 | `get_document` | Get document details and processing status | `document_id` |
 | `list_entities` | Browse knowledge graph entities | `type`, `limit` |
@@ -155,7 +155,7 @@ Once the MCP server is connected, try these prompts in your AI client:
 | Connection refused | Verify your Cortex instance is running: `curl {BASE_URL}/health` |
 | 401 Unauthorized | API key is invalid or expired — generate a new one from the admin panel |
 | Tools not appearing | Restart your MCP client after config changes; check client logs for connection errors |
-| Slow responses on `ask_question` | Use `mode: "speed"` for faster answers; `quality` mode runs up to 10 research iterations |
+| Slow responses on `ask_question` | Leave `use_agentic: false` (the default) for faster answers; `use_agentic: true` runs slower multi-step research |
 
 ## Skill Files
 

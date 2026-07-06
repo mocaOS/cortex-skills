@@ -8,10 +8,18 @@ export interface Skill {
 
 export const skills: Skill[] = [
   {
+    slug: "cortex",
+    name: "Cortex",
+    description:
+      "Connect an agent to a running Cortex instance — sync memory files, run hybrid search, and ask questions with agentic deep research. The fastest way to use an existing deployment.",
+    icon: "Brain",
+    category: "core",
+  },
+  {
     slug: "setup",
     name: "Setup",
     description:
-      "Deploy Cortex via Docker or Coolify. All 50+ environment variables, first steps, and health checks.",
+      "Self-host a full Cortex instance via Docker or Coolify. All 160+ environment variables, first steps, and health checks.",
     icon: "Settings",
     category: "core",
   },
@@ -19,7 +27,7 @@ export const skills: Skill[] = [
     slug: "auth",
     name: "Auth",
     description:
-      "API key management with 4 permission tiers (read, manage, admin). X-API-Key auth, session security, and prompt injection protection.",
+      "API key management with two permissions (read, manage) plus a root admin key. X-API-Key auth, collection scoping, session security, and prompt injection protection.",
     icon: "Shield",
     category: "core",
   },
@@ -77,14 +85,6 @@ export const skills: Skill[] = [
     description:
       "Automatic entity clustering via Louvain algorithm. LLM-generated community summaries that enrich RAG context and discovery.",
     icon: "Users",
-    category: "features",
-  },
-  {
-    slug: "turbo",
-    name: "Turbo",
-    description:
-      "GPU-accelerated inference via Compute3. Start/stop dedicated B200 GPU jobs with per-second billing for massive document uploads.",
-    icon: "Zap",
     category: "features",
   },
   {

@@ -27,14 +27,9 @@ All memory files are organized within a single dedicated collection (default: **
 
 | File | Description |
 |------|-------------|
-| **SKILL.md** (this file) | Main skill documentation |
-| **HEARTBEAT.md** | Periodic sync tasks and memory upload workflow |
-| [references/API.md](references/API.md) | Full API reference (60+ endpoints) |
-| [references/SYNC.md](references/SYNC.md) | Detailed sync workflow and troubleshooting |
-| **scripts/sync.sh** | Bash sync script |
-| **scripts/sync_bulk.py** | Python bulk sync script |
-| **scripts/sync_memory.js** | Node.js sync script |
-| **state/credentials.example.json** | Example credentials file |
+| **SKILL.md** (this file) | Main skill documentation — self-contained; every workflow below runs with `curl` + `jq` |
+| [references/API.md](references/API.md) | Full API reference (100+ endpoints) |
+| [references/SYNC.md](references/SYNC.md) | Detailed sync workflow, heartbeat cadence, and troubleshooting |
 
 ---
 
@@ -76,7 +71,7 @@ fi
 curl -s "$API_BASE/health" -H "X-API-Key: $API_KEY"
 ```
 
-Expected: `{"status": "healthy", "neo4j_connected": true, "version": "2.0.0"}`
+Expected: `{"status": "healthy", "neo4j_connected": true, "version": "1.0.0"}`
 
 ### Step 4: Find or Create Collection
 
@@ -171,15 +166,15 @@ curl -X POST "$API_BASE/api/search" \
 
 ### Ask AI (RAG Query)
 
-Two modes available:
-- **Chat mode** (speed): 2 research iterations, 1200 token answers
-- **Deep Research mode** (quality): Up to 10 agentic iterations with reasoning, 4000 token answers
+Two modes, selected with the `use_agentic` boolean (there is no `mode` field):
+- **Chat mode** (`use_agentic: false`, the default): up to 3 research iterations, ~1200-token answers — fast.
+- **Deep Research mode** (`use_agentic: true`): up to 8 agentic iterations with reasoning, ~4000-token answers.
 
 ```bash
 curl -X POST "$API_BASE/api/ask" \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"question": "What do I know about topic X?", "mode": "speed"}'
+  -d '{"question": "What do I know about topic X?", "use_agentic": false}'
 ```
 
 **Streaming** - use `/api/ask/stream` for real-time SSE responses:
@@ -190,7 +185,7 @@ curl -N "$API_BASE/api/ask/stream" \
   -d '{"question": "Summarize what I know about machine learning"}'
 ```
 
-SSE events: `content`, `sources`, `graph_context`, `thinking`, `sub_questions`, `retrieval`, `done`, `error`
+SSE events are flat-keyed JSON objects (switch on which key is present, there is no `type` field): `content` (answer tokens), `status`, `thinking`, `reasoning`, `retrieval`, `sources`, `graph_context`, `done` (carries `pending_memory: true` when memory compaction follows), `memory_update` (emitted after `done`), `error`.
 
 ---
 
@@ -206,9 +201,9 @@ Cortex builds a knowledge graph from your documents with:
 
 ### Pipeline (3 steps)
 
-1. **Entity Extraction** - Per-document, with fuzzy entity resolution (85% Levenshtein)
-2. **Relationship Analysis** - Cross-document, batched (120 entities/batch), supports incremental or rebuild
-3. **Community Detection** - Weighted graph clustering with automatic summarization
+1. **Entity Extraction** - Per-document, with fuzzy entity resolution (rapidfuzz)
+2. **Relationship Analysis** - Targeted discovery by default (kNN + co-mention candidate pairs, verified by an LLM); supports incremental or full rebuild. (A legacy full-scan `llm_scan` mode is still available.)
+3. **Community Detection** - Weighted graph clustering (Leiden/Louvain) with automatic summarization
 
 ---
 
@@ -239,11 +234,13 @@ curl -X POST "$API_BASE/api/collections" \
 
 Add knowledge manually without uploading files (Q&A pairs, text, markdown):
 
+Fields: `input_type` (`qa` | `text` | `markdown`), `content` (required — for a Q&A pair this holds the **question**), `answer` (Q&A only), optional `title`.
+
 ```bash
 curl -X POST "$API_BASE/api/custom-input" \
   -H "X-API-Key: $API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"type": "qa", "question": "What is X?", "answer": "X is..."}'
+  -d '{"input_type": "qa", "content": "What is X?", "answer": "X is..."}'
 ```
 
 ---
@@ -252,7 +249,7 @@ curl -X POST "$API_BASE/api/custom-input" \
 
 All API requests require an API key via `X-API-Key` header.
 
-**Permission levels:** `read` (search, view), `write` (upload, create), `delete` (remove), `admin` (full access including key management).
+**Permissions:** an API key holds one or both of two values — `read` (Ask AI, search, view graph/stats) and `manage` (upload, edit, delete documents and collections). There is no separate `write`/`delete`/`admin` permission. Full-instance operations (API-key management, system reset, config) require the root **admin API key** (`ADMIN_API_KEY`), not a permission tier. Keys can also be **collection-scoped** (`all` or `restricted` to specific collections).
 
 ---
 
@@ -270,7 +267,7 @@ All API requests require an API key via `X-API-Key` header.
 
 ## When to Sync
 
-- **Automatic:** Every 4+ hours via heartbeat (see [HEARTBEAT.md](HEARTBEAT.md))
+- **Automatic:** Every 4+ hours via heartbeat (see the cadence guidance in [references/SYNC.md](references/SYNC.md))
 - **Manual:** When human says "sync memories" or before answering questions needing historical context
 - **Don't sync:** Every few minutes, empty/temporary files, or files still being written
 
@@ -278,11 +275,11 @@ All API requests require an API key via `X-API-Key` header.
 
 ## Full API Reference
 
-See [references/API.md](references/API.md) for the complete 60+ endpoint API reference.
+See [references/API.md](references/API.md) for the complete 100+ endpoint API reference.
 
 ## Detailed Sync Workflow
 
-See [references/SYNC.md](references/SYNC.md) for complete sync scripts, QMD support, and troubleshooting.
+See [references/SYNC.md](references/SYNC.md) for the full sync workflow, QMD support, and troubleshooting.
 
 ---
 

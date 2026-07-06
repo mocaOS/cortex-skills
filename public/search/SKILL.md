@@ -11,13 +11,13 @@ description: Perform hybrid search combining vector similarity, keyword matching
 
 2. **Results are already re-ranked.** The response comes back re-ranked by a cross-encoder model (`ms-marco-MiniLM-L-6-v2`). Do NOT re-rank them yourself — you'll make results worse. The `score` field reflects the final re-ranked relevance score, not raw cosine similarity.
 
-3. **`top_k` defaults to 10, not "all".** If you're not specifying `top_k`, you're getting 10 results. The valid range is 1–50. Ask for more if you need broader coverage, fewer if you need speed.
+3. **`top_k` defaults to 5, not "all".** If you're not specifying `top_k`, you're getting 5 results. The valid range is 1–50. Ask for more if you need broader coverage, fewer if you need speed.
 
 4. **Graph traversal is entity-aware.** The graph component doesn't just match keywords — it identifies entities mentioned in your query, finds them in the knowledge graph, and follows relationships to discover contextually related chunks. This is why searches for "the CEO" can find results about a specific person even if "CEO" doesn't appear in the chunk.
 
 5. **Weights are configurable, not fixed.** The default 0.5/0.3/0.2 split can be overridden via environment variables (`VECTOR_WEIGHT`, `KEYWORD_WEIGHT`, `GRAPH_WEIGHT`). If your use case is heavily semantic, you can shift weight toward vector. If you need exact phrase matches, shift toward keyword.
 
-6. **Collection scoping changes the search space entirely.** When you pass a `collection_id`, all three retrieval strategies are scoped to that collection's documents and subgraph. This isn't a post-filter — it's a pre-filter that limits the search index itself.
+6. **Collection scoping changes the search space entirely.** When you pass `filters: {"collection_id": "..."}`, all three retrieval strategies are scoped to that collection's documents and subgraph. This isn't a post-filter — it's a pre-filter that limits the search index itself.
 
 ---
 
@@ -39,26 +39,16 @@ Content-Type: application/json
 | Field           | Type     | Required | Default | Description                                      |
 |-----------------|----------|----------|---------|--------------------------------------------------|
 | `query`         | string   | Yes      | —       | The search query. Natural language works best.    |
-| `limit`         | integer  | No       | 10      | Number of results to return. Range: 1–50.        |
-| `search_type`   | string   | No       | `hybrid`| `hybrid` \| `vector` \| `keyword` \| `graph`.        |
-| `filters`       | object   | No       | null    | Metadata filters to narrow results.              |
-| `collection_id` | string   | No       | null    | Scope search to a specific collection or community id. |
+| `top_k`         | integer  | No       | 5       | Number of results to return. Range: 1–50.        |
+| `filters`       | object   | No       | null    | Metadata filters to narrow results. Scope to a collection with `{"collection_id": "..."}`. |
 
-> Some older clients use `top_k`/`fast_mode`; the documented contract uses `limit` and `search_type`. Use `search_type: "vector"` for a fast semantic-only lookup.
-
-### Search Types
-
-| Type | Description |
-|------|-------------|
-| `hybrid` | All methods combined via RRF (default) |
-| `vector` | Semantic vector similarity only |
-| `keyword` | Full-text / BM25 only |
-| `graph` | Graph traversal only |
+> Search always runs the hybrid strategy (vector + keyword + graph via RRF). There is no per-request `search_type` or `fast_mode` toggle — those behaviors are controlled system-wide via environment variables.
 
 ### Response
 
 ```json
 {
+  "query": "original query",
   "results": [
     {
       "document_id": "doc_abc123",
@@ -67,22 +57,11 @@ Content-Type: application/json
       "score": 0.9234,
       "metadata": {
         "filename": "report.pdf",
-        "page": 3,
-        "chunk_index": 7,
-        "source": "upload",
-        "created_at": "2025-01-15T10:30:00Z"
+        "chunk_index": 7
       }
     }
   ],
-  "query": "original query",
-  "total_results": 10,
-  "retrieval_stats": {
-    "vector_time_ms": 45,
-    "keyword_time_ms": 12,
-    "graph_time_ms": 67,
-    "rerank_time_ms": 34,
-    "total_time_ms": 158
-  }
+  "total_results": 5
 }
 ```
 
@@ -115,9 +94,7 @@ Default weights:
 
 ### Step 3: Cross-Encoder Re-Ranking
 
-The fused candidate list is re-scored by `ms-marco-MiniLM-L-6-v2`, a cross-encoder that jointly encodes the query and each chunk. This produces the final `score` in the response. Cross-encoder re-ranking is the most expensive step but dramatically improves precision.
-
-Set `fast_mode: true` to skip this step when latency matters more than precision.
+The fused candidate list is re-scored by `ms-marco-MiniLM-L-6-v2`, a cross-encoder that jointly encodes the query and each chunk. This produces the final `score` in the response. Cross-encoder re-ranking is the most expensive step but dramatically improves precision. It can be disabled system-wide with `ENABLE_RERANKING=false`.
 
 ---
 
@@ -156,7 +133,7 @@ curl -X POST {BASE_URL}/api/search \
   -d '{
     "query": "quarterly revenue projections",
     "top_k": 15,
-    "collection_id": "col_finance2025"
+    "filters": {"collection_id": "col_finance2025"}
   }'
 ```
 
@@ -173,19 +150,6 @@ curl -X POST {BASE_URL}/api/search \
       "source": "upload",
       "filename": "engineering-handbook.pdf"
     }
-  }'
-```
-
-### Fast Mode (Skip Re-Ranking)
-
-```bash
-curl -X POST {BASE_URL}/api/search \
-  -H "X-API-Key: {API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "query": "quick lookup for API rate limits",
-    "top_k": 5,
-    "fast_mode": true
   }'
 ```
 
@@ -207,12 +171,11 @@ Filters reduce the search space, which can improve both speed and relevance when
 
 | Configuration           | Typical Latency | Use Case                          |
 |-------------------------|-----------------|-----------------------------------|
-| Default (top_k=10)      | 150–300ms       | General-purpose search            |
-| Fast mode (top_k=10)    | 50–120ms        | Real-time autocomplete, previews  |
+| Default (top_k=5)       | 150–300ms       | General-purpose search            |
 | Large (top_k=50)        | 300–600ms       | Comprehensive retrieval for RAG   |
 | Collection-scoped       | 100–250ms       | Targeted domain search            |
 
-Latency depends on corpus size, graph density, and whether Turbo mode is active for embedding generation.
+Latency depends on corpus size and graph density.
 
 ---
 
@@ -220,8 +183,7 @@ Latency depends on corpus size, graph density, and whether Turbo mode is active 
 
 - **Use natural language queries.** "How does the system handle failed payments?" outperforms "failed payment handler" because the vector and graph components benefit from context.
 - **Increase `top_k` for RAG pipelines.** When feeding results into `/api/ask`, use `top_k: 20` or higher. The re-ranker will sort the best to the top.
-- **Use collection scoping for multi-tenant data.** Don't rely on metadata filters alone — collection scoping is architecturally isolated and faster.
-- **Fast mode is good enough for previews.** If you're building a search-as-you-type UI, use `fast_mode: true` and `top_k: 5`. Switch to full search for the final results page.
+- **Use collection scoping for multi-tenant data.** Pass `filters: {"collection_id": "..."}` — collection scoping is architecturally isolated and faster.
 - **The graph component shines on entity-heavy queries.** Queries about people, organizations, products, or named concepts get a significant boost from graph traversal.
 
 ---

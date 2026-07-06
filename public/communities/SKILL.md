@@ -140,13 +140,13 @@ Response:
   "name": "Machine Learning Infrastructure",
   "summary": "A cluster of entities related to ML model training, serving infrastructure, and experiment tracking systems.",
   "entities": [
-    {"id": "ent_01", "name": "ModelRegistry", "type": "Service"},
-    {"id": "ent_02", "name": "TrainingPipeline", "type": "Service"},
-    {"id": "ent_03", "name": "FeatureStore", "type": "Service"}
+    {"id": "ent_01", "name": "ModelRegistry", "type": "System"},
+    {"id": "ent_02", "name": "TrainingPipeline", "type": "Process"},
+    {"id": "ent_03", "name": "FeatureStore", "type": "System"}
   ],
   "key_relationships": [
-    {"source": "TrainingPipeline", "target": "FeatureStore", "type": "READS_FROM"},
-    {"source": "TrainingPipeline", "target": "ModelRegistry", "type": "PUBLISHES_TO"}
+    {"source": "TrainingPipeline", "target": "FeatureStore", "type": "USES"},
+    {"source": "TrainingPipeline", "target": "ModelRegistry", "type": "DEPENDS_ON"}
   ],
   "entity_count": 12,
   "has_summary": true
@@ -200,13 +200,13 @@ Response:
 ### Search Communities
 
 ```
-GET /api/graph/communities/search?q={query}
+GET /api/graph/communities/search?query={query}
 ```
 
 Searches community names and summaries for the given query string.
 
 ```bash
-curl -s "http://localhost:8000/api/graph/communities/search?q=machine%20learning" \
+curl -s "http://localhost:8000/api/graph/communities/search?query=machine%20learning" \
   -H "X-API-Key: $TOKEN" | jq .
 ```
 
@@ -313,7 +313,7 @@ curl -s -X POST http://localhost:8000/api/graph/communities/summarize \
   -d '{"force_regenerate": false}' | jq .
 
 # 5. Search communities to use in RAG context
-curl -s "http://localhost:8000/api/graph/communities/search?q=payments" \
+curl -s "http://localhost:8000/api/graph/communities/search?query=payments" \
   -H "X-API-Key: $TOKEN" | jq .
 ```
 

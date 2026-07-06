@@ -21,8 +21,8 @@ List all background tasks.
       "status": "completed",
       "progress_percent": 100,
       "message": "Detected 23 communities",
-      "created_at": "2026-03-15T10:30:00Z",
-      "updated_at": "2026-03-15T10:31:15Z"
+      "started_at": "2026-03-15T10:30:00Z",
+      "completed_at": "2026-03-15T10:31:15Z"
     }
   ]
 }
@@ -49,8 +49,8 @@ Get status and progress for a single task.
   "status": "running",
   "progress_percent": 45.0,
   "message": "Analyzing batch 195/432...",
-  "created_at": "2026-03-15T10:30:00Z",
-  "updated_at": "2026-03-15T10:35:00Z"
+  "started_at": "2026-03-15T10:30:00Z",
+  "completed_at": null
 }
 ```
 
@@ -61,8 +61,8 @@ Get status and progress for a single task.
 | `status` | string | `pending`, `running`, `completed`, `failed`, `cancelled` |
 | `progress_percent` | float | Progress (0-100), not available for all task types |
 | `message` | string | Human-readable status message |
-| `created_at` | datetime | Task creation timestamp |
-| `updated_at` | datetime | Last status update |
+| `started_at` | datetime\|null | When the task started (null until it starts) |
+| `completed_at` | datetime\|null | When the task finished (null until complete) |
 
 **Errors:**
 
@@ -76,14 +76,15 @@ Get status and progress for a single task.
 
 Get the output of a completed task.
 
-Only available when `status` is `completed`. Returns task-specific output (e.g., list of communities, analysis statistics).
+Returns `200` with the task-specific output (e.g., list of communities, analysis statistics) when the task is `completed`. If the task is still running, returns `202 Accepted` with the current status instead of the result — poll until you get `200`.
 
-**Errors:**
+**Responses:**
 
-| Status | Cause |
-|--------|-------|
+| Status | Meaning |
+|--------|---------|
+| 200 | Task completed — body contains the result |
+| 202 | Task still running — body contains current status, not the result |
 | 404 | Task ID not found |
-| 400 | Task is not in `completed` status |
 
 ---
 

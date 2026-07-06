@@ -23,14 +23,14 @@ client = CortexClient(
 
 ### API Key Permissions
 
-User keys (`cortex_user_` prefix) carry an additive `permissions` array set at creation:
+User keys (`cortex_user_` prefix) carry a `permissions` array set at creation. There are only two levels:
 
 | Permissions | Access |
 |-------------|--------|
 | `["read"]` | Read-only: search, ask, list documents, graph queries |
-| `["read", "write"]` | Add upload, create collections, move, reprocess |
-| `["read", "write", "delete"]` | Add document/collection deletion |
-| `["read", "write", "delete", "admin"]` | Full access incl. key management |
+| `["read", "manage"]` | Adds all mutations: upload, create/delete collections, move, reprocess, document/entity deletion |
+
+Administrative operations (API-key management, system reset, library import/export) are not exposed through user keys at all — they require the separate root **admin API key**.
 
 ---
 
@@ -47,7 +47,7 @@ Check if the Cortex server is running. Does NOT require authentication.
 {
     "status": "healthy",
     "neo4j_connected": True,
-    "version": "1.4.2"
+    "version": "1.0.0"
 }
 ```
 

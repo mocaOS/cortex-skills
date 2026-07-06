@@ -25,12 +25,14 @@ Most integration issues with the upload system come from the same handful of mis
 
 ## Supported Formats
 
-| Category    | Formats                        |
-|-------------|--------------------------------|
-| Documents   | PDF, DOCX, PPTX, XLSX, TXT, MD |
-| Markup      | HTML, XML, LaTeX               |
-| Images      | PNG, JPG, TIFF, BMP            |
-| Audio       | Supported (transcription-based)|
+| Category               | Extensions                                                        |
+|------------------------|-------------------------------------------------------------------|
+| PDF                    | `.pdf`                                                            |
+| Office                 | `.docx`, `.doc`, `.xlsx`, `.xls`, `.pptx`, `.ppt`                |
+| Web / markup           | `.html`, `.htm`, `.xml`                                          |
+| Text                   | `.txt`, `.md`, `.mdx`, `.markdown`, `.rst`, `.tex`, `.latex`     |
+| Images (OCR / vision)  | `.png`, `.jpg`, `.jpeg`, `.tiff`, `.tif`, `.bmp`                |
+| Audio (transcription)  | `.wav`, `.mp3`, `.webvtt`, `.vtt`                               |
 
 All formats go through the same processing pipeline after text extraction. The extraction method varies by format (e.g., PDF parsing, DOCX XML extraction, image OCR/vision, audio transcription).
 
@@ -64,15 +66,15 @@ Content-Type: multipart/form-data
 
 ### Response
 
-Returns the created document ID and metadata:
+Returns the created document ID and upload metadata:
 
 ```json
 {
   "document_id": "abc-123",
   "filename": "report.pdf",
   "status": "processing",
-  "collection_id": "col-456",
-  "created_at": "2025-01-15T10:30:00Z"
+  "message": "Document uploaded and processing started",
+  "source": "upload"
 }
 ```
 
@@ -225,14 +227,6 @@ POST /api/documents/reprocess
 
 Triggers reprocessing for all documents (or those matching filter criteria).
 
-### Update Document Metadata
-
-```
-PATCH /api/documents/{id}
-```
-
-Update a document's metadata (title, collection assignment, etc.) without reprocessing.
-
 ### Bulk Download (ZIP)
 
 ```
@@ -375,24 +369,10 @@ GET /api/custom-inputs
 ### Get Custom Input Details
 
 ```
-GET /api/custom-inputs/{id}
+GET /api/custom-inputs/{document_id}
 ```
 
-### Update a Custom Input
-
-```
-PATCH /api/custom-inputs/{id}
-```
-
-Update the title, content, or answer of an existing custom input.
-
-### Delete a Custom Input
-
-```
-DELETE /api/custom-inputs/{id}
-```
-
-Removes the custom input and its associated chunks, embeddings, and orphaned entities.
+> Custom inputs are read-only through their own endpoints — there is no PATCH/DELETE on `/api/custom-inputs`. To remove one, delete it as a document via `DELETE /api/documents/{id}`.
 
 ---
 
@@ -404,7 +384,7 @@ When the `VISION_MODEL` environment variable is configured, the system automatic
 - Images embedded within PDFs and DOCX files
 - Charts, diagrams, and tables in presentations (PPTX)
 
-Without `VISION_MODEL` set, Docling's built-in SmolDocling model is used for image descriptions. If Docling is also unavailable, basic OCR (EasyOCR/Tesseract) is used as a fallback, which may miss contextual information from charts, diagrams, or handwritten content.
+Without `VISION_MODEL` set, Docling's built-in picture-description model is used for image descriptions (enabled via `do_picture_description=True`). If Docling is also unavailable, basic OCR (EasyOCR/Tesseract) is used as a fallback, which may miss contextual information from charts, diagrams, or handwritten content.
 
 Image analysis runs concurrently — control parallelism with `VISION_MAX_CONCURRENT` (default 3). With 200 images at ~30s each: 3 concurrency ≈ 33 min, 10 concurrency ≈ 10 min.
 

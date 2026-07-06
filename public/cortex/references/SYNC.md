@@ -134,7 +134,7 @@ If `api_key` or `base_url` is missing or null, abort and ask the user to configu
 curl -s "$API_BASE/health" -H "X-API-Key: $API_KEY"
 ```
 
-Expected: `{"status": "healthy", "neo4j_connected": true, "version": "2.0.0"}`
+Expected: `{"status": "healthy", "neo4j_connected": true, "version": "1.0.0"}`
 
 ### Step 3: Ensure Collection Exists
 
@@ -191,8 +191,6 @@ When many files need uploading (10+), use the bulk pattern to avoid overwhelming
 1. Upload all files with `start_processing=false`
 2. Call `POST /api/documents/process-pending` once to start batch processing
 3. Optionally monitor progress via `GET /api/documents/pending`
-
-For very large batches (100+), consider enabling Turbo Mode first for faster processing (see the turbo skill).
 
 ---
 

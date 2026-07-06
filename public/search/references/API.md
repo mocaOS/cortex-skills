@@ -18,67 +18,35 @@ Content-Type: application/json
 | Field           | Type    | Required | Default | Description                                                |
 |-----------------|---------|----------|---------|------------------------------------------------------------|
 | `query`         | string  | Yes      | --      | Search query. Natural language works best.                 |
-| `top_k`         | integer | No       | `10`    | Number of results to return. Valid range: 1-50.            |
-| `limit`         | integer | No       | `10`    | Alias for `top_k`.                                        |
-| `filters`       | object  | No       | `null`  | Metadata filters to narrow results (pre-filter).           |
-| `collection_id` | string  | No       | `null`  | Scope search to a specific collection.                     |
-| `community_id`  | string  | No       | `null`  | Scope search to a specific community.                      |
-| `search_type`   | string  | No       | `hybrid`| Search strategy: `hybrid`, `vector`, `keyword`, or `graph`.|
-| `fast_mode`     | boolean | No       | `false` | Skip cross-encoder re-ranking for faster results.          |
+| `top_k`         | integer | No       | `5`     | Number of results to return. Valid range: 1-50.            |
+| `filters`       | object  | No       | `null`  | Metadata filters to narrow results (pre-filter). Scope to a collection with `{"collection_id": "..."}`. |
+
+Search always runs the hybrid strategy (vector + keyword + graph, fused via RRF, then cross-encoder re-ranked). There is no per-request `search_type` or `fast_mode` field — hybrid search and re-ranking are toggled system-wide via environment variables (`ENABLE_HYBRID_SEARCH`, `ENABLE_RERANKING`).
 
 ### Response `200`
 
 ```json
 {
+  "query": "original query",
   "results": [
     {
-      "id": "chunk_abc123",
       "document_id": "doc_xyz789",
       "chunk_id": "chunk_001",
       "content": "The retrieved text content of this chunk...",
       "score": 0.9234,
-      "document_title": "report.pdf",
       "metadata": {
         "filename": "report.pdf",
-        "page": 3,
-        "chunk_index": 7,
-        "source": "upload",
-        "created_at": "2025-01-15T10:30:00Z",
-        "type": "text"
+        "chunk_index": 7
       }
     }
   ],
-  "query": "original query",
-  "total": 45,
-  "total_results": 10,
-  "query_time_ms": 127,
-  "retrieval_stats": {
-    "vector_time_ms": 45,
-    "keyword_time_ms": 12,
-    "graph_time_ms": 67,
-    "rerank_time_ms": 34,
-    "total_time_ms": 158
-  },
-  "graph_context": {
-    "entities": [
-      {"name": "Neural Networks", "type": "Concept"}
-    ],
-    "relationships": [
-      {
-        "source": "Neural Networks",
-        "target": "Deep Learning",
-        "type": "PART_OF"
-      }
-    ]
-  }
+  "total_results": 5
 }
 ```
 
-The `score` field reflects the final re-ranked relevance score (not raw cosine similarity) when re-ranking is active. When `fast_mode: true`, it reflects the RRF fusion score.
+The response has exactly three top-level fields: `query` (echo of the request), `results` (an array of `SearchResult`), and `total_results` (count of returned results).
 
-The `graph_context` field is present when graph search is enabled and entities were matched.
-
-Image analysis chunks appear in results with `metadata.type: "image_analysis"` and `metadata.chunk_index` starting at 1000.
+Each `SearchResult` carries `document_id`, `chunk_id`, `content`, `score`, and `metadata`. The `metadata` object contains `filename` and `chunk_index`; some retrieval paths also add `rerank_score`. The `score` field reflects the final re-ranked relevance score (not raw cosine similarity) when re-ranking is active.
 
 ### Errors
 
@@ -89,17 +57,6 @@ Image analysis chunks appear in results with `metadata.type: "image_analysis"` a
 | 404    | Specified `collection_id` does not exist           |
 | 500    | Internal retrieval failure                         |
 | 503    | Search index not ready (still ingesting)           |
-
----
-
-## Search Types
-
-| Type      | Methods Used                    | When to Use                        |
-|-----------|---------------------------------|------------------------------------|
-| `hybrid`  | Vector + Keyword + Graph (default) | General-purpose queries         |
-| `vector`  | Semantic vector similarity only | Conceptual or abstract queries     |
-| `keyword` | Full-text BM25 only            | Exact term, acronym, or name matching |
-| `graph`   | Knowledge graph traversal only  | Relationship exploration           |
 
 ---
 
@@ -184,15 +141,8 @@ After RRF fusion produces a candidate list, a cross-encoder model re-scores each
 ### Behavior
 
 - The `score` field in results reflects the cross-encoder score when re-ranking is active
-- Set `fast_mode: true` in the request body to skip re-ranking for a specific query
-- Set `ENABLE_RERANKING=false` to disable re-ranking system-wide
+- Set `ENABLE_RERANKING=false` to disable re-ranking system-wide (there is no per-request toggle)
 - Re-ranking adds ~30-50ms to query latency depending on `top_k`
-
-### When to Skip Re-Ranking
-
-- Real-time autocomplete / search-as-you-type UIs
-- Preview results where speed matters more than precision
-- High-volume endpoints where latency budget is tight
 
 ---
 
@@ -225,27 +175,12 @@ After RRF fusion produces a candidate list, a cross-encoder model re-scores each
 
 ## Collection Scoping
 
-When `collection_id` is passed, all three retrieval strategies are scoped to that collection's documents and subgraph. This is a pre-filter that limits the search index itself, not a post-filter on results.
-
-Collection-scoped searches are architecturally isolated and faster than equivalent metadata filters.
+Scope search to a collection by passing its id inside `filters`: `{"collection_id": "..."}`. All three retrieval strategies are then scoped to that collection's documents and subgraph — a pre-filter that limits the search index itself, not a post-filter on results.
 
 ```json
 {
   "query": "quarterly revenue",
-  "collection_id": "financial-reports"
-}
-```
-
----
-
-## Community Scoping
-
-When `community_id` is passed, search is scoped to documents associated with the specified community.
-
-```json
-{
-  "query": "backpropagation algorithm",
-  "community_id": "comm_1"
+  "filters": {"collection_id": "financial-reports"}
 }
 ```
 
@@ -255,12 +190,11 @@ When `community_id` is passed, search is scoped to documents associated with the
 
 | Configuration             | Typical Latency | Use Case                            |
 |---------------------------|-----------------|-------------------------------------|
-| Default (`top_k=10`)      | 150-300ms       | General-purpose search              |
-| Fast mode (`top_k=10`)    | 50-120ms        | Autocomplete, previews              |
+| Default (`top_k=5`)       | 150-300ms       | General-purpose search              |
 | Large (`top_k=50`)        | 300-600ms       | Comprehensive retrieval for RAG     |
 | Collection-scoped         | 100-250ms       | Targeted domain search              |
 
-Latency depends on corpus size, graph density, and whether Turbo mode is active for embedding generation.
+Latency depends on corpus size and graph density.
 
 ---
 

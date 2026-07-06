@@ -29,8 +29,9 @@ For a complete index, point your agent to the root:
 ## Available Skills
 
 ### Core
-* `/setup` — Deploying Cortex via Docker, environment variables.
-* `/auth` — API keys, permissions, prompt security.
+* `/cortex` — Use a running instance: sync agent memory, hybrid search, agentic Q&A.
+* `/setup` — Self-hosting Cortex via Docker, environment variables.
+* `/auth` — API keys (read/manage + admin key), collection scoping, prompt security.
 * `/admin` — Instance management, AgentSkills, export/import, system reset.
 
 ### Features
@@ -42,7 +43,6 @@ For a complete index, point your agent to the root:
 * `/communities` — Auto-clustering and summarization.
 * `/git-integration` — Connect GitHub/GitLab/Gitea repos; agent opens PRs.
 * `/web-import` — Harvest web pages into markdown via crawl4ai (MDHarvest).
-* `/turbo` — GPU acceleration via Compute3.
 * `/tasks` — Background task polling, cancellation, cleanup.
 
 ### Ecosystem

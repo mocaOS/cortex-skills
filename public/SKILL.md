@@ -31,18 +31,25 @@ Documents / Memory → Cortex Backend (FastAPI) → Neo4j (Graph + Vector)
                     Hybrid Search (Vector + Keyword + Graph) → RAG Q&A
 ```
 
-- **60+ API endpoints** — not just upload and search
+- **100+ API endpoints** — not just upload and search
 - **Hybrid search** — vector (0.5) + keyword/BM25 (0.3) + graph traversal (0.2) with cross-encoder re-ranking
-- **Knowledge graph** — 10 entity types, typed relationships, community detection
+- **Knowledge graph** — 10 entity types, 14 relationship types, community detection
 - **RAG Q&A** — streaming SSE, agentic multi-step reasoning, deep research mode
 - **Collections** — scope documents and graphs by project or tenant
-- **GPU acceleration** — per-second billing via Compute3
+- **Ingestion sources** — file upload, git repos (GitHub/GitLab/Gitea), and web import (crawl4ai)
+- **Prompt-injection defense** — a query-time Prompt Guard classifier, pattern detection, and content fencing
+- **Metering** — optional unit-denominated monthly quota (`MAX_QUERIES_PER_MONTH`, counted in LLM completions)
+
+## Two Ways to Use Cortex
+
+1. **Connect to a running instance** (you have a base URL + API key). Start with the **`cortex`** skill (memory sync, search, ask) and the feature skills (`upload`, `search`, `ask`, `graph`, …). This is the fastest path — no infrastructure to run.
+2. **Self-host your own instance** (on your machine or VM). Start with the **`setup`** skill: clone the repo, set a handful of env vars, `docker compose up -d`. Then use it exactly like case 1 against `http://localhost:8000`.
 
 ## What You Probably Got Wrong
 
 1. **Cortex is not a SaaS with a fixed URL.** It is self-hosted via Docker. The base URL is wherever you deployed it (e.g., `http://localhost:8000`). Always use `{BASE_URL}` as a placeholder.
 2. **It is not just a vector database.** Cortex builds a full knowledge graph with entities, relationships, and communities using GraphRAG on top of Neo4j.
-3. **Authentication is the `X-API-Key` header (or `Authorization: Bearer`).** Every API call (except `/health`) requires a key. Keys hold an additive permission array: `read`, `write`, `delete`, `admin`, and can be scoped to specific collections.
+3. **Authentication is the `X-API-Key` header (or `Authorization: Bearer`).** Every API call (except `/health`) requires a key. A key holds one or both of two permissions — `read` (Ask AI, search, view) and `manage` (upload, edit, delete) — and can be scoped to specific collections. There is no `write`/`delete`/`admin` permission tier; full-instance operations (key management, reset, config) use the root **admin API key** (`ADMIN_API_KEY`).
 4. **Documents are processed asynchronously.** Upload returns immediately with a document ID. Chunking, embedding, and entity extraction happen in the background.
 5. **Streaming uses Server-Sent Events (SSE)**, not WebSockets. Use `POST /api/ask/stream` with `Accept: text/event-stream`.
 
@@ -80,16 +87,16 @@ curl -X POST "{BASE_URL}/api/ask" \
 |--------|----------|-----------|---------|
 | `GET` | `/health` | None | Health check |
 | `GET` | `/api/stats` | read | Knowledge base statistics |
-| `POST` | `/api/upload` | write | Upload a document |
+| `POST` | `/api/upload` | manage | Upload a document |
 | `GET` | `/api/documents` | read | List documents |
 | `POST` | `/api/search` | read | Hybrid search |
 | `POST` | `/api/ask` | read | RAG Q&A |
 | `POST` | `/api/ask/stream` | read | Streaming RAG Q&A (SSE) |
 | `GET` | `/api/graph/entities` | read | List entities |
 | `GET` | `/api/collections` | read | List collections |
-| `POST` | `/api/collections` | write | Create collection |
+| `POST` | `/api/collections` | manage | Create collection |
 | `GET` | `/api/graph/communities` | read | List communities |
-| `POST` | `/api/admin/api-keys` | admin | Create API key |
+| `POST` | `/api/admin/api-keys` | admin key | Create API key (root `ADMIN_API_KEY`) |
 
 ## Agent Memory Sync
 
@@ -137,15 +144,16 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 
 | File | Description |
 |------|-------------|
-| [cortex/references/API.md](cortex/references/API.md) | Full API reference (60+ endpoints) |
-| [cortex/references/SYNC.md](cortex/references/SYNC.md) | Sync workflow, scripts, and troubleshooting |
+| [cortex/references/API.md](cortex/references/API.md) | Full API reference (100+ endpoints) |
+| [cortex/references/SYNC.md](cortex/references/SYNC.md) | Sync workflow, heartbeat cadence, and troubleshooting |
 
 ## Sub-Skills
 
 ### Core
 
-- `cortexskills.org/setup/SKILL.md` — Deploy Cortex via Docker, configure 50+ environment variables.
-- `cortexskills.org/auth/SKILL.md` — API keys, permission tiers, prompt injection protection.
+- `cortexskills.org/cortex/SKILL.md` — **Use a running instance**: sync agent memory, search, and ask with agentic deep research. The primary skill for connecting to an existing Cortex.
+- `cortexskills.org/setup/SKILL.md` — **Self-host**: deploy Cortex via Docker and configure its 160+ environment variables.
+- `cortexskills.org/auth/SKILL.md` — API keys (`read`/`manage` + admin key), collection scoping, prompt-injection protection.
 - `cortexskills.org/admin/SKILL.md` — Instance management, AgentSkills registry, export/import, system reset.
 
 ### Features
@@ -158,7 +166,6 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 - `cortexskills.org/communities/SKILL.md` — Auto-clustering entities with LLM-generated summaries.
 - `cortexskills.org/git-integration/SKILL.md` — Connect GitHub/GitLab/Gitea repos; agent opens pull requests.
 - `cortexskills.org/web-import/SKILL.md` — Harvest web pages into clean markdown via crawl4ai (MDHarvest).
-- `cortexskills.org/turbo/SKILL.md` — GPU-accelerated processing via Compute3.
 - `cortexskills.org/tasks/SKILL.md` — Background task polling, cancellation, and cleanup.
 
 ### Ecosystem

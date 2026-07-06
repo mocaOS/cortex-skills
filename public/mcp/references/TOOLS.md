@@ -30,8 +30,8 @@ RAG-powered Q&A using the knowledge graph and document chunks.
 |------|------|----------|---------|-------------|
 | `question` | string | Yes | — | The question to ask |
 | `use_graph` | boolean | No | true | Include knowledge graph context |
+| `use_agentic` | boolean | No | false | Use agentic multi-step RAG (more thorough, slower) |
 | `collection_id` | string | No | — | Scope to a collection |
-| `mode` | "speed" \| "quality" | No | "speed" | speed: 2 iterations, 1200 tokens; quality: up to 10 iterations, 4000 tokens |
 
 **Response:** Answer text with source citations and optional graph context.
 

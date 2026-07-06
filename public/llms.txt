@@ -7,8 +7,9 @@ Curated skill files that teach AI agents how to build on the Cortex intelligence
 ## Sub-Skills
 
 ### Core
-- `cortexskills.org/setup/SKILL.md` — Deploy Cortex via Docker, environment variables.
-- `cortexskills.org/auth/SKILL.md` — API keys, permissions, prompt security.
+- `cortexskills.org/cortex/SKILL.md` — Use a running instance: sync memory, search, ask (agentic deep research).
+- `cortexskills.org/setup/SKILL.md` — Self-host Cortex via Docker, environment variables.
+- `cortexskills.org/auth/SKILL.md` — API keys (read/manage + admin key), collection scoping, prompt security.
 - `cortexskills.org/admin/SKILL.md` — Instance management, AgentSkills, export/import, system reset.
 
 ### Features
@@ -20,7 +21,6 @@ Curated skill files that teach AI agents how to build on the Cortex intelligence
 - `cortexskills.org/communities/SKILL.md` — Auto-clustering and summarization.
 - `cortexskills.org/git-integration/SKILL.md` — Connect GitHub/GitLab/Gitea repos; agent opens PRs.
 - `cortexskills.org/web-import/SKILL.md` — Harvest web pages into markdown via crawl4ai (MDHarvest).
-- `cortexskills.org/turbo/SKILL.md` — GPU acceleration via Compute3.
 - `cortexskills.org/tasks/SKILL.md` — Background task polling, cancellation, cleanup.
 
 ### Ecosystem

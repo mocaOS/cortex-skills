@@ -31,8 +31,8 @@ These must be set for Cortex to start.
 |----------|------|---------|-------------|
 | `OPENAI_API_KEY` | `string` | -- | API key for the primary LLM. Required. |
 | `OPENAI_API_BASE` | `string` | `https://api.openai.com/v1` | Base URL for the primary LLM API. Change this to point at any OpenAI-compatible endpoint (LiteLLM, Ollama, vLLM, etc.). |
-| `OPENAI_MODEL` | `string` | `gpt-4o-mini` | Model ID for the primary LLM used for Q&A, research, and chat. Recommended: powerful reasoning models (e.g. MiniMax M3, GLM5, Kimi K2.5). |
-| `OPENAI_MODEL_FAST_MODE` | `string` | `gpt-4o-mini` | Model ID for Fast Mode -- a cheaper/faster model used when the user selects fast search. Falls back to `OPENAI_MODEL` if not set. |
+| `OPENAI_MODEL` | `string` | `google-gemma-4-26b-a4b-it` | Model ID for the primary LLM used for Q&A, research, and chat. |
+| `OPENAI_MODEL_FAST_MODE` | `string` | `` (inherits `OPENAI_MODEL`) | Model ID for Fast Mode -- a cheaper/faster model used when the user selects fast search. Empty = falls back to `OPENAI_MODEL`. |
 | `OPENAI_MAX_OUTPUT_TOKENS` | `integer` | `8000` | Floor of the output-token budget chain. Default output tokens for every LLM call. |
 | `OPENAI_MAX_CONTEXT` | `integer` | `32768` | Floor of the input-context budget chain. Default input context budget. |
 
@@ -91,7 +91,7 @@ These must be set for Cortex to start.
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `ENABLE_GRAPH_EXTRACTION` | `boolean` | `true` | Master switch for the GraphRAG pipeline. When `false`, documents are chunked and embedded but no entities or relationships are extracted. |
-| `GRAPH_EXTRACTION_MODEL` | `string` | value of `OPENAI_MODEL` | Model for entity extraction and community summarization. Recommended: instruction-following models (e.g. Mistral Small 24B, Ministral 14B). Can be a smaller, faster model than the primary. |
+| `GRAPH_EXTRACTION_MODEL` | `string` | value of `OPENAI_MODEL` | Model for entity extraction and community summarization. Recommended: `qwen3-6-27b` (Qwen3.6 27B). Can be a smaller, faster model than the primary. |
 | `GRAPH_EXTRACTION_API_BASE` | `string` | value of `OPENAI_API_BASE` | API base URL for the extraction model, if different from primary. |
 | `GRAPH_EXTRACTION_API_KEY` | `string` | value of `OPENAI_API_KEY` | API key for the extraction model, if different from primary. |
 | `MAX_GRAPH_HOPS` | `integer` | `2` | Number of graph traversal hops during search context retrieval. Range: 1-3. Higher values pull in more distantly connected context at the cost of relevance. |
@@ -105,27 +105,48 @@ Optional dedicated model for relationship extraction (both per-chunk during Step
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `RELATIONSHIP_EXTRACTION_MODEL` | `string` | value of `GRAPH_EXTRACTION_MODEL` | Model for relationship extraction. Falls back to extraction model, then primary model. Recommended: instruction-following models (e.g. OpenAI GPT OSS 120B). |
+| `RELATIONSHIP_EXTRACTION_MODEL` | `string` | value of `GRAPH_EXTRACTION_MODEL` | Model for relationship extraction. Falls back to extraction model, then primary model. Recommended: `qwen3-6-27b` (Qwen3.6 27B). |
 | `RELATIONSHIP_EXTRACTION_API_BASE` | `string` | value of `GRAPH_EXTRACTION_API_BASE` | API base URL for the relationship model. |
 | `RELATIONSHIP_EXTRACTION_API_KEY` | `string` | value of `GRAPH_EXTRACTION_API_KEY` | API key for the relationship model. |
 | `CONCURRENT_RELATIONS` | `integer` | `3` | Concurrent per-chunk relationship extractions per document during Step 1. |
 
 ### Relationship Analysis (Phase B / Step 2)
 
-Cross-document relationship discovery using co-occurrence batching and multi-round analysis.
+Cross-document relationship discovery. Two modes, selected by `RELATIONSHIP_DISCOVERY_MODE`:
+
+- **`targeted`** (DEFAULT) — candidates are generated *without* the LLM (entity-embedding kNN + document co-mention), then the LLM only verifies/classifies ranked pairs in small batched calls. Orders of magnitude fewer/cheaper LLM calls than the legacy scan.
+- **`llm_scan`** (legacy) — two-phase co-occurrence batching with multi-round analysis driven by `RELATIONSHIP_TARGET_RATIO` / `RELATIONSHIP_MAX_ROUNDS`.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
+| `RELATIONSHIP_DISCOVERY_MODE` | `string` | `targeted` | `targeted` (kNN + co-mention candidates, LLM verifies pairs) or `llm_scan` (legacy two-phase batch scan). |
 | `RELATIONSHIP_MAX_CONTEXT` | `integer` | `0` (=inherit) | Maximum INPUT context window tokens for Phase 2 batch analysis. `0` inherits `GRAPH_EXTRACTION_MAX_CONTEXT` → `OPENAI_MAX_CONTEXT`. |
 | `RELATIONSHIP_MAX_OUTPUT_TOKENS` | `integer` | `0` (=inherit) | Output budget for **per-chunk + candidate scan** (was the Phase 2 batch budget in old releases — see migration note). `0` inherits `EXTRACTION_MAX_OUTPUT_TOKENS`. |
 | `RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS` | `integer` | `16000` | Output budget for **Phase 2 batch** relationship analysis (standalone, NOT in the inheritance chain). Batch processes hundreds of entity pairs per call. |
 | `PARALLEL_RELATIONSHIP_BATCHES` | `integer` | `5` | Number of relationship analysis batches processed in parallel. |
-| `RELATIONSHIP_TARGET_RATIO` | `float` | `1.0` | Target Entity-Relationship Ratio (ERR metric). Higher values cause the system to discover more relationships per entity. Displayed on the Knowledge Graph page as a quality indicator. |
-| `RELATIONSHIP_MAX_ROUNDS` | `integer` | `3` | Maximum discovery rounds per batch for initial analysis. Re-analyze ("Find more") always does 1 round. Progress is tracked cumulatively across rounds. |
 | `RELATIONSHIP_MAX_HOURS` | `integer` | `0` | Maximum hours for relationship analysis. `0` = no time limit. |
 | `RELATIONSHIP_MAX_PER_ENTITY` | `integer` | `50` | Soft cap on relationships per entity. Prevents hub entities from accumulating disproportionate connections. `0` = no cap. Relationships are skipped when both endpoints exceed the cap. |
 | `AUTO_RELATIONSHIP_ANALYSIS_AFTER_BATCH` | `boolean` | `false` | Automatically trigger cross-document relationship analysis after batch document processing completes. |
 | `AUTO_COMMUNITY_DETECTION_AFTER_BATCH` | `boolean` | `false` | Automatically trigger community detection after relationship analysis completes. |
+
+**Targeted mode candidate generation** (`RELATIONSHIP_DISCOVERY_MODE=targeted`):
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `RELATIONSHIP_KNN_K` | `integer` | `8` | Nearest neighbors per entity in the vector-index candidate scan. |
+| `RELATIONSHIP_KNN_MIN_SIMILARITY` | `float` | `0.80` | Minimum vector-index score (Neo4j cosine index score, 0-1) for a kNN candidate pair. |
+| `RELATIONSHIP_MIN_SHARED_DOCS` | `integer` | `2` | Minimum distinct documents co-mentioning a pair for the doc-co-mention generator. `0` = disable generator. |
+| `RELATIONSHIP_DOC_FREQ_CAP` | `integer` | `30` | Skip entities mentioned in more than this many documents in the co-mention generator (hub guard). |
+| `RELATIONSHIP_CANDIDATES_PER_ENTITY` | `integer` | `10` | Max candidate pairs any single entity may appear in (hub guard). |
+| `RELATIONSHIP_MAX_CANDIDATE_PAIRS` | `integer` | `15000` | Total candidate-pair budget per analysis run (top-ranked pairs kept). |
+| `RELATIONSHIP_PAIRS_PER_CALL` | `integer` | `40` | Candidate pairs verified per LLM call in targeted mode. |
+
+**Legacy `llm_scan` mode only:**
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `RELATIONSHIP_TARGET_RATIO` | `float` | `1.0` | Target Entity-Relationship Ratio (ERR metric). Higher values cause the system to discover more relationships per entity. Applies to `llm_scan` mode only. |
+| `RELATIONSHIP_MAX_ROUNDS` | `integer` | `3` | Maximum discovery rounds per batch for initial analysis. Re-analyze ("Find more") always does 1 round. Applies to `llm_scan` mode only. |
 
 ### Semantic Entity Resolution
 
@@ -201,9 +222,9 @@ The agent pipeline replaces the legacy fixed-step agentic RAG with an LLM-driven
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `ENABLE_AGENT_RESEARCH` | `boolean` | `true` | Use the agent pipeline for Deep Research mode. Set `false` to use the legacy fixed decompose-search-synthesize pipeline. |
-| `ENABLE_AGENT_CHAT` | `boolean` | `false` | Use the agent pipeline for standard Chat mode. Off by default -- opt in for adaptive chat behavior. |
-| `RESEARCHER_MAX_ITERATIONS_SPEED` | `integer` | `2` | Maximum agent loop iterations in Chat (speed) mode. |
-| `RESEARCHER_MAX_ITERATIONS_QUALITY` | `integer` | `10` | Maximum agent loop iterations in Deep Research (quality) mode. |
+| `ENABLE_AGENT_CHAT` | `boolean` | `true` | Use the agent pipeline for standard Chat mode. Enabled by default (required for skills in chat). |
+| `RESEARCHER_MAX_ITERATIONS_SPEED` | `integer` | `3` | Maximum agent loop iterations in Chat (speed) mode. |
+| `RESEARCHER_MAX_ITERATIONS_QUALITY` | `integer` | `8` | Maximum agent loop iterations in Deep Research (quality) mode. |
 | `WRITER_MAX_TOKENS_SPEED` | `integer` | `1200` | Maximum output tokens for the writer LLM in Chat mode. |
 | `WRITER_MAX_TOKENS_QUALITY` | `integer` | `4000` | Maximum output tokens for the writer LLM in Deep Research mode. |
 
@@ -258,7 +279,13 @@ Configure image analysis capabilities for extracting and understanding images fr
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `PROMPT_SECURITY` | `boolean` | `true` | Enable built-in prompt injection protection. Scans for jailbreak patterns, sanitizes input, adds defensive prompts, and filters harmful output. Always enable in production. |
+| `PROMPT_SECURITY` | `boolean` | `true` | Master switch for the heuristic layer: 25+ jailbreak/injection pattern detectors, input sanitization, defensive prompting, untrusted-content fencing, and output filtering. Always enable in production. |
+| `PROMPT_GUARD` | `boolean` | `true` | Enable the query-time Prompt Guard ML classifier (PIGuard) that scores each incoming question and refuses likely injections before retrieval. Only active when a service URL or `PROMPT_GUARD_LOCAL` is set; fails open if the guard is unreachable. |
+| `PROMPT_GUARD_SERVICE_URL` | `string` | -- | Offload the classifier to the shared `cortex-helper` service (`/classify`). Empty = no remote guard. The remote path wins when both this and `PROMPT_GUARD_LOCAL` are set. |
+| `PROMPT_GUARD_LOCAL` | `boolean` | `false` | Run the classifier in-process instead of via a service URL (needs torch; adds resident RAM). |
+| `PROMPT_GUARD_THRESHOLD` | `float` | `0.5` | Injection-class probability at/above which a question is refused (lower = stricter). |
+| `PROMPT_GUARD_MODEL` | `string` | `leolee99/PIGuard` | HuggingFace model id for the in-process (local) classifier. |
+| `INGESTION_INJECTION_SCAN` | `boolean` | `true` | Scan ingested document text for embedded injection attempts during processing (flag, does not block ingestion). |
 | `ENVIRONMENT` | `string` | `development` | `production` makes startup fail fast on weak/default secrets (empty/`password123` `NEO4J_PASSWORD`, or `SESSION_SECRET` < 32 chars when `ADMIN_PASSWORD` is set). |
 | `CORS_ALLOWED_ORIGINS` | `string` | `*` | Comma-separated CORS allowlist. Default `*` (credentials disabled, since auth is header-based). Restrict to your domains in production. |
 | `EXPOSE_API_DOCS` | `string` | `auto` | Interactive API docs (`/docs`, `/redoc`, `/openapi.json`). `auto` = on in development, off in production. Set `true`/`false` to force. |
@@ -290,7 +317,9 @@ Configure image analysis capabilities for extracting and understanding images fr
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `MAX_FILES` | `integer` | `0` | Maximum number of documents allowed. `0` = unlimited. Returns HTTP `403` when exceeded. |
-| `MAX_COLLECTIONS` | `integer` | `0` | Maximum number of collections allowed. `0` = unlimited. Returns HTTP `403` when exceeded. |
+| `MAX_COLLECTIONS` | `integer` | `0` | Maximum number of collections allowed (the default collection counts as 1). `0` = unlimited. Returns HTTP `403` when exceeded. |
+| `MAX_ENTITIES` | `integer` | `0` | Maximum total entities across the graph. `0` = unlimited. |
+| `MAX_QUERIES_PER_MONTH` | `integer` | `0` | Monthly quota, **unit-denominated**: counted in internal LLM completions (every Q&A loop call + document/graph processing call; embeddings excluded), instance-wide, per UTC calendar month. Returns HTTP `429` when exhausted. `0` = unlimited. |
 | `MAX_FILE_SIZE_MB` | `integer` | `50` | Maximum upload file size in megabytes. |
 
 ---
@@ -308,22 +337,6 @@ Configure image analysis capabilities for extracting and understanding images fr
 
 ---
 
-## Compute3 Turbo Mode (Optional)
-
-GPU-accelerated inference via the Compute3 platform. When enabled and a turbo job is running, Cortex routes LLM calls through the Compute3 GPU cluster. Falls back to the standard LLM provider if the turbo job is not running.
-
-| Variable | Type | Default | Description |
-|----------|------|---------|-------------|
-| `COMPUTE3_API_KEY` | `string` | -- | Compute3 API key. Obtain from [console.compute3.ai](https://console.compute3.ai). |
-| `COMPUTE3_API_BASE` | `string` | `https://api.compute3.ai` | Compute3 API base URL. |
-| `COMPUTE3_GPU_TYPE` | `string` | `h100` | GPU type to provision. Options: `h100`, `a100`. |
-| `COMPUTE3_GPU_COUNT` | `integer` | `4` | Number of GPUs to allocate per turbo job. |
-| `COMPUTE3_MODEL` | `string` | `MiniMaxAI/MiniMax-M2.1` | Model to serve on the Compute3 GPU cluster. Supports open-source models like Llama, Mistral, etc. |
-| `COMPUTE3_DOCKER_IMAGE` | `string` | `vllm/vllm-openai:latest` | Docker image for the vLLM inference server running on Compute3. |
-| `COMPUTE3_DEFAULT_RUNTIME` | `integer` | `3600` | Default job runtime in seconds (maximum duration before auto-shutdown). |
-
----
-
 ## Re-ranking Lifecycle & Shared Model Services
 
 The local cross-encoder pulls ~780 MB into the process. Lazy-loaded by default; offload to a shared `cortex-helper` service to keep many tenant stacks lean.
@@ -331,7 +344,7 @@ The local cross-encoder pulls ~780 MB into the process. Lazy-loaded by default; 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `RERANKER_PRELOAD` | `boolean` | `false` | Eager-load the cross-encoder at startup. Off = lazy, leaner idle instances. |
-| `RERANKER_IDLE_TTL_SECONDS` | `integer` | `1800` | Unload idle reranker to reclaim ~1 GB. `0` = never unload. |
+| `RERANKER_IDLE_TTL_SECONDS` | `integer` | `0` | Unload idle reranker to reclaim ~1 GB after N idle seconds. `0` = never unload (default). |
 | `RERANKER_SERVICE_URL` | `string` | -- | Offload reranking to cortex-helper (no local cross-encoder loaded when set). |
 | `DOCLING_SERVICE_URL` | `string` | -- | Offload Docling conversion to cortex-helper's warm service. |
 | `HELPER_SERVICE_TOKEN` | `string` | -- | Shared secret → `X-Helper-Token` (match helper's `HELPER_TOKEN`). |
@@ -395,7 +408,7 @@ All default **off** (except `RESEARCHER_STABLE_PROMPT`); enable per stack after 
 |----------|------|---------|-------------|
 | `NEXT_PUBLIC_API_URL` | `string` | `http://localhost:8000` | Backend API URL used by the Next.js frontend for client-side requests. Must be reachable from the user's browser. |
 | `NEXT_PUBLIC_LOGO_URL` | `string` | -- (uses default logo) | URL to a custom logo image. When set, replaces the default Cortex logo in the frontend. Supports any image URL. |
-| `NEXT_PUBLIC_ACCENT_COLOR` | `string` | -- (uses default) | Custom accent color for the frontend UI. Accepts any valid CSS color value: hex (`#3b82f6`), rgb (`rgb(59, 130, 246)`), hsl, oklch, etc. |
+| `ACCENT_COLOR` | `string` | -- (uses default) | Custom accent color for the frontend UI. Read server-side from `process.env` at runtime (no rebuild needed). Accepts any valid CSS color value: hex (`#3b82f6`), rgb (`rgb(59, 130, 246)`), hsl, oklch, etc. |
 
 ---
 

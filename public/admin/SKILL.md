@@ -7,7 +7,7 @@ description: Use this skill when managing a Cortex instance — installing Agent
 
 ## What You Probably Got Wrong
 
-1. **Admin session auth is separate from API key auth.** `POST /api/admin/login` uses email/password and returns a JWT session cookie for the web UI. API keys (`X-API-Key` header) are for programmatic access. They are two independent auth systems.
+1. **Admin login is a Next.js server action, not an API endpoint.** There is no `POST /api/admin/login` to `curl`. The web UI login (`frontend/src/lib/auth.ts`, `"use server"`) validates email/password against `ADMIN_EMAIL`/`ADMIN_PASSWORD` in the frontend layer, sets a session cookie, and returns the `ADMIN_API_KEY`. API keys (`X-API-Key` header) are for programmatic access. They are two independent auth systems.
 
 2. **AgentSkills are not MCP tools.** They are Markdown instruction files (with optional tool definitions) installed from the [skills.sh](https://skills.sh) registry or local directories. The researcher agent uses them during deep research, not MCP clients.
 
@@ -15,7 +15,7 @@ description: Use this skill when managing a Cortex instance — installing Agent
 
 4. **System reset is granular.** You can reset documents only, graph only, or everything. It's not all-or-nothing.
 
-5. **The stats endpoint only requires `read` permission.** You don't need an admin key to check `GET /api/stats`.
+5. **The stats endpoint only requires `read` permission.** You don't need the admin key to check `GET /api/stats`. The API-key CRUD, system reset, and config endpoints, by contrast, require the root **admin API key** (the `ADMIN_API_KEY` env value) — that is a distinct credential, not an `admin` permission tier.
 
 ---
 
@@ -45,34 +45,29 @@ The `relationship_count` field shows cross-document relationships (Phase B). The
 
 ## Admin Session Authentication
 
-The frontend web UI uses session-based auth, separate from API keys.
+The web UI uses session-based auth, separate from API keys. **There is no `/api/admin/login` or `/api/admin/logout` HTTP endpoint** — you cannot `curl` a login.
 
-### Login
+### Login / Logout (web UI)
 
-```bash
-curl -X POST "{BASE_URL}/api/admin/login" \
-  -H "Content-Type: application/json" \
-  -d '{"email": "admin@example.com", "password": "your-password"}'
-```
+Login is a **Next.js server action** (`frontend/src/lib/auth.ts`, `"use server"`), not an API route. It validates the submitted email/password against the `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars in the frontend layer, sets an HTTP-only session cookie (via the Next.js session layer, not the FastAPI backend), and returns the `ADMIN_API_KEY` for the client to store. Logout clears the cookie through the same layer.
 
-Credentials are validated against `ADMIN_EMAIL` and `ADMIN_PASSWORD` environment variables. On success, returns an encrypted JWT token stored in an HTTP-only cookie.
+### Programmatic access
 
-### Logout
+Skip login entirely. Use the `ADMIN_API_KEY` value as the header:
 
 ```bash
-curl -X POST "{BASE_URL}/api/admin/logout"
+curl "{BASE_URL}/api/admin/skills" \
+  -H "X-API-Key: {ADMIN_API_KEY}"
 ```
-
-Clears the session cookie.
 
 ### How Session Auth and API Keys Coexist
 
 | Mechanism | Used By | Transport | Lifetime |
 |-----------|---------|-----------|----------|
-| Session (JWT cookie) | Web UI / browser | HTTP-only cookie | Until logout or expiry |
+| Session (cookie) | Web UI / browser | HTTP-only cookie (set by the Next.js session layer) | Until logout or expiry |
 | API key (`X-API-Key`) | Scripts, agents, integrations | Request header | Until revoked |
 
-All frontend routes (except `/login`) are protected by middleware that checks the session cookie. All API routes check the `X-API-Key` header.
+Frontend routes (except `/login`) are protected by `proxy.ts`, which checks the session cookie. All API routes check the `X-API-Key` header.
 
 ---
 

@@ -45,6 +45,7 @@ All three endpoints accept the same JSON body.
 | `use_fast_search` | `boolean` | `false` | Vector-only search (disables hybrid search, reranking, and graph) |
 | `collection_id` | `string \| null` | `null` | Scope retrieval to a specific collection. Omit or set to `null` to search all collections. |
 | `conversation_history` | `ConversationMessage[] \| null` | `null` | Previous messages for multi-turn context |
+| `conversation_memory` | `object \| null` | `null` | Opt-in, client-carried memory blob. Round-trip the payload from the `memory_update` SSE event back on the next turn (backend stays stateless). Send `{}` or omit on the first turn. |
 
 ### ConversationMessage Schema
 
@@ -78,8 +79,9 @@ The backend keeps the most recent messages (configured by `MAX_CONVERSATION_HIST
       "content": "Revenue increased 23% year-over-year...",
       "score": 0.92,
       "metadata": {
-        "document_title": "q4-report.pdf",
-        "collection_id": "financial-reports"
+        "filename": "q4-report.pdf",
+        "chunk_index": 5,
+        "rerank_score": 0.91
       }
     }
   ],
@@ -91,7 +93,7 @@ The backend keeps the most recent messages (configured by `MAX_CONVERSATION_HIST
   "reranked": true,
   "reasoning_steps": null,
   "sub_questions": null,
-  "communities_used": ["Financial Performance"],
+  "communities_used": [3, 7],
   "retrieval_stats": {
     "vector_results": 10,
     "keyword_results": 8,
@@ -112,7 +114,7 @@ The backend keeps the most recent messages (configured by `MAX_CONVERSATION_HIST
 | `reranked` | `boolean` | Whether cross-encoder reranking was applied |
 | `reasoning_steps` | `string[] \| null` | Reasoning steps (only when `use_agentic: true`) |
 | `sub_questions` | `string[] \| null` | Decomposed sub-questions (only when `use_agentic: true`) |
-| `communities_used` | `string[]` | Community names used during retrieval |
+| `communities_used` | `number[]` | Community IDs (integers) used during retrieval |
 | `retrieval_stats` | `object` | Counts of results from each retrieval method |
 | `collection_id` | `string \| null` | The collection scope used, if any |
 
@@ -131,9 +133,10 @@ The response is an HTTP stream with `Content-Type: text/event-stream`. Each even
 | `sub_questions` | `string[]` | Deep Research | The decomposed research sub-questions |
 | `retrieval` | `string` | Deep Research | Per-search retrieval progress (e.g., "Found 8 sources") |
 | `retrieval_stats` | `object` | Deep Research | Summary: `total_sources_considered`, `unique_sources`, `search_calls`, `communities_used` |
-| `done` | `boolean` | All modes | `true` when the stream is complete |
+| `done` | `boolean` | All modes | `true` when the stream is complete. When conversation memory is active it also carries `pending_memory: true`, signalling that one more `memory_update` frame follows |
+| `memory_update` | `object` | When `conversation_memory` sent | Updated memory blob to replay next turn. Emitted **after** the `done` frame (default `EMIT_DONE_BEFORE_MEMORY=true`) |
 | `error` | `string` | All modes | Error message if something went wrong |
-| `communities_used` | `number[]` | Deep Research | Community IDs used (included in the `done` event) |
+| `communities_used` | `number[]` | Deep Research | Community IDs (integers) used (included in the `done` event) |
 
 ### Chat Mode Event Sequence
 
@@ -142,7 +145,7 @@ sources -> graph_context -> content (repeated) -> done
 ```
 
 ```
-data: {"sources": [{"document_id": "doc_abc", "chunk_id": "chunk_1", "content": "Knowledge graphs provide...", "score": 0.94, "metadata": {"document_title": "Overview.pdf"}}]}
+data: {"sources": [{"document_id": "doc_abc", "chunk_id": "chunk_1", "content": "Knowledge graphs provide...", "score": 0.94, "metadata": {"filename": "Overview.pdf", "chunk_index": 2, "rerank_score": 0.94}}]}
 
 data: {"graph_context": {"entities": [...], "relationships": [...], "chunks": [...]}}
 
@@ -151,6 +154,14 @@ data: {"content": "provide several "}
 data: {"content": "key benefits..."}
 
 data: {"done": true}
+```
+
+When conversation memory is active, the terminal frames are ordered `done` then `memory_update`:
+
+```
+data: {"done": true, "pending_memory": true}
+
+data: {"memory_update": {"version": 2, "transcript": {...}, "facts": [...], "source_ledger": [...], "kg_context": {...}}}
 ```
 
 ### Deep Research Mode Event Sequence
@@ -197,8 +208,9 @@ Each entry in the `sources` array:
   "content": "The relevant text from the document...",
   "score": 0.94,
   "metadata": {
-    "document_title": "Report.pdf",
-    "collection_id": "research"
+    "filename": "Report.pdf",
+    "chunk_index": 12,
+    "rerank_score": 0.94
   }
 }
 ```
@@ -209,7 +221,7 @@ Each entry in the `sources` array:
 | `chunk_id` | `string` | The specific chunk ID |
 | `content` | `string` | The retrieved text content |
 | `score` | `number` | Relevance score (0.0--1.0) |
-| `metadata` | `object` | Additional metadata including `document_title` and optionally `collection_id`, `chunk_index`, `type` |
+| `metadata` | `object` | Additional metadata: `filename`, `chunk_index`, and (when reranking ran) `rerank_score` |
 
 ---
 
@@ -237,8 +249,8 @@ When `use_agentic: true`, the system uses a **researcher/writer agent architectu
 | `ENABLE_AGENTIC_RAG` | `true` | Enable deep research mode |
 | `ENABLE_AGENT_RESEARCH` | `true` | Use agent pipeline for deep research (set `false` for legacy) |
 | `ENABLE_AGENT_CHAT` | `false` | Use agent pipeline for standard chat (opt-in) |
-| `RESEARCHER_MAX_ITERATIONS_SPEED` | `2` | Agent iterations for chat mode |
-| `RESEARCHER_MAX_ITERATIONS_QUALITY` | `10` | Agent iterations for deep research |
+| `RESEARCHER_MAX_ITERATIONS_SPEED` | `3` | Agent iterations for chat mode (5 when skills are active) |
+| `RESEARCHER_MAX_ITERATIONS_QUALITY` | `8` | Agent iterations for deep research |
 | `WRITER_MAX_TOKENS_SPEED` | `1200` | Max output tokens for chat answers |
 | `WRITER_MAX_TOKENS_QUALITY` | `4000` | Max output tokens for deep research answers |
 | `MAX_CONVERSATION_HISTORY` | `6` | Messages to keep for multi-turn context |
@@ -513,7 +525,7 @@ response.raise_for_status()
 data = response.json()
 print(data["answer"])
 for source in data["sources"]:
-    print(f"  - {source['metadata']['document_title']} (score: {source['score']:.2f})")
+    print(f"  - {source['metadata']['filename']} (score: {source['score']:.2f})")
 ```
 
 ### Python -- Multi-Turn Conversation
@@ -677,7 +689,7 @@ if (!response.ok) {
 const data = await response.json();
 console.log(data.answer);
 data.sources.forEach((s) =>
-  console.log(`  - ${s.metadata.document_title} (${s.score.toFixed(2)})`)
+  console.log(`  - ${s.metadata.filename} (${s.score.toFixed(2)})`)
 );
 ```
 
