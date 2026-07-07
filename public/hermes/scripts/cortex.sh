@@ -113,7 +113,10 @@ case "$cmd" in
       def=$(jq -r '.default // ""' "$SRCFILE")
       jq -r --arg d "$def" --arg e "$envset" '.sources | to_entries[] | "\(if ((.key==$d) and ($e=="")) then "* " else "  " end)\(.key)  [\(.value.access // "rw")]  \(.value.base_url)  \(.value.collection // "all")  — \(.value.label // "")"' "$SRCFILE"
     fi
-    { [ -z "$envset" ] && [ ! -f "$SRCFILE" ]; } && echo "no cortex connected yet. Set CORTEX_BASE_URL + CORTEX_API_KEY in ~/.hermes/.env, or: cortex.sh connect <name> <base_url> <key>"
+    if [ -z "$envset" ] && [ ! -f "$SRCFILE" ]; then
+      echo "no cortex connected yet. Set CORTEX_BASE_URL + CORTEX_API_KEY in ~/.hermes/.env, or: cortex.sh connect <name> <base_url> <key>"
+    fi
+    exit 0
     ;;
   connect)
     name="${1:?usage: connect <name> <base_url> <key> [collection] [ro|rw] [label...]}"
