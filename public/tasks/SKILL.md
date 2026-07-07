@@ -15,6 +15,8 @@ description: Use this skill when working with background tasks in Cortex — pol
 
 4. **Cleanup removes old completed/failed tasks.** `POST /api/tasks/cleanup` removes tasks older than 24 hours. It does not cancel running tasks.
 
+5. **Task state survives restarts.** Task records are write-through persisted to Neo4j, so after a redeploy `GET /api/tasks/{id}` no longer returns 404 for a task that existed before the restart. A task interrupted by a restart reports status `failed` with message "interrupted by server restart". Terminal states are preserved for 7 days; stale records are pruned automatically every hour.
+
 ---
 
 ## Task Statuses

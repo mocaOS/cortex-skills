@@ -70,6 +70,8 @@ Get status and progress for a single task.
 |--------|-------|
 | 404 | Task ID not found |
 
+Task records are write-through persisted to Neo4j and survive restarts: after a redeploy, a task that existed before the restart no longer returns 404. If it was interrupted by the restart, it reports `status: "failed"` with message "interrupted by server restart". Terminal states are preserved for 7 days; stale records are pruned automatically every hour.
+
 ---
 
 ## GET /api/tasks/{task_id}/result

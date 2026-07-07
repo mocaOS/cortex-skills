@@ -21,6 +21,8 @@ description: Use this skill when building RAG-powered Q&A features on Cortex. Co
 
 7. **Conversation memory is opt-in and client-carried — the backend stays stateless.** Send an opaque `conversation_memory` blob, read the updated blob back from the `memory_update` SSE event, and replay it next turn. Follow-ups answerable from memory can skip retrieval entirely (memory fast-path).
 
+8. **Injection refusals look like normal streams.** A question flagged by the prompt-injection defenses returns a safe-refusal `content` frame followed by `done` — no `error` frame, no HTTP error, no special field. Don't treat refusals as failures. There are also two 429 flavors: the per-key burst limit (seconds-scale `Retry-After`) and the monthly unit quota (`Retry-After` = seconds until the next UTC month) — see [references/API.md](references/API.md#error-responses).
+
 ## Endpoints
 
 ### Non-Streaming: POST /api/ask

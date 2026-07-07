@@ -71,7 +71,9 @@ fi
 curl -s "$API_BASE/health" -H "X-API-Key: $API_KEY"
 ```
 
-Expected: `{"status": "healthy", "neo4j_connected": true, "version": "1.0.0"}`
+Expected: `{"status": "healthy", "neo4j_connected": true, "schema_initialized": true, "version": "1.0.0"}`
+
+A degraded instance (Neo4j unreachable, or the schema not yet confirmed at startup) answers **HTTP 503** with `"status": "degraded"` — check the status code, not just the body.
 
 ### Step 4: Find or Create Collection
 
@@ -262,6 +264,8 @@ All API requests require an API key via `X-API-Key` header.
 | Connection refused | Service may be down, retry later |
 | Collection not found | Skill auto-creates the collection |
 | Upload failed | File not tracked, retried on next sync |
+
+Every response echoes an `X-Request-ID` header (honored if you send one, minted otherwise). In production, 5xx bodies are sanitized to a generic message plus a `request_id` — correlate via the ID rather than parsing 5xx bodies.
 
 ---
 

@@ -80,6 +80,7 @@ Each ingested document carries git provenance fields: `git_connection_id`, `git_
 
 - **Manual** — click **Sync** on a connection any time.
 - **Scheduled** — set an **Auto-sync** interval (minutes) under Advanced; a background poller re-syncs on schedule. No webhooks or public endpoint required.
+- **Failure backoff** — a connection whose scheduled sync keeps failing (revoked token, oversized repo, network) backs off exponentially (capped at 24 hours) instead of being re-cloned on every scheduler tick, and reports `sync_status: "error"` on the connection object. A successful sync resets the backoff.
 
 ## The Agent's `git_repo` Tool (read/write)
 

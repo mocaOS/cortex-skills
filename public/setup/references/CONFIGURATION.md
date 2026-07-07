@@ -35,6 +35,7 @@ These must be set for Cortex to start.
 | `OPENAI_MODEL_FAST_MODE` | `string` | `` (inherits `OPENAI_MODEL`) | Model ID for Fast Mode -- a cheaper/faster model used when the user selects fast search. Empty = falls back to `OPENAI_MODEL`. |
 | `OPENAI_MAX_OUTPUT_TOKENS` | `integer` | `8000` | Floor of the output-token budget chain. Default output tokens for every LLM call. |
 | `OPENAI_MAX_CONTEXT` | `integer` | `32768` | Floor of the input-context budget chain. Default input context budget. |
+| `LLM_REQUEST_TIMEOUT_SECONDS` | `integer` | `360` | Explicit transport timeout on every LLM client the backend builds (the SDK default is 600s, which lets one hung provider connection pin an ingestion slot for 10 minutes). For streaming, the read component applies between chunks, so long answers are unaffected. `0` restores the SDK default. |
 
 ### Embedding Configuration
 
@@ -58,6 +59,9 @@ These must be set for Cortex to start.
 | `UPLOAD_DIR` | `string` | `/app/uploads` | Directory where uploaded files are stored on disk. |
 | `CUSTOM_INPUTS_DIR` | `string` | `/app/custom_inputs` | Directory where custom input files (Q&A, text, markdown) are stored. |
 | `MAX_FILE_SIZE_MB` | `integer` | `50` | Maximum allowed file size for uploads in megabytes. |
+| `MAX_REQUEST_BODY_MB` | `integer` | `32` | Global request-body ceiling for non-file-upload endpoints, enforced by middleware on both `Content-Length` and streamed bodies — oversized requests are rejected with HTTP `413` before they can pressure memory. File-upload routes get `MAX_FILE_SIZE_MB` + slack; library import gets `MAX_IMPORT_BODY_MB`. `0` disables the middleware. |
+| `MAX_IMPORT_BODY_MB` | `integer` | `2048` | Body ceiling for the library-import routes (`/api/admin/import*`), which stream to disk rather than RAM. Returns HTTP `413` when exceeded. `0` = unlimited. |
+| `MIN_FREE_DISK_MB` | `integer` | `500` | Free-space floor for the uploads filesystem. Uploads, reprocessing, and library-import sessions are refused with HTTP `507 Insufficient Storage` when accepting the data would leave less than this free — disk-full corrupts Neo4j checkpoints, so refusing new data early is strictly safer. `0` disables the guard. |
 
 ### Chunking Configuration
 
@@ -72,8 +76,9 @@ These must be set for Cortex to start.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `BATCH_PROCESSING_CONCURRENCY` | `integer` | `2` | Number of documents processed concurrently during batch operations (`POST /api/documents/process-pending`). |
+| `BATCH_PROCESSING_CONCURRENCY` | `integer` | `3` | Number of documents processed concurrently during batch operations (`POST /api/documents/process-pending`). Default raised from `2` to `3` (bench-validated, Venice-safe). |
 | `PROCESSING_THREAD_WORKERS` | `integer` | `4` | Number of thread workers used for document processing tasks. |
+| `AUTO_RESUME_PENDING_ON_STARTUP` | `boolean` | `true` | Automatically resume documents stranded mid-processing by a restart/redeploy (quota-guarded). Bulk uploads parked deliberately with `start_processing=false` stay parked. Set `false` to require a manual trigger after every redeploy. |
 
 ### Large PDF Processing
 
@@ -290,6 +295,8 @@ Configure image analysis capabilities for extracting and understanding images fr
 | `CORS_ALLOWED_ORIGINS` | `string` | `*` | Comma-separated CORS allowlist. Default `*` (credentials disabled, since auth is header-based). Restrict to your domains in production. |
 | `EXPOSE_API_DOCS` | `string` | `auto` | Interactive API docs (`/docs`, `/redoc`, `/openapi.json`). `auto` = on in development, off in production. Set `true`/`false` to force. |
 | `ENCRYPTION_KEY` | `string` | -- | At-rest encryption for git PATs + skill secrets. Comma-separated Fernet keys (first encrypts, all decrypt). |
+| `ENABLE_AUDIT_LOG` | `boolean` | `false` | Append-only JSONL audit log: authentication failures, key-attributed mutating requests (uploads, deletions, config changes, key CRUD), and search/ask activity, each with acting key, outcome, and request ID. **Metadata only** — document content and query text are never written. Size-rotated and fail-open. Server-side file only — there is no API endpoint to read it. |
+| `AUDIT_LOG_PATH` | `string` | `./logs/audit.log` | Filesystem path for the audit log. |
 
 ### Rate Limiting
 
@@ -309,6 +316,7 @@ Configure image analysis capabilities for extracting and understanding images fr
 | `NEO4J_MAX_POOL_SIZE` | `integer` | `100` | Neo4j driver connection pool size. |
 | `NEO4J_CONNECTION_TIMEOUT` | `integer` | `10` | Neo4j TCP connect timeout (seconds). |
 | `NEO4J_CONNECTION_ACQUISITION_TIMEOUT` | `integer` | `60` | Max wait for a pooled connection (seconds). |
+| `CORTEX_NEO4J_TX_TIMEOUT` | `string` | `300s` | Server-side Neo4j transaction timeout so a runaway query can't pin a connection and an API worker forever. **Compose-level tunable, not a backend var**: the deploy composes (prod overlay, Coolify, Dokploy) map it onto the neo4j service as `NEO4J_db_transaction_timeout=${CORTEX_NEO4J_TX_TIMEOUT:-300s}`. |
 
 ---
 
@@ -319,7 +327,7 @@ Configure image analysis capabilities for extracting and understanding images fr
 | `MAX_FILES` | `integer` | `0` | Maximum number of documents allowed. `0` = unlimited. Returns HTTP `403` when exceeded. |
 | `MAX_COLLECTIONS` | `integer` | `0` | Maximum number of collections allowed (the default collection counts as 1). `0` = unlimited. Returns HTTP `403` when exceeded. |
 | `MAX_ENTITIES` | `integer` | `0` | Maximum total entities across the graph. `0` = unlimited. |
-| `MAX_QUERIES_PER_MONTH` | `integer` | `0` | Monthly quota, **unit-denominated**: counted in internal LLM completions (every Q&A loop call + document/graph processing call; embeddings excluded), instance-wide, per UTC calendar month. Returns HTTP `429` when exhausted. `0` = unlimited. |
+| `MAX_QUERIES_PER_MONTH` | `integer` | `0` | Monthly quota, **unit-denominated**: counted in internal LLM completions (every Q&A loop call + document/graph processing call; embeddings excluded), instance-wide, per UTC calendar month. Returns HTTP `429` + `Retry-After` (seconds until the next UTC month) when exhausted; gates queries *and* the start of new processing work (upload, reprocess, web import, git sync, graph builds) — in-flight work always finishes. `0` = unlimited. |
 | `MAX_FILE_SIZE_MB` | `integer` | `50` | Maximum upload file size in megabytes. |
 
 ---

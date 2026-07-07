@@ -14,11 +14,12 @@ All endpoints (except `GET /health`) require the `X-API-Key` header:
 X-API-Key: {your_api_key}
 ```
 
-Keys carry a `permissions` array holding any combination of exactly two values — `read` and `manage` — rather than encoding the level in the prefix. The prefix only indicates key type:
+Keys carry a `permissions` array holding any combination of exactly two values — `read` and `manage`. The prefix reflects the level at creation time — `cortex_ro_` for read-only keys, `cortex_rw_` when permissions include `manage`:
 
 | Prefix | Key type | Created via |
 |--------|----------|-------------|
-| `cortex_user_` | User key | `POST /api/admin/api-keys` (with any combination of `read`/`manage`) |
+| `cortex_ro_` | User key (read-only) | `POST /api/admin/api-keys` (`permissions: ["read"]`) |
+| `cortex_rw_` | User key (read-write) | `POST /api/admin/api-keys` (permissions include `manage`) |
 | `cortex_admin_` | Admin key | `ADMIN_API_KEY` env var at startup |
 
 | Permission | Access Level |
@@ -69,8 +70,8 @@ curl -X POST "$CORTEX_URL/api/admin/api-keys" \
 {
   "id": "key_abc123",
   "name": "Production App",
-  "key": "cortex_user_a1b2c3d4e5f6g7h8i9j0...",
-  "key_prefix": "cortex_user_a1b2",
+  "key": "cortex_rw_a1b2c3d4e5f6g7h8i9j0...",
+  "key_prefix": "cortex_rw_a1b2",
   "permissions": ["read", "manage"],
   "is_active": true,
   "created_at": "2026-03-15T10:00:00Z",
@@ -104,7 +105,7 @@ curl "$CORTEX_URL/api/admin/api-keys" \
   {
     "id": "key_abc123",
     "name": "Production App",
-    "key_prefix": "cortex_user_a1b2",
+    "key_prefix": "cortex_rw_a1b2",
     "permissions": ["read", "manage"],
     "is_active": true,
     "created_at": "2026-03-15T10:00:00Z",
@@ -143,7 +144,7 @@ curl "$CORTEX_URL/api/admin/api-keys/key_abc123" \
 {
   "id": "key_abc123",
   "name": "Production App",
-  "key_prefix": "cortex_user_a1b2",
+  "key_prefix": "cortex_rw_a1b2",
   "permissions": ["read", "manage"],
   "is_active": true,
   "created_at": "2026-03-15T10:00:00Z",
@@ -321,6 +322,8 @@ curl "$CORTEX_URL/api/admin/config" \
   -H "X-API-Key: $ADMIN_KEY"
 ```
 
+`PATCH /api/admin/config` updates the admin-editable runtime toggles (`prompt_guard`, `ingestion_injection_scan`) without a restart — covered in depth in the [Admin skill](../../admin/SKILL.md).
+
 ---
 
 ### System Reset
@@ -440,6 +443,7 @@ Not a permission value — these endpoints require the root **admin API key** (t
 | `POST` | `/api/admin/api-keys/{id}/activate` | Activate a key. |
 | `DELETE` | `/api/admin/api-keys/{id}` | Delete a key. |
 | `GET` | `/api/admin/config` | View system configuration. |
+| `PATCH` | `/api/admin/config` | Update runtime toggles (`prompt_guard`, `ingestion_injection_scan`). |
 | `POST` | `/api/admin/reset` | System reset. |
 | `GET` | `/api/admin/skills` | List skills. |
 | `POST` | `/api/admin/skills/install` | Install a skill. |
@@ -460,6 +464,15 @@ Per-API-key rate limiting on the ask/upload endpoints is off by default (token-b
 
 When the limit is exceeded, the API returns `429 Too Many Requests` with a `Retry-After` header.
 
+There are **two distinct `429` sources** — tell them apart by the `Retry-After` horizon and the detail text:
+
+| Source | Trigger | `Retry-After` | Detail text |
+|--------|---------|---------------|-------------|
+| Per-key burst | `RATE_LIMIT_QPM` token bucket on ask/upload | Seconds (short) | `Rate limit exceeded (N requests/minute). Slow down.` |
+| Monthly unit quota | `MAX_QUERIES_PER_MONTH` (internal LLM completions) | Seconds until the next UTC month (long) | `Monthly usage limit reached (max: N LLM completions). ...` |
+
+The monthly quota gates query endpoints *and* the start of new processing work — upload, reprocess, web import, git sync, and graph builds all draw from the same pool. In-flight work always finishes; the gate only blocks starting new work.
+
 ---
 
 ## Error Responses
@@ -472,6 +485,14 @@ All error responses follow this schema:
 }
 ```
 
+Every response echoes an `X-Request-ID` header — honored if you send one, minted otherwise. In production, 5xx bodies are **sanitized** to a generic message plus the request ID (exception internals like connection URIs or provider error bodies never reach clients):
+
+```json
+{"detail": "Internal server error. Check server logs for details.", "request_id": "<id>"}
+```
+
+Correlate failures with server logs via the request ID instead of parsing error bodies.
+
 ### Common HTTP Status Codes
 
 | Code | Meaning | Common Cause |
@@ -481,10 +502,11 @@ All error responses follow this schema:
 | `403` | Forbidden | Valid key but insufficient permissions for the endpoint. Also returned when resource limits (`MAX_FILES`, `MAX_COLLECTIONS`) are exceeded. |
 | `404` | Not Found | Resource does not exist (document, key, collection, entity, task). |
 | `409` | Conflict | Resource already exists or operation conflicts with current state. |
-| `413` | Payload Too Large | File exceeds `MAX_FILE_SIZE_MB`. |
+| `413` | Payload Too Large | Request-body ceilings: `MAX_REQUEST_BODY_MB` (default 32) globally, `MAX_FILE_SIZE_MB` + slack on upload routes, `MAX_IMPORT_BODY_MB` (default 2048) on library import. Body: `{"detail": "Request body too large. Maximum size: NMB"}`. |
 | `422` | Unprocessable Entity | Request body validation failed (wrong types, out-of-range values). |
-| `429` | Too Many Requests | Rate limit exceeded. Check `X-RateLimit-*` headers. |
-| `500` | Internal Server Error | Server-side error. Check backend logs. |
+| `429` | Too Many Requests | Per-key burst limit (`RATE_LIMIT_QPM`) **or** monthly unit quota (`MAX_QUERIES_PER_MONTH`) — distinguish by `Retry-After` horizon and detail text (see Rate Limiting above). |
+| `500` | Internal Server Error | Server-side error. Sanitized in production (generic detail + `request_id`); check backend logs via `X-Request-ID`. |
+| `507` | Insufficient Storage | Free-disk guardrail (`MIN_FREE_DISK_MB`, default 500) refused an upload, reprocess, or library import that would leave the uploads filesystem too full. |
 
 ### Authentication-Specific Errors
 

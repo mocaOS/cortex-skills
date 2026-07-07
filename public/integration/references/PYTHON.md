@@ -17,13 +17,13 @@ from cortex_client import CortexClient
 
 client = CortexClient(
     base_url="http://localhost:8000",  # No trailing slash
-    api_key="cortex_user_your_key_here"    # Read-write key for mutations; read-only key for queries
+    api_key="cortex_rw_your_key_here"    # Read-write key for mutations; read-only key for queries
 )
 ```
 
 ### API Key Permissions
 
-User keys (`cortex_user_` prefix) carry a `permissions` array set at creation. There are only two levels:
+User keys (`cortex_ro_` or `cortex_rw_` prefix, derived from the permissions at creation) carry a `permissions` array. There are only two levels:
 
 | Permissions | Access |
 |-------------|--------|
@@ -709,7 +709,7 @@ def safe_search(client, query, **kwargs):
 from cortex_client import CortexClient
 import time
 
-client = CortexClient("http://localhost:8000", "cortex_user_your_key_here")
+client = CortexClient("http://localhost:8000", "cortex_rw_your_key_here")
 
 # 1. Verify server health
 health = client.health()

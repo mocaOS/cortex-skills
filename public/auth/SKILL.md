@@ -11,7 +11,7 @@ description: Use this skill when implementing authentication, managing API keys,
 
 2. **There are exactly two permissions: `read` and `manage`.** A key's `permissions` is an array holding any combination of these two. `read` = Ask AI, search, list, view graph/stats. `manage` = upload, edit, and delete documents and collections (it is a superset of read for write operations). There is no `write`, `delete`, or `admin` permission value. Full-instance/admin operations (API-key CRUD, system reset, config PATCH) are gated on the **root admin API key** — the `ADMIN_API_KEY` env value — which is not a permission tier.
 
-3. **API key format uses a `cortex_` prefix.** User keys start with `cortex_user_`; the admin key starts with `cortex_admin_` and is set via the `ADMIN_API_KEY` environment variable, not created through the API. (Older builds used a `moca_` prefix.)
+3. **API key format uses a `cortex_` prefix.** User keys start with `cortex_ro_` (read-only) or `cortex_rw_` (permissions include `manage`) — the prefix is derived from the key's permissions at creation. The admin key is conventionally named `cortex_admin_...` and is set via the `ADMIN_API_KEY` environment variable, not created through the API. (Older builds used a `moca_` prefix.)
 
 4. **Keys are hashed before storage.** The raw key is only shown once at creation time. Keys are hashed before being stored in Neo4j. You cannot retrieve a key after creation — only its `key_prefix`.
 
@@ -58,7 +58,8 @@ Keys are additionally scoped by `collection_scope` (`all` or `restricted` + `all
 
 | Key type | Prefix | Created via |
 |----------|--------|-------------|
-| User key | `cortex_user_` | `POST /api/admin/api-keys` |
+| User key (read-only) | `cortex_ro_` | `POST /api/admin/api-keys` (`permissions: ["read"]`) |
+| User key (read-write) | `cortex_rw_` | `POST /api/admin/api-keys` (permissions include `manage`) |
 | Admin key | `cortex_admin_` | `ADMIN_API_KEY` env var (at startup) |
 
 ### Permission Checks per Endpoint
@@ -85,7 +86,7 @@ curl -X POST "{BASE_URL}/api/admin/api-keys" \
   -H "Content-Type: application/json" \
   -d '{
     "name": "Production App",
-    "permissions": ["read", "write"],
+    "permissions": ["read", "manage"],
     "expires_at": "2026-12-31T23:59:59Z"
   }'
 ```
@@ -95,8 +96,8 @@ Response (key shown only once):
 {
   "id": "key_abc123",
   "name": "Production App",
-  "key": "cortex_user_abc123xyz789",
-  "permissions": ["read", "write"],
+  "key": "cortex_rw_abc123xyz789",
+  "permissions": ["read", "manage"],
   "expires_at": "2026-12-31T23:59:59Z",
   "created_at": "2026-03-15T10:30:00Z",
   "message": "Store this key securely - it won't be shown again"
@@ -223,6 +224,8 @@ Beyond the pattern/output filtering above, Cortex can run a query-time **Prompt 
 
 There is also an ingestion-time scan, `INGESTION_INJECTION_SCAN` (default `true`), which flags (never blocks) documents whose content carries injection attempts planted for a downstream AI assistant.
 
+Both toggles (`prompt_guard`, `ingestion_injection_scan`) are runtime-editable via `PATCH /api/admin/config` — no restart needed. See the [Admin skill](../admin/SKILL.md) for details.
+
 ## Rate Limiting
 
 Per-API-key rate limiting on the ask/upload endpoints is off by default. Enable it with a token-bucket limiter:
@@ -233,6 +236,8 @@ RATE_LIMIT_BURST=10   # token-bucket burst capacity
 ```
 
 When exceeded, the API returns `429 Too Many Requests` with a `Retry-After` header.
+
+A second, separate `429` source is the monthly unit quota (`MAX_QUERIES_PER_MONTH`, denominated in internal LLM completions): its `Retry-After` is the seconds until the next UTC month, and its detail text starts with `Monthly usage limit reached`. It gates queries and the start of new processing work (upload, reprocess, web import, git sync, graph builds); in-flight work always finishes. See [references/API.md](references/API.md) for how to tell the two apart.
 
 ## API Usage Tracking
 
@@ -256,6 +261,8 @@ EXPOSE_API_DOCS=auto              # auto = docs on in dev, OFF in production
 With `ENVIRONMENT=production`, startup refuses to boot if `NEO4J_PASSWORD` is empty or the default `password123`, or if `SESSION_SECRET` is shorter than 32 characters while `ADMIN_PASSWORD` is set. `CORS_ALLOWED_ORIGINS` defaults to `*` (credentials disabled, since auth is header-based) — set an explicit allowlist in production. Interactive API docs (`/docs`, `/redoc`, `/openapi.json`) auto-disable in production so a directly-exposed backend doesn't leak its schema; force with `EXPOSE_API_DOCS=true`/`false`.
 
 Set `ENCRYPTION_KEY` (comma-separated Fernet keys; first encrypts, all decrypt) to encrypt git PATs and skill secrets at rest.
+
+Set `ENABLE_AUDIT_LOG=true` for an append-only JSONL audit trail: authentication failures, key-attributed mutating requests (uploads, deletions, config changes, key CRUD), and search/ask activity — each event carrying the acting API key, outcome, and request ID. **Metadata only** — document content and query text are never written. Size-rotated and fail-open; it is a server-side file (`AUDIT_LOG_PATH`, default `./logs/audit.log`) with no API endpoint to read it.
 
 ## Security Best Practices
 

@@ -41,6 +41,8 @@ Response:
 
 The `relationship_count` field shows cross-document relationships (Phase B). The `per_chunk_relationship_count` shows relationships extracted during document processing (Phase A).
 
+The response also carries the monthly unit quota meter — `monthly_usage_used`, `monthly_usage_limit`, `monthly_usage_query`, `monthly_usage_processing` (limit `0` = unlimited) — and free-disk telemetry (`disk_free_mb`, `disk_total_mb`).
+
 ---
 
 ## Admin Session Authentication
@@ -187,6 +189,17 @@ The system validates the manifest (including embedding model compatibility) befo
 - **Clean import** — merges with existing data
 - **Replace import** — wipes existing data first
 
+### Chunked Import Upload (large archives)
+
+Single-request uploads of large archives get cut off by reverse-proxy body-read timeouts (Traefik defaults to 60s). The chunked path uploads the ZIP in ~8MB sequential requests instead — each completes in seconds. All four endpoints require the admin key:
+
+1. `POST /api/admin/import/upload/start` with `{"total_size": <bytes>}` → `{upload_id, received}` (runs the free-disk guard up front — `507` if low)
+2. `PUT /api/admin/import/upload/{upload_id}/chunk?offset=N` with raw bytes → `{received}`; on offset mismatch, `409` with `{"received": <int>, "message": "Offset mismatch"}` — resume from the server's `received`
+3. `POST /api/admin/import/upload/{upload_id}/finish?mode=clean|replace` → `{task_id, status, message}`
+4. `DELETE /api/admin/import/upload/{upload_id}` — abort and discard the partial file
+
+The single-request `POST /api/admin/import` remains supported for API use (body capped by `MAX_IMPORT_BODY_MB`, default 2048). Abandoned upload sessions are swept hourly.
+
 ---
 
 ## System Reset
@@ -205,6 +218,21 @@ curl -X POST "{BASE_URL}/api/admin/reset" \
 ```
 
 Reset is **granular** — each flag controls a data category independently. It removes Documents, Chunks, Entities, Relationships, Communities, and also cleans `MergeHistory` nodes, `SystemMeta` nodes (staleness timestamps), and client cache (dismissed dedup suggestions, regeneration flow state). This is **destructive and irreversible**.
+
+---
+
+## Runtime Configuration
+
+`GET /api/admin/config` returns the active configuration with sensitive values masked. `PATCH /api/admin/config` updates the admin-editable runtime settings — persisted as overrides over the env defaults and effective without a restart:
+
+```bash
+curl -X PATCH "{BASE_URL}/api/admin/config" \
+  -H "X-API-Key: {ADMIN_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"ingestion_injection_scan": false, "prompt_guard": true}'
+```
+
+Currently supported (both boolean, both optional — only provided fields are updated): `ingestion_injection_scan` (LLM prompt-injection scan on ingested documents) and `prompt_guard` (query-time prompt-injection classifier — each guarded question costs one extra unit against the monthly quota). Returns the full updated configuration, same shape as `GET /api/admin/config`.
 
 ---
 

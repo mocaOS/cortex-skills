@@ -66,7 +66,7 @@ class CortexRetriever(BaseRetriever):
 ### Usage Patterns
 
 ```python
-client = CortexClient("http://localhost:8000", "cortex_user_your_key")
+client = CortexClient("http://localhost:8000", "cortex_rw_your_key")
 
 # Basic retriever
 retriever = CortexRetriever(client=client, top_k=5)

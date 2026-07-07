@@ -48,8 +48,10 @@ When `start_processing=false`, status will be `pending` instead of `processing`.
 |--------|--------------------------------------------------------------|
 | 400    | Missing `file` field, wrong content type (must be multipart/form-data), invalid parameters |
 | 403    | `MAX_FILES` limit exceeded                                   |
-| 413    | File exceeds `MAX_FILE_SIZE_MB` (default 50 MB)              |
+| 413    | File exceeds `MAX_FILE_SIZE_MB` (default 50 MB, plus 8 MB multipart slack) |
+| 429    | Monthly unit quota exhausted (`MAX_QUERIES_PER_MONTH`) — see Error Code Summary |
 | 500    | Internal error during file storage                           |
+| 507    | Free-disk guardrail refused the upload (`MIN_FREE_DISK_MB`) — see Error Code Summary |
 
 ---
 
@@ -61,7 +63,7 @@ GET /api/documents
 
 ### Response `200`
 
-Array of document objects with metadata, status, collection assignment, and timestamps.
+Array of document objects with metadata, status, collection assignment, and timestamps. Each document also carries the health and safety signals described under Get Document Details (`entity_count`, `unembedded_chunk_count`, `injection_flagged`, `injection_reason`).
 
 ---
 
@@ -80,6 +82,9 @@ GET /api/documents/{id}
   "status": "completed",
   "chunk_count": 42,
   "entity_count": 18,
+  "unembedded_chunk_count": 0,
+  "injection_flagged": false,
+  "injection_reason": "",
   "created_at": "2025-01-15T10:30:00Z",
   "processed_at": "2025-01-15T10:32:15Z",
   "collection_id": "default",
@@ -90,6 +95,8 @@ GET /api/documents/{id}
 ```
 
 A document with `status: "completed"` may still have background image analysis running. Check `image_progress_current` vs `image_progress_total` to determine if image processing is finished.
+
+Health and safety signals: `entity_count` is `-1` when unknown (not yet backfilled). `unembedded_chunk_count` counts chunks missing embeddings (invisible to semantic search). `injection_flagged` / `injection_reason` come from the ingestion-time prompt-injection scan — flagged documents are never blocked and stay answerable. See Processing Statuses for how these signals define a *degraded* document.
 
 ### Errors
 
@@ -366,6 +373,8 @@ Returns metadata and content for a single custom input.
 
 When status is `failed`, the document metadata includes an `error` field describing what went wrong.
 
+There is no `degraded` status value. A **degraded** document is derived client-side: `status` is `completed` but `entity_count` is `0` or `unembedded_chunk_count` is greater than `0`. Fix it by reprocessing — reprocessing a degraded document automatically bypasses the "content unchanged" skip.
+
 ---
 
 ## Error Code Summary
@@ -376,8 +385,16 @@ When status is `failed`, the document metadata includes an `error` field describ
 | 401         | Invalid or missing API key                                                |
 | 403         | Resource limit exceeded (`MAX_FILES`, `MAX_COLLECTIONS`)                  |
 | 404         | Document or resource not found                                            |
-| 413         | File exceeds `MAX_FILE_SIZE_MB`                                           |
+| 413         | Request body too large                                                    |
+| 429         | Monthly unit quota exhausted (`MAX_QUERIES_PER_MONTH`)                     |
 | 500         | Internal processing error                                                 |
+| 507         | Insufficient storage — free-disk guardrail refused new data               |
+
+**413** — a global request-body middleware rejects oversized bodies on all routes: `MAX_REQUEST_BODY_MB` (default 32) globally, `MAX_FILE_SIZE_MB` (default 50) plus 8 MB multipart slack on upload/reprocess routes, `MAX_IMPORT_BODY_MB` (default 2048) on library import. Body: `{"detail": "Request body too large. Maximum size: NMB"}`.
+
+**429** — the monthly quota is denominated in internal LLM completions and applies to processing as well as queries: `POST /api/upload`, `/api/custom-input`, the reprocess endpoints, `/api/documents/process-pending`, `/api/web-import`, and the graph-build endpoints all draw from `MAX_QUERIES_PER_MONTH`. Quota blocks *starting* new work (`Retry-After` gives seconds until the next UTC month); in-flight work always finishes, and skipped documents stay `pending`.
+
+**507** — returned by `POST /api/upload`, the reprocess endpoints, and library import when accepting the payload would leave the uploads filesystem below `MIN_FREE_DISK_MB` (default 500 MB; `0` disables). Body: standard `{"detail": "Insufficient storage on this instance. ..."}`.
 
 ---
 
@@ -386,6 +403,9 @@ When status is `failed`, the document metadata includes an `error` field describ
 | Variable                        | Default     | Description                                       |
 |---------------------------------|-------------|---------------------------------------------------|
 | `MAX_FILE_SIZE_MB`              | `50`        | Maximum upload size in megabytes                  |
+| `MAX_REQUEST_BODY_MB`           | `32`        | Global request-body ceiling on all routes (413)   |
+| `MAX_IMPORT_BODY_MB`            | `2048`      | Request-body ceiling for library import (413)     |
+| `MIN_FREE_DISK_MB`              | `500`       | Refuse new data (507) below this free disk; 0 disables |
 | `MAX_FILES`                     | `0`         | Cap on total documents (0 = unlimited)            |
 | `UPLOAD_DIR`                    | `/app/uploads` | Server-side storage directory for uploads      |
 | `CUSTOM_INPUTS_DIR`             | `/app/custom_inputs` | Storage directory for custom inputs      |

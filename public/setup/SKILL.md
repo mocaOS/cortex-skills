@@ -89,8 +89,10 @@ curl http://localhost:8000/health
 
 Expected response:
 ```json
-{"status": "healthy", "neo4j_connected": true, "version": "1.0.0"}
+{"status": "healthy", "neo4j_connected": true, "schema_initialized": true, "version": "1.0.0"}
 ```
+
+A degraded instance (Neo4j unreachable or schema not yet confirmed) answers **HTTP 503** with `"status": "degraded"` — healthchecks and deploy gates key off the status code, and `schema_initialized` stays `false` until constraints/indexes are confirmed.
 
 ## Required Environment Variables
 
@@ -238,6 +240,9 @@ MAX_QUERIES_PER_MONTH=0   # Monthly quota, unit-denominated: counts internal LLM
                           # (Q&A loop calls + document/graph processing calls; embeddings excluded),
                           # instance-wide, UTC calendar month. 0 = unlimited
 MAX_FILE_SIZE_MB=50
+MAX_REQUEST_BODY_MB=32    # Global request-body ceiling → 413 (0 disables the middleware)
+MAX_IMPORT_BODY_MB=2048   # Library-import body ceiling → 413 (0 = unlimited)
+MIN_FREE_DISK_MB=500      # Refuse uploads/reprocess/imports with 507 below this free-disk floor (0 disables)
 ```
 
 ### Vision Model (Optional)
@@ -252,7 +257,7 @@ VISION_MAX_CONCURRENT=3    # Concurrent vision API calls system-wide
 ### Concurrency Tuning
 
 ```bash
-BATCH_PROCESSING_CONCURRENCY=2     # Documents processed in parallel
+BATCH_PROCESSING_CONCURRENCY=3     # Documents processed in parallel
 CONCURRENT_EXTRACTIONS=3            # Entity extraction thread pool
 CONCURRENT_RELATIONS=3              # Per-chunk relationship extractions per document
 PARALLEL_RELATIONSHIP_BATCHES=5     # Phase B relationship analysis batches in parallel
@@ -299,7 +304,7 @@ DEFAULT_REASONING_MODE=off           # chat/answer path; deep-research stays AUT
 Crank ingestion throughput on Venice or large self-hosted vLLM endpoints. Dial back for stock OpenAI or smaller hosts to avoid rate limits.
 
 ```bash
-BATCH_PROCESSING_CONCURRENCY=3    # docs processed in parallel (default 2)
+BATCH_PROCESSING_CONCURRENCY=3    # docs processed in parallel (now the shipped default)
 CONCURRENT_EXTRACTIONS=4          # entity-extraction threads per doc (default 3 — biggest multiplier)
 CONCURRENT_RELATIONS=4            # per-chunk relationship threads per doc (default 3)
 VISION_MAX_CONCURRENT=4           # system-wide vision-API semaphore (default 3)
@@ -383,6 +388,9 @@ RATE_LIMIT_QPM=0                  # Per-key requests/minute on ask/upload (0 = o
 RATE_LIMIT_BURST=10               # Token-bucket burst capacity
 NEO4J_MAX_POOL_SIZE=100
 NEO4J_CONNECTION_TIMEOUT=10
+LLM_REQUEST_TIMEOUT_SECONDS=360   # Explicit transport timeout on every LLM client (0 = SDK default 600s)
+AUTO_RESUME_PENDING_ON_STARTUP=true  # Auto-resume docs stranded mid-processing by a restart (quota-guarded)
+ENABLE_AUDIT_LOG=false            # Append-only JSONL audit log (metadata only; server-side file, no API endpoint)
 ```
 
 > **Slim image:** build with `--build-arg INSTALL_LOCAL_ML=false` for a torch-free backend (~1.2 GB) when reranking + conversion are offloaded to cortex-helper. Requires OpenAI embeddings; pair with `HELPER_STRICT_REMOTE=true`.
@@ -440,6 +448,8 @@ Key production considerations:
 - Enable HTTPS via reverse proxy (nginx)
 - Block direct access to Neo4j ports (7474, 7687) from public internet
 - Set `PROMPT_SECURITY=true`; interactive API docs auto-disable in production (`EXPOSE_API_DOCS`)
+
+**Backups:** the prod overlay, Coolify, and Dokploy stacks include a nightly backup sidecar with a verified server-side graph export (`graph.cypher.gz` + `SHA256SUMS`, stamped `.complete`/`LAST_SUCCESS` only after row counts check out), retention that never deletes the newest complete backup, a compose healthcheck that goes unhealthy when the newest verified backup is older than 2× the interval, and a tested `/restore.sh <timestamp>` runbook.
 
 ## Troubleshooting
 

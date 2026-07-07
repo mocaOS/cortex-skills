@@ -37,6 +37,12 @@ Returns aggregate counts for all graph data.
 | `per_chunk_relationship_count` | integer | Per-chunk relationships (Phase A) |
 | `community_count` | integer | Detected communities |
 | `collection_count` | integer | Collections |
+| `monthly_usage_used` | integer | LLM completions consumed this UTC month (queries + processing) |
+| `monthly_usage_limit` | integer | Monthly LLM-completion quota (`0` = unlimited) |
+| `monthly_usage_query` | integer | Portion of monthly usage consumed by Q&A/search |
+| `monthly_usage_processing` | integer | Portion of monthly usage consumed by document/graph processing |
+| `disk_free_mb` | integer | Free MB on the uploads filesystem |
+| `disk_total_mb` | integer | Total MB on the uploads filesystem |
 
 ---
 
@@ -142,10 +148,57 @@ Import an instance from a ZIP archive.
 
 **Request:** `multipart/form-data` with file field.
 
+**Query parameter:** `mode` — `clean` (default; requires the target instance to be empty) or `replace` (wipes existing data first).
+
 The system validates:
 - Manifest version compatibility
 - Embedding model match (dimension mismatch would corrupt vector search)
 - Data integrity
+
+The request body is capped by `MAX_IMPORT_BODY_MB` (default 2048). For large archives behind a reverse proxy with a body-read timeout (Traefik v3 defaults to 60s), use the chunked upload endpoints below instead.
+
+### Chunked Import Upload
+
+Uploads a library export ZIP in small sequential requests (~8MB each) so no single request outlives a proxy body-read timeout, then starts the same import task as `POST /api/admin/import`. Abandoned sessions are swept hourly.
+
+#### POST /api/admin/import/upload/start
+
+Open an upload session. Runs the free-disk guard up front — `507 Insufficient Storage` if assembling the archive would leave the disk nearly full.
+
+**Request body:**
+
+```json
+{
+  "total_size": 123456789
+}
+```
+
+**Response:** `{"upload_id": "...", "received": 0}`
+
+#### PUT /api/admin/import/upload/{upload_id}/chunk?offset=N
+
+Append one chunk (raw bytes body) at the given offset. Offsets must be contiguous.
+
+**Response:** `{"received": <total bytes stored>}`
+
+**Errors:**
+- `409` with `{"received": <int>, "message": "Offset mismatch"}` — e.g. a retried chunk that already landed; resume from the server's `received`
+- `404` — upload session not found or expired
+- `400` — upload exceeds the declared `total_size` (session is discarded)
+
+#### POST /api/admin/import/upload/{upload_id}/finish?mode=clean|replace
+
+Validate the assembled ZIP is complete and start the import task.
+
+**Response:** `{"task_id": "...", "status": "pending", "message": "Import started (mode: clean)"}`
+
+**Errors:** `400` if incomplete (`received` != `total_size`), `404` if the session expired.
+
+#### DELETE /api/admin/import/upload/{upload_id}
+
+Abort a chunked upload and discard the partial file.
+
+**Response:** `{"status": "aborted"}`
 
 ---
 
@@ -184,3 +237,14 @@ Selectively delete data from the system. Granular — each flag controls a data 
 ### GET /api/admin/config
 
 Returns the active configuration (environment variables) with sensitive values masked.
+
+### PATCH /api/admin/config
+
+Update admin-editable runtime settings. Persisted as overrides over the env defaults and effective without a restart. Returns the full updated configuration (same shape as `GET /api/admin/config`).
+
+**Request body** (all fields optional — only provided fields are updated):
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ingestion_injection_scan` | `boolean` | Enable/disable the LLM prompt-injection scan on ingested documents |
+| `prompt_guard` | `boolean` | Enable/disable the query-time prompt-injection classifier — each guarded question costs one extra unit against the monthly quota |

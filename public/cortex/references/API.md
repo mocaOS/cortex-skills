@@ -19,6 +19,8 @@ All API requests require an API key passed via the `X-API-Key` header.
 
 Full-instance operations (API key management, system reset) require the root **admin API key**, set via the `ADMIN_API_KEY` env var at startup. This is not a permission tier -- it is a single privileged key that cannot be created through the API.
 
+**Request IDs:** every response echoes an `X-Request-ID` header (honored if you send one, minted otherwise). In production, 5xx bodies are sanitized to a generic message plus a `request_id` -- correlate via the ID rather than parsing 5xx bodies.
+
 ---
 
 ## Health and Stats
@@ -31,15 +33,18 @@ Check API health. Does not require authentication.
 curl "{BASE_URL}/health"
 ```
 
-**Response:**
+**Response (healthy, 200):**
 
 ```json
 {
   "status": "healthy",
   "neo4j_connected": true,
+  "schema_initialized": true,
   "version": "1.0.0"
 }
 ```
+
+A degraded instance — Neo4j unreachable, or the schema (constraints/indexes) not yet confirmed at startup — answers **HTTP 503** with `"status": "degraded"`, not 200 with a degraded body, so healthchecks and health-aware proxies can key off the status code.
 
 ### GET /api/stats
 
@@ -62,6 +67,8 @@ curl "{BASE_URL}/api/stats" -H "X-API-Key: {API_KEY}"
   "collection_count": 5
 }
 ```
+
+The response also carries the monthly unit quota meter — `monthly_usage_used`, `monthly_usage_limit`, `monthly_usage_query`, `monthly_usage_processing` (limit `0` = unlimited) — and free-disk telemetry (`disk_free_mb`, `disk_total_mb`).
 
 ---
 

@@ -229,7 +229,7 @@ Location: `~/.openclaw/skills/library/state/credentials.json`
 
 ```json
 {
-  "api_key": "cortex_user_your_key_here",
+  "api_key": "cortex_rw_your_key_here",
   "base_url": "https://library.example.com",
   "collection_id": "coll_abc123"
 }

@@ -1,6 +1,6 @@
 ---
 name: integration
-description: Use this skill when connecting Cortex to agent frameworks (LangChain, CrewAI, AutoGen, LangGraph, ElizaOS), MCP for Claude, Slack bots, webhooks, automation platforms, or building custom clients. Includes Python and TypeScript client code, framework-specific patterns, and the memory hierarchy model.
+description: Use this skill when connecting Cortex to agent frameworks (LangChain, CrewAI, AutoGen, LangGraph, ElizaOS), MCP for Claude, Slack bots, automation platforms (n8n, Make, Zapier), or building custom clients. Includes Python and TypeScript client code, event polling (Cortex emits no webhooks), framework-specific patterns, and the memory hierarchy model.
 ---
 
 # Integration — Connect Cortex to Agent Frameworks and Tools
@@ -124,7 +124,7 @@ class CortexClient:
 Usage:
 
 ```python
-client = CortexClient("http://localhost:8000", "cortex_user_your_key_here")
+client = CortexClient("http://localhost:8000", "cortex_rw_your_key_here")
 
 # Upload a document
 client.upload("report.pdf")
@@ -248,7 +248,7 @@ Cortex is MCP-server compatible. Configure for Claude Desktop:
       "args": ["path/to/cortex-mcp-server.js"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "cortex_user_your_key"
+        "CORTEX_API_KEY": "cortex_rw_your_key"
       }
     }
   }
@@ -265,7 +265,7 @@ Flask-based Slack bot with `/ask` and `/search` commands:
 from flask import Flask, request, jsonify
 
 app = Flask(__name__)
-client = CortexClient("http://localhost:8000", "cortex_user_your_key")
+client = CortexClient("http://localhost:8000", "cortex_rw_your_key")
 
 @app.route("/slack/ask", methods=["POST"])
 def slack_ask():
@@ -285,21 +285,26 @@ def slack_search():
     return jsonify({"response_type": "in_channel", "text": text})
 ```
 
-## Webhook Support
+## Event Notifications (No Webhooks)
 
-Subscribe to events from Cortex (document processed, entity extracted, etc.):
+Cortex does **not** emit webhooks — there is no `/api/webhooks` API. To react to events, poll: `GET /api/tasks/{id}` for background tasks (records survive restarts; an interrupted task reports `failed` with "interrupted by server restart"), and `GET /api/documents/{id}` until `status` settles at `completed`/`failed`:
 
 ```python
-from flask import Flask, request
+import time, requests
 
-@app.route("/webhook", methods=["POST"])
-def handle_webhook():
-    event = request.json
-    if event["type"] == "document.processed":
-        doc_id = event["data"]["document_id"]
-        print(f"Document {doc_id} processed successfully")
-    return "", 200
+def wait_for_document(doc_id, timeout_s=600):
+    deadline, delay = time.time() + timeout_s, 5
+    while time.time() < deadline:
+        doc = requests.get(f"{BASE_URL}/api/documents/{doc_id}",
+                           headers={"X-API-Key": API_KEY}).json()
+        if doc["status"] in ("completed", "failed"):
+            return doc
+        time.sleep(delay)
+        delay = min(delay * 1.5, 30)
+    raise TimeoutError(doc_id)
 ```
+
+See [references/WEBHOOKS.md](references/WEBHOOKS.md) for polling patterns and the automation-platform recipes.
 
 ## n8n / Make.com / Zapier
 
@@ -336,7 +341,7 @@ export async function POST(req: NextRequest) {
 |------|-------------|
 | [references/PYTHON.md](references/PYTHON.md) | Python client reference implementation |
 | [references/LANGCHAIN.md](references/LANGCHAIN.md) | LangChain integration patterns |
-| [references/WEBHOOKS.md](references/WEBHOOKS.md) | Webhook events and configuration |
+| [references/WEBHOOKS.md](references/WEBHOOKS.md) | Event polling + n8n/Make/Zapier automation recipes (Cortex emits no webhooks) |
 
 ## Resources
 

@@ -25,7 +25,7 @@ Curated skill files that teach AI agents how to build on the Cortex intelligence
 
 ### Ecosystem
 - `cortexskills.org/mcp/SKILL.md` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP client.
-- `cortexskills.org/integration/SKILL.md` — LangChain, CrewAI, MCP, Slack, webhooks.
+- `cortexskills.org/integration/SKILL.md` — LangChain, CrewAI, MCP, Slack, automation platforms.
 - `cortexskills.org/apps/SKILL.md` — Source and workflow apps (YouTube, Notion, Web Crawler).
 
 ### Design

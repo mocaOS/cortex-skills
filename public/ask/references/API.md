@@ -330,11 +330,14 @@ Returned when the request body fails schema validation (e.g., missing `question`
 
 **Rate Limited** -- `429 Too Many Requests`
 
-```json
-{
-  "detail": "Rate limited, please wait"
-}
-```
+Two distinct limits return 429 on `/api/ask`, `/api/ask/stream`, `/api/ask/stream/thinking`, and `/api/search`. Tell them apart by the `Retry-After` horizon and the `detail` text:
+
+| Limit | Trigger | `Retry-After` | `detail` |
+|-------|---------|---------------|----------|
+| Per-key burst | `RATE_LIMIT_QPM` requests/minute exceeded | Seconds-scale | `"Rate limit exceeded (60 requests/minute). Slow down."` |
+| Monthly unit quota | `MAX_QUERIES_PER_MONTH` LLM completions exhausted | Seconds until the next UTC month | `"Monthly usage limit reached (max: 1000 LLM completions). Upgrade your plan or wait until next month."` |
+
+The quota is checked before streaming starts -- a request that passes the gate runs to completion, and an in-flight stream is never cut off mid-answer by the quota.
 
 ### Streaming Errors
 
@@ -703,6 +706,10 @@ When `PROMPT_SECURITY=true` (default), the system:
 - Injects anti-manipulation instructions into the system prompt
 - Filters potentially harmful outputs
 - Returns safe refusal messages when attacks are detected
+
+### Injection Refusals Look Like Normal Streams
+
+A question flagged by the query-time injection detector (or the optional Prompt Guard classifier, when enabled) returns a normal-looking SSE stream: a safe-refusal `content` frame followed by `done`. It is **not** an `error` frame, not an HTTP error, and carries no special field -- do not treat refusals as failures. Each Prompt-Guard-screened question costs one extra unit against the monthly quota.
 
 ---
 

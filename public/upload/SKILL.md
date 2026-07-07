@@ -119,6 +119,8 @@ The full sequence:
 | `completed`  | Fully processed and available for queries          |
 | `failed`     | Processing failed — requires manual reprocessing  |
 
+There is no `degraded` status value: a **degraded** document is derived client-side as a `completed` one with `entity_count == 0` or `unembedded_chunk_count > 0` (both returned on the document object; `entity_count` is `-1` when not yet backfilled). Reprocessing a degraded document automatically bypasses the "content unchanged" skip. Documents also carry `injection_flagged` / `injection_reason` from the ingestion-time prompt-injection scan — flagged documents are never blocked and stay answerable.
+
 ### Example: Check Processing Status
 
 ```bash
@@ -452,9 +454,11 @@ curl -X POST "{BASE_URL}/api/documents/process-pending" \
 | HTTP Status | Meaning                                                  |
 |-------------|----------------------------------------------------------|
 | 400         | Bad request — missing file, wrong content type, invalid params |
-| 413         | File exceeds `MAX_FILE_SIZE_MB`                          |
+| 413         | Request body too large — `MAX_FILE_SIZE_MB` (+8 MB multipart slack) on uploads, `MAX_REQUEST_BODY_MB` (default 32) on all routes |
 | 404         | Document ID not found                                    |
+| 429         | Monthly unit quota (`MAX_QUERIES_PER_MONTH`) exhausted — processing counts toward it too; `Retry-After` gives seconds until the next UTC month. In-flight work finishes; skipped documents stay `pending` |
 | 500         | Internal processing error — check logs                   |
+| 507         | Insufficient storage — the free-disk guardrail (`MIN_FREE_DISK_MB`, default 500 MB; `0` disables) refuses uploads, reprocessing, and library imports that would drop free disk below the threshold |
 
 When a document's processing status is `failed`, the document metadata typically includes an `error` field describing what went wrong. Always check this before calling reprocess.
 

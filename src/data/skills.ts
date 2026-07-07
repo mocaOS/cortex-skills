@@ -123,7 +123,7 @@ export const skills: Skill[] = [
     slug: "integration",
     name: "Integration",
     description:
-      "Connect Cortex to LangChain, CrewAI, AutoGen, LangGraph, ElizaOS, MCP, Slack bots, webhooks, and automation platforms.",
+      "Connect Cortex to LangChain, CrewAI, AutoGen, LangGraph, ElizaOS, MCP, Slack bots, and automation platforms.",
     icon: "Link",
     category: "ecosystem",
   },

@@ -33,7 +33,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
       "args": ["-y", "@cortex/mcp-server"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "cortex_user_your_key_here"
+        "CORTEX_API_KEY": "cortex_ro_your_key_here"
       }
     }
   }
@@ -52,7 +52,7 @@ Add to `.cursor/mcp.json` in your project root:
       "args": ["-y", "@cortex/mcp-server"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "cortex_user_your_key_here"
+        "CORTEX_API_KEY": "cortex_ro_your_key_here"
       }
     }
   }
@@ -71,7 +71,7 @@ Add to `~/.windsurf/mcp.json`:
       "args": ["-y", "@cortex/mcp-server"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "cortex_user_your_key_here"
+        "CORTEX_API_KEY": "cortex_ro_your_key_here"
       }
     }
   }
@@ -88,7 +88,7 @@ Set environment variables in your shell or pass them via `--env`:
 
 ```bash
 export CORTEX_BASE_URL="http://localhost:8000"
-export CORTEX_API_KEY="cortex_user_your_key_here"
+export CORTEX_API_KEY="cortex_ro_your_key_here"
 ```
 
 ### VS Code (GitHub Copilot)
@@ -103,7 +103,7 @@ Add to `.vscode/mcp.json`:
       "args": ["-y", "@cortex/mcp-server"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "cortex_user_your_key_here"
+        "CORTEX_API_KEY": "cortex_ro_your_key_here"
       }
     }
   }
