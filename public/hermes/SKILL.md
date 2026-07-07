@@ -134,18 +134,19 @@ A **community** cortex is read-only for consumers. A **company** cortex hands ou
 bash "$(find "$HOME/.hermes/skills" -path "*/cortex/scripts/cortex.sh" | head -1)" status
 ```
 
-Add `--source NAME` right after the script path to target a named cortex; omit it for your personal default.
+Add `--source NAME` right after the script path to target a named cortex. **Omit `--source` to hit your personal cortex** — or, when you want to be explicit that you mean *your own* memory (e.g. saving while a community cortex is also connected), pass **`--source mine`** (aliases: `me`, `self`, `personal`). That's the same name the helper prints back (`source: mine`, `saved … to 'mine'`), so it always round-trips.
 
 | Say this | Run this |
 |----------|----------|
 | "is my cortex up" | `cortex.sh status` |
-| "dump this into your cortex" | `cortex.sh save <file>` |
+| "dump this into your cortex" | `cortex.sh save <file>` (or `--source mine save`) |
 | "save today's memory" | `cortex.sh sync` |
 | "check your cortex for X" | `cortex.sh check "X"` |
 | "ask your cortex about X" (deep) | `cortex.sh ask "X"` |
 | "search your cortex for X" | `cortex.sh search "X"` |
 | "ask the MOCA cortex about X" | `cortex.sh --source moca ask "X"` |
 | "share this to the team cortex" | `cortex.sh --source team save <file>` |
+| "which cortexes am I connected to" | `cortex.sh sources` (`*` marks the active default) |
 | (wait for a save to be searchable) | `cortex.sh wait <doc_id>` |
 
 `check` is the fast answer (non-streaming `/api/ask`); `ask` is deep agentic research — the helper uses the **streaming** endpoint because non-streaming `/api/ask` rejects `use_agentic:true` (`400 agentic_requires_streaming`). Credentials/collection resolve from the source (env for the default, `sources.json` for named). The exact REST calls live in `scripts/cortex.sh`.
@@ -231,6 +232,8 @@ Hermes speaks MCP. Instead of these curl calls you can wire the Cortex MCP serve
 | Symptom | Fix |
 |---------|-----|
 | `Not connected` | Set `CORTEX_BASE_URL` + `CORTEX_API_KEY` in `~/.hermes/.env`, or run `/cortex connect` |
+| `unknown cortex source 'mine'` | Old helper. Re-fetch `scripts/cortex.sh` — the current one accepts `mine`/`me`/`self`/`personal` as your personal cortex. (Or just omit `--source`.) |
+| Saved to the wrong cortex (a community one) | You had a community source as the default. Write with `--source mine`; a read-only source now refuses writes and never auto-becomes the default. |
 | `401 Unauthorized` | Key invalid or expired — get a new one |
 | `403 MANAGE access required` | You have a read-only (`cortex_ro_`) key; saving needs read/write (`cortex_rw_`) |
 | `503 degraded` | Self-hosted Neo4j still initializing (30–60s) — wait and retry |

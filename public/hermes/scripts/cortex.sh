@@ -22,7 +22,9 @@
 #   cortex.sh [--source NAME] sync                 # push changed ~/.hermes/memories (needs rw)
 #
 # The DEFAULT source is env (CORTEX_BASE_URL / CORTEX_API_KEY / CORTEX_COLLECTION)
-# if set, else the source marked default in sources.json. Named sources live in
+# if set, else the source marked default in sources.json. The personal/env cortex
+# is also addressable explicitly as --source mine (aliases: me|self|own|personal|
+# default), which round-trips with the name the helper prints. Named sources live in
 # ~/.hermes/skills/state/cortex/sources.json. A source whose collection is empty
 # or "all" queries the whole instance (no collection scoping) — right for a
 # community/company cortex; a personal cortex scopes to its collection (e.g. "Hermes").
@@ -45,12 +47,27 @@ load_named(){ # $1 = name -> sets BASE_URL/API_KEY/COLLECTION/ACCESS/LABEL
   LABEL=$(jq -r '.label // ""' <<<"$row"); SRCNAME="$1"
 }
 
+# Names that all mean "the personal / env-configured cortex". The helper prints
+# "source: mine" and "saved … to 'mine'", so an agent naturally copies "mine"
+# back into --source; accepting these aliases makes that round-trip instead of
+# failing with "unknown cortex source 'mine'".
+is_personal(){ case "$1" in mine|me|self|own|personal|default) return 0;; *) return 1;; esac; }
+
+use_env(){ # populate vars from env; return 1 if the personal cortex isn't configured
+  [ -n "${CORTEX_BASE_URL:-}" ] && [ -n "${CORTEX_API_KEY:-}" ] || return 1
+  BASE_URL="$CORTEX_BASE_URL"; API_KEY="$CORTEX_API_KEY"
+  COLLECTION="${CORTEX_COLLECTION:-Hermes}"; ACCESS="rw"; LABEL="your long-term memory"; SRCNAME="mine"; return 0
+}
+
 resolve(){
-  if [ -n "$SRC" ]; then load_named "$SRC"; return; fi
-  if [ -n "${CORTEX_BASE_URL:-}" ] && [ -n "${CORTEX_API_KEY:-}" ]; then
-    BASE_URL="$CORTEX_BASE_URL"; API_KEY="$CORTEX_API_KEY"
-    COLLECTION="${CORTEX_COLLECTION:-Hermes}"; ACCESS="rw"; LABEL="your long-term memory"; SRCNAME="mine"; return
+  # An explicit personal alias always means the env/personal cortex — never a
+  # named source, and never a read-only community default.
+  if [ -n "$SRC" ] && is_personal "$SRC"; then
+    use_env && return
+    die "no personal cortex configured — set CORTEX_BASE_URL + CORTEX_API_KEY in ~/.hermes/.env"
   fi
+  if [ -n "$SRC" ]; then load_named "$SRC"; return; fi
+  use_env && return
   local def; def=$(jq -r '.default // empty' "$SRCFILE" 2>/dev/null)
   [ -n "$def" ] || die "not connected — set CORTEX_BASE_URL + CORTEX_API_KEY in ~/.hermes/.env, or run: cortex.sh connect <name> <base_url> <key>"
   load_named "$def"
@@ -71,7 +88,7 @@ collection_id(){
   [ -n "$id" ] && [ "$id" != null ] && echo "$id"
 }
 
-need_write(){ [ "$ACCESS" = rw ] || die "source '$SRCNAME' is read-only — you can recall (check/ask/search) but not save. Use a read/write key to contribute."; }
+need_write(){ [ "$ACCESS" = rw ] || die "source '$SRCNAME' is read-only (recall only). To save, target a read/write cortex — omit --source (or use --source mine) to write to your personal cortex, or use a named source you hold a cortex_rw_ key for."; }
 
 # ask/search JSON with optional collection scoping
 ask_body(){ local q="$1" cid="$2" ag="$3"
@@ -85,24 +102,40 @@ cmd="${1:-}"; [ $# -gt 0 ] && shift
 
 case "$cmd" in
   sources)
-    [ -f "$SRCFILE" ] || { echo "no named sources yet. Default = env CORTEX_BASE_URL if set. Add one: cortex.sh connect <name> <base_url> <key>"; exit 0; }
-    def=$(jq -r '.default // ""' "$SRCFILE")
-    jq -r --arg d "$def" '.sources | to_entries[] | "\(if .key==$d then "* " else "  " end)\(.key)  [\(.value.access // "rw")]  \(.value.base_url)  \(.value.collection // "all")  — \(.value.label // "")"' "$SRCFILE"
+    # The personal/env cortex is always addressable as mine|me|self|personal and,
+    # when configured, wins for any unnamed call — so list it first with a '*'.
+    envset=""
+    if [ -n "${CORTEX_BASE_URL:-}" ] && [ -n "${CORTEX_API_KEY:-}" ]; then
+      envset=1
+      echo "* mine  [rw]  ${CORTEX_BASE_URL}  ${CORTEX_COLLECTION:-Hermes}  — your personal long-term memory (env); default for unnamed calls"
+    fi
+    if [ -f "$SRCFILE" ]; then
+      def=$(jq -r '.default // ""' "$SRCFILE")
+      jq -r --arg d "$def" --arg e "$envset" '.sources | to_entries[] | "\(if ((.key==$d) and ($e=="")) then "* " else "  " end)\(.key)  [\(.value.access // "rw")]  \(.value.base_url)  \(.value.collection // "all")  — \(.value.label // "")"' "$SRCFILE"
+    fi
+    { [ -z "$envset" ] && [ ! -f "$SRCFILE" ]; } && echo "no cortex connected yet. Set CORTEX_BASE_URL + CORTEX_API_KEY in ~/.hermes/.env, or: cortex.sh connect <name> <base_url> <key>"
     ;;
   connect)
     name="${1:?usage: connect <name> <base_url> <key> [collection] [ro|rw] [label...]}"
     base="${2:?base_url required}"; key="${3:?api key required}"; coll="${4:-}"; acc="${5:-rw}"; shift 5 2>/dev/null || true; label="${*:-}"
     [ -f "$SRCFILE" ] || echo '{"sources":{}}' > "$SRCFILE"
     tmp=$(mktemp)
+    # Only a read/write source may auto-become the default — a read-only source
+    # (e.g. a community cortex) must never silently become the write target.
     jq --arg n "$name" --arg b "$base" --arg k "$key" --arg c "$coll" --arg a "$acc" --arg l "$label" \
-       '.sources[$n]={base_url:$b,api_key:$k,collection:$c,access:$a,label:$l} | (if (.default//"")=="" then .default=$n else . end)' \
+       '.sources[$n]={base_url:$b,api_key:$k,collection:$c,access:$a,label:$l} | (if (((.default//"")=="") and ($a=="rw")) then .default=$n else . end)' \
        "$SRCFILE" > "$tmp" && mv "$tmp" "$SRCFILE"
     chmod 600 "$SRCFILE"
     echo "connected cortex source '$name' ($acc) -> $base ${coll:+[collection: $coll]}"
     ;;
   use)
-    name="${1:?usage: use <name>}"; [ -f "$SRCFILE" ] || die "no sources yet"
-    jq -e --arg s "$name" '.sources[$s]' "$SRCFILE" >/dev/null || die "unknown source '$name'"
+    name="${1:?usage: use <name>}"
+    if is_personal "$name"; then   # clear the named default -> env/personal wins
+      [ -f "$SRCFILE" ] && { tmp=$(mktemp); jq '.default=""' "$SRCFILE" > "$tmp" && mv "$tmp" "$SRCFILE"; }
+      echo "default cortex is now your personal (env) cortex"; exit 0
+    fi
+    [ -f "$SRCFILE" ] || die "no sources yet"
+    jq -e --arg s "$name" '.sources[$s]' "$SRCFILE" >/dev/null || die "unknown source '$name' — see: cortex.sh sources"
     tmp=$(mktemp); jq --arg s "$name" '.default=$s' "$SRCFILE" > "$tmp" && mv "$tmp" "$SRCFILE"
     echo "default cortex is now '$name'"
     ;;
@@ -159,8 +192,10 @@ case "$cmd" in
   search)
     resolve
     q="${1:-}"; [ -n "$q" ] || die "usage: cortex.sh search \"<query>\""; cid=$(collection_id)
+    # Search results carry no document_title (always null) — the human-readable
+    # label lives in metadata.filename. Fall back to a short doc id if absent.
     api -X POST "$BASE_URL/api/search" -H "Content-Type: application/json" -d "$(search_body "$q" "$cid")" \
-      | jq -r '(.results // [])[] | "• \(.document_title // "?"): \(.content[0:200])"'
+      | jq -r '(.results // [])[] | "• \(.metadata.filename // .document_title // (.document_id[0:8]))  (score \((.score // 0)|tostring|.[0:5]))\n  \(.content[0:240] | gsub("[[:space:]]+";" "))"'
     ;;
   wait)
     resolve; d="${1:-}"; [ -n "$d" ] || die "usage: cortex.sh wait <doc_id>"
