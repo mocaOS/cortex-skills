@@ -6,7 +6,7 @@
 # A "cortex source" is one connection: base URL + API key (+ optional collection).
 # You can register several and route to them by name:
 #   • your own long-term memory   (read/write)   — the default source
-#   • a community cortex           (read-only)    — e.g. Museum of Crypto Art
+#   • a community cortex           (read-only)    — a shared public knowledge base
 #   • a company / team cortex      (read or write)
 #
 # USAGE
@@ -18,6 +18,9 @@
 #   cortex.sh [--source NAME] check  "<question>"  # fast synthesized answer
 #   cortex.sh [--source NAME] ask    "<question>"  # deep agentic answer
 #   cortex.sh [--source NAME] search "<query>"     # raw top chunks
+#   cortex.sh [--source NAME] list   [n]           # newest saved docs (ground truth, default 10)
+#   cortex.sh [--source NAME] show   <doc_id>      # print a saved doc's full content
+#   cortex.sh [--source NAME] forget <doc_id>      # delete a saved doc (needs rw)
 #   cortex.sh [--source NAME] wait   <doc_id>      # block until searchable
 #   cortex.sh [--source NAME] sync                 # push changed ~/.hermes/memories (needs rw)
 #
@@ -120,7 +123,14 @@ case "$cmd" in
     ;;
   connect)
     name="${1:?usage: connect <name> <base_url> <key> [collection] [ro|rw] [label...]}"
-    base="${2:?base_url required}"; key="${3:?api key required}"; coll="${4:-}"; acc="${5:-rw}"; shift 5 2>/dev/null || true; label="${*:-}"
+    base="${2:?base_url required}"; key="${3:?api key required}"; coll="${4:-}"; acc="${5:-}"; shift 5 2>/dev/null || true; label="${*:-}"
+    # Access is inferred from the key prefix when not given — and a cortex_ro_
+    # key is ALWAYS recorded read-only: the server refuses its writes anyway,
+    # and recording it rw would let it slip past the read-only default guard.
+    case "$key" in
+      cortex_ro_*) [ "$acc" = rw ] && echo "note: key is read-only (cortex_ro_) — recording source as ro"; acc=ro;;
+      *) [ -n "$acc" ] || acc=rw;;
+    esac
     [ -f "$SRCFILE" ] || echo '{"sources":{}}' > "$SRCFILE"
     tmp=$(mktemp)
     # Only a read/write source may auto-become the default — a read-only source
@@ -200,6 +210,37 @@ case "$cmd" in
     api -X POST "$BASE_URL/api/search" -H "Content-Type: application/json" -d "$(search_body "$q" "$cid")" \
       | jq -r '(.results // [])[] | "• \(.metadata.filename // .document_title // (.document_id[0:8]))  (score \((.score // 0)|tostring|.[0:5]))\n  \(.content[0:240] | gsub("[[:space:]]+";" "))"'
     ;;
+  list|recent)
+    # Ground-truth inventory — GET /api/documents takes no query params, so
+    # collection scoping and "newest first" happen client-side. Use this (not
+    # check/ask) for "what's in your cortex": synthesis is not inventory.
+    resolve
+    n="${1:-10}"; case "$n" in ''|*[!0-9]*) die "usage: cortex.sh list [n]";; esac
+    cid=$(collection_id)
+    resp=$(api "$BASE_URL/api/documents")
+    total=$(jq -r --arg c "$cid" '[.documents[]|select(($c=="") or (.collection_id==$c))]|length' <<<"$resp")
+    echo "$total doc(s) in '$SRCNAME'${cid:+ (collection $COLLECTION)} — newest first:"
+    jq -r --arg c "$cid" --argjson n "$n" \
+      '[.documents[]|select(($c=="") or (.collection_id==$c))]|sort_by(.upload_date)|reverse|.[0:$n][]|"• \(.filename)  \(.upload_date[0:16])  [\(.processing_status)]  \(.id)"' <<<"$resp"
+    [ "$total" -gt "$n" ] && echo "(showing $n of $total — cortex.sh list $total for all)"
+    exit 0
+    ;;
+  show|get|read)
+    resolve; d="${1:-}"; [ -n "$d" ] || die "usage: cortex.sh show <doc_id>  (find ids with: cortex.sh list)"
+    # full_content is assembled from chunks, so a just-saved doc reads empty
+    # until processing finishes — point at wait instead of showing a blank note.
+    api "$BASE_URL/api/documents/$d/content" \
+      | jq -r 'if ((.full_content // "")|length) > 0 then "— \(.filename)  (\(.upload_date[0:10]), \(.chunk_count) chunk(s))\n\n\(.full_content)" elif .filename then "cortex: \(.filename) has no readable content yet (still processing?) — try: cortex.sh wait \(.id)" else "cortex: " + (.detail // "no content for that doc id") end'
+    ;;
+  forget|delete|remove)
+    resolve; need_write
+    d="${1:-}"; [ -n "$d" ] || die "usage: cortex.sh forget <doc_id>  (find ids with: cortex.sh list)"
+    fn=$(api "$BASE_URL/api/documents/$d" | jq -r '.filename // empty')
+    [ -n "$fn" ] || die "no document '$d' in '$SRCNAME' — see: cortex.sh list"
+    code=$(api -o /dev/null -w '%{http_code}' -X DELETE "$BASE_URL/api/documents/$d")
+    [ "$code" = 200 ] || die "delete failed (HTTP $code)"
+    echo "forgot '$fn' (doc ${d:0:8}) from '$SRCNAME' — its chunks and entities are gone"
+    ;;
   wait)
     resolve; d="${1:-}"; [ -n "$d" ] || die "usage: cortex.sh wait <doc_id>"
     for _ in $(seq 1 60); do
@@ -221,6 +262,6 @@ case "$cmd" in
     done; echo "synced $n file(s) to '$SRCNAME'"
     ;;
   *)
-    die "usage: cortex.sh [--source NAME] {sources|connect|use|status|save <file>|check \"<q>\"|ask \"<q>\"|search \"<q>\"|wait <id>|sync}"
+    die "usage: cortex.sh [--source NAME] {sources|connect|use|status|save <file>|check \"<q>\"|ask \"<q>\"|search \"<q>\"|list [n]|show <id>|forget <id>|wait <id>|sync}"
     ;;
 esac

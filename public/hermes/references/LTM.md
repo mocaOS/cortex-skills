@@ -23,15 +23,15 @@ The same `check` / `ask` / `search` / `save` verbs point at very different bodie
 | Mode | The cortex is… | Typical key | The move |
 |------|----------------|-------------|----------|
 | **Personal LTM** | your agent's private memory | `cortex_rw_` | dump sessions, recall your own past work |
-| **Community** | a curated public body — e.g. the **Museum of Crypto Art** cortex, full of web3 & cryptoartist knowledge | `cortex_ro_` | consult it as a domain expert; you read, you don't write |
+| **Community** | a curated public body — a scene's archive, a project's collected history, an open corpus | `cortex_ro_` | consult it as a domain expert; you read, you don't write |
 | **Company / team** | an org's internal knowledge — runbooks, decisions, postmortems, docs | `ro` for consumers, `rw` for contributors | check "have we solved this before?"; contribute what you learn |
 
 ### Use-case patterns
 
 - **Continuity (personal).** The agent dumps a curated note at each session boundary and recalls it days later — "what did we decide about the auth rewrite?" Memory that survives compaction.
-- **Domain expert on tap (community).** Point a read-only key at a community cortex and the agent answers grounded, cited questions it otherwise couldn't — "ask the MOCA cortex who pioneered on-chain generative art." The knowledge is the community's; the agent is just fluent in it.
+- **Domain expert on tap (community).** Point a read-only key at a community cortex and the agent answers grounded, cited questions it otherwise couldn't — "ask the community cortex who pioneered this technique." The knowledge is the community's; the agent is just fluent in it.
 - **Shared team brain (company).** Every employee's Hermes reads the same company cortex: onboarding, incident runbooks, architecture decisions. Contributors (`rw`) push postmortems and design notes; everyone else (`ro`) consults them. Institutional memory that doesn't live in one person's head.
-- **Blended, in one session.** Read from a community/company cortex for domain facts, then save *your* synthesis to your personal cortex — noting provenance ("Source: MOCA cortex"). Next week, recall your synthesis without re-querying the source. This is the pattern that compounds: consume shared knowledge, distill it, keep the distillation.
+- **Blended, in one session.** Read from a community/company cortex for domain facts, then save *your* synthesis to your personal cortex — noting provenance ("Source: community cortex"). Next week, recall your synthesis without re-querying the source. This is the pattern that compounds: consume shared knowledge, distill it, keep the distillation.
 - **Scoped multi-tenant (company).** One instance, many collections; a restricted `rw` key lets a team contribute to *its* collection while reading the shared one — the same skill, different `CORTEX_COLLECTION` / `--source`.
 
 **Keep write-scope honest:** never `save` to a community or company cortex you're only meant to consult — use a read-only source for those (the helper refuses writes on `ro` sources). Contribute only where you're a contributor.
