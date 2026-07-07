@@ -15,7 +15,15 @@ AI models often hallucinate or rely on stale training data when asked to write c
 
 Instead of guessing how the Cortex API works, your agent simply reads the relevant skill file, gets the ground-truth knowledge, and builds the correct integration on the first try.
 
-Inspired by [ethskills.com](https://ethskills.com/).
+## What is Cortex?
+
+[**Cortex**](https://github.com/mocaOS/cortex-app) is an agentic knowledge base — the long-term memory layer for the AI era. It ingests your documents (PDF, Office, markdown, images, audio, web pages, git repos), extracts entities and relationships with LLM-assisted workflows, and grows them into a **knowledge graph** stored in Neo4j. On top of that graph it offers hybrid search (vector + keyword + graph traversal), streaming Q&A with citations, and an agentic Deep Research mode — all exposed through a clean REST API with scoped read-only / read-write keys.
+
+Where an agent's context window is short-term memory, Cortex is the store that survives crashes, redeployments, and framework migrations: agents dump what they learn into collections and recall synthesized, cited knowledge later. It's self-hostable with Docker in minutes and provider-agnostic (OpenAI, OpenRouter, Venice, or your own gateway).
+
+- **Core repo:** [github.com/mocaOS/cortex-app](https://github.com/mocaOS/cortex-app)
+- **Documentation:** [docs.cortex.eco](https://docs.cortex.eco)
+- **Agent skills (this repo, served live):** [cortexskills.org](https://cortexskills.org)
 
 ## How to use
 
@@ -67,6 +75,10 @@ npm run dev
 Open [http://localhost:3000](http://localhost:3000) to see the web interface.
 
 All skill definitions live in the `public/` directory so they can be served as raw static files with wide open CORS headers.
+
+## Credits
+
+Inspired by [ethskills.com](https://ethskills.com/).
 
 ## License
 
