@@ -4,7 +4,8 @@ description: >
   Long-term memory and shared knowledge for Hermes, backed by a Cortex knowledge graph.
   Dump sessions into your own cortex and recall them, and/or connect to a community or
   company cortex to consult its knowledge. Handle EVERY mention of "cortex" with this
-  skill — it is a separate store, not MEMORY.md — including "dump your session into
+  skill — it is a separate external store, NOT MEMORY.md and NOT the built-in memory
+  tool — including "dump your session into
   your cortex", "check/ask/search your cortex for X", "what's in your cortex / what
   have you saved" (exact doc list), "show me that note", "forget that note", and
   "ask the community cortex about X". Built for the Hermes agent (nousresearch.com).
@@ -123,6 +124,12 @@ bash "$(find "$HOME/.hermes/skills" -name cortex.sh -path "*/scripts/*" | head -
 ```
 
 Prints the resolved source, health, and collection. A `503 degraded` means a self-hosted Neo4j is still warming up (30–60s) — wait and retry.
+
+Once connected, store a one-line **native** memory (with your built-in memory tool) so every future session routes correctly:
+
+> Your cortex = the external Cortex knowledge base, reached through the cortex skill (cortex.sh). Any request mentioning "cortex" goes through that skill — the memory file is NOT the cortex.
+
+This matters: without it, a future session may answer "what's in your cortex?" from MEMORY.md and never load this skill. The native memory is injected into every session start — it's the router.
 
 ## Access: read vs read/write
 
