@@ -112,6 +112,14 @@ export const skills: Skill[] = [
     category: "features",
   },
   {
+    slug: "hermes",
+    name: "Hermes",
+    description:
+      "Give a Hermes agent long-term memory. Install as /cortex, then \"dump your session into your cortex\" to save and \"check your cortex for X\" to recall. Connect to a cloud instance or self-host on your existing OpenRouter/Venice keys.",
+    icon: "BrainCircuit",
+    category: "ecosystem",
+  },
+  {
     slug: "mcp",
     name: "MCP",
     description:

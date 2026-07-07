@@ -78,6 +78,8 @@ Response:
 }
 ```
 
+> **Agentic deep research requires streaming.** `use_agentic: true` is only honored on the streaming endpoints (`/api/ask/stream`, `/api/ask/stream/thinking`). Sending it to the non-streaming `POST /api/ask` returns `400 {"error":"agentic_requires_streaming"}` — agentic runs routinely exceed the gateway timeout. Use non-streaming `/api/ask` for `use_agentic: false` (fast chat) only; switch to `/api/ask/stream` for deep research.
+
 ### Streaming: POST /api/ask/stream
 
 Returns answer tokens in real-time via Server-Sent Events.

@@ -170,7 +170,7 @@ curl -X POST "$API_BASE/api/search" \
 
 Two modes, selected with the `use_agentic` boolean (there is no `mode` field):
 - **Chat mode** (`use_agentic: false`, the default): up to 3 research iterations, ~1200-token answers — fast.
-- **Deep Research mode** (`use_agentic: true`): up to 8 agentic iterations with reasoning, ~4000-token answers.
+- **Deep Research mode** (`use_agentic: true`): up to 8 agentic iterations with reasoning, ~4000-token answers. **Only on the streaming endpoint** — `use_agentic: true` on non-streaming `POST /api/ask` returns `400 agentic_requires_streaming`; use `POST /api/ask/stream`.
 
 ```bash
 curl -X POST "$API_BASE/api/ask" \

@@ -46,6 +46,7 @@ For a complete index, point your agent to the root:
 * `/tasks` — Background task polling, cancellation, cleanup.
 
 ### Ecosystem
+* `/hermes` — Long-term memory for the Hermes agent (nousresearch.com). Installs as `/cortex`; dump sessions and recall them via natural language.
 * `/mcp` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP client.
 * `/integration` — LangChain, CrewAI, MCP, Slack, Webhooks.
 * `/apps` — Source and workflow apps (YouTube, Notion).
