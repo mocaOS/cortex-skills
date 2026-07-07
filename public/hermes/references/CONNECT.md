@@ -24,17 +24,13 @@ If your skill frontmatter declares `required_environment_variables: [CORTEX_API_
 
 ### State-file fallback
 
-If env vars aren't available to your terminal backend (some Docker/SSH backends don't pass `.env` through), write a state file the scripts fall back to:
+If env vars aren't available to your terminal backend (some Docker/SSH backends don't pass `.env` through), register the connection as a named source instead — the helper stores it in `sources.json` and it becomes the default when no env cortex exists:
 
 ```bash
-mkdir -p ~/.hermes/skills/state/cortex
-cat > ~/.hermes/skills/state/cortex/credentials.json <<EOF
-{ "base_url": "$CORTEX_BASE_URL", "api_key": "$CORTEX_API_KEY", "collection": "${CORTEX_COLLECTION:-Hermes}" }
-EOF
-chmod 600 ~/.hermes/skills/state/cortex/credentials.json
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh connect mine-remote https://cortex.example.com cortex_rw_xxx Hermes rw "my long-term memory"
 ```
 
-Every script in the main skill resolves **env var first, then this file**, so either works. For Docker/SSH terminal backends, add `CORTEX_BASE_URL` and `CORTEX_API_KEY` to `terminal.docker_forward_env` / `env_passthrough` in `config.yaml` to pass them through.
+The helper resolves **env vars first, then named sources**, so either works. Note: loading this skill (`skill_view cortex`) auto-registers its declared `CORTEX_*` vars as env passthrough on sandboxed backends — load before you run.
 
 ---
 
@@ -54,11 +50,16 @@ That's it. Skip to the main skill.
 
 Cortex is self-hosted via Docker (Neo4j + FastAPI backend + Next.js frontend). It's OpenAI-compatible, so it can run on the same provider keys your Hermes agent already uses.
 
-The complete Docker walkthrough — clone, `.env`, `docker compose up -d`, health polling, all ~160 env vars — is the **Cortex setup skill**. Fetch it and let it drive:
+**The helper does the whole thing in two calls** — preflight, clone, `.env` with generated secrets, detached boot, health polling, key minting, and wiring `~/.hermes/.env`:
 
-> Fetch `https://cortexskills.org/setup/SKILL.md` and self-host Cortex on my VM using my existing `OPENROUTER_API_KEY` as the LLM provider. Then create a read/write API key and connect this `cortex` skill to `http://localhost:8000`.
+```bash
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh setup dir=~/cortex-app provider=venice key=$VENICE_API_KEY
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh setup-status dir=~/cortex-app   # repeat until connected
+```
 
-Below is only the part unique to a Hermes user: **mapping the keys you already have.**
+Providers: `provider=ollama|venice|openai|openrouter|custom` — `ollama` is the fully-local zero-cloud-key path (needs ollama running with the chat + `nomic-embed-text` models pulled; the container reaches the host via `172.17.0.1`); openrouter additionally needs `emb_key=` (see the embeddings caveat below); custom needs `base=` `model=` `emb_model=`. Occupied ports? `offset=1` shifts all ports and container names. For deep tuning (~160 env vars, model matrix, hardening), fetch `https://cortexskills.org/setup/SKILL.md` after boot — the instance's `.env` lives in the setup dir.
+
+Below is the part worth understanding either way: **mapping the keys you already have.**
 
 ### Reuse your Hermes provider keys
 
@@ -112,16 +113,12 @@ The setup skill's "Recommended Minimal Stack" covers the full model matrix, cont
 
 ### After it's healthy
 
-```bash
-# Poll until Neo4j finishes initializing (30–60s on first boot)
-until curl -sf http://localhost:8000/health >/dev/null; do sleep 5; done
+`setup-status` already does this for you: it mints a least-privilege `cortex_rw_` key with the instance's admin key, writes `CORTEX_*` into `~/.hermes/.env`, and registers the source. If you booted Cortex some other way, the equivalent single call is `POST /api/admin/api-keys` with `{"name":"hermes-agent","permissions":["read","manage"]}` and the `ADMIN_API_KEY` from the instance's `.env` — put the returned `cortex_rw_…` key and base URL into `~/.hermes/.env`. Full key management (read-only keys, collection-scoped keys, rotation) is in the [auth skill](https://cortexskills.org/auth/SKILL.md).
 
-# You set ADMIN_API_KEY in .env at boot — use it to mint a scoped read/write key for the agent
-curl -sf -X POST "http://localhost:8000/api/admin/api-keys" \
-  -H "X-API-Key: $ADMIN_API_KEY" -H "Content-Type: application/json" \
-  -d '{"name":"hermes-agent","permissions":["read","manage"]}' | jq -r '.key'
-```
+> **Don't** hand your agent the `ADMIN_API_KEY` for day-to-day memory work — it stays in the setup dir's `.env`, used only for instance management.
 
-Put that `cortex_rw_...` key and `http://localhost:8000` into `~/.hermes/.env`, and you're connected. Full key management (read-only keys, collection-scoped keys, rotation) is in the [auth skill](https://cortexskills.org/auth/SKILL.md).
+### Asking your human for credentials — the etiquette
 
-> **Don't** hand your agent the `ADMIN_API_KEY`. Mint a least-privilege user key for day-to-day memory work; keep the admin key for instance management only.
+- Provider **choice**, install dir, ports, collection name → normal questions (the `clarify` tool with options is ideal).
+- Key **values** → never via chat. Reuse what's already in `~/.hermes/.env` (with their OK), or ask them to add the key there and tell you when done. Hermes also prompts securely for this skill's declared `CORTEX_*` vars on first load — that's the sanctioned path for secrets.
+- When you confirm the connection, name the source and access — don't echo any key back.

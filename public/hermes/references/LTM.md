@@ -134,7 +134,15 @@ If your agent runs long-lived (gateway sessions, cron), sync on a heartbeat rath
 | Session boundary | on demand | Dump a curated session note |
 | Before a hard question | pre-query | `check` your cortex first if the answer might live in past work |
 
-**Do not** sync every few minutes — it wastes LLM calls (extraction runs on every upload), and files may be mid-write. A Hermes `cron/` job (`~/.hermes/cron/`) is a natural home for the heartbeat.
+**Do not** sync every few minutes — it wastes LLM calls (extraction runs on every upload), and files may be mid-write.
+
+**The Hermes-native heartbeat is a cron job with this skill attached.** The skill ships a `blueprint` (every 6h sync), so after install it appears as a *suggested* automation — accept it via `/suggestions`. Or create it explicitly, one line:
+
+```bash
+hermes cron create "every 6h" "Run the cortex memory heartbeat: sync changed memory files to my personal cortex; report only if something new was pushed." --skill cortex --name cortex-heartbeat
+```
+
+Cron sessions start with the skill preloaded, so the sync command resolves without discovery. `cortex.sh sync` stays hash-guarded — an idle heartbeat costs one API health-check and no LLM calls.
 
 ---
 

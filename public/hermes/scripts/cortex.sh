@@ -23,6 +23,10 @@
 #   cortex.sh [--source NAME] forget <doc_id>      # delete a saved doc (needs rw)
 #   cortex.sh [--source NAME] wait   <doc_id>      # block until searchable
 #   cortex.sh [--source NAME] sync                 # push changed ~/.hermes/memories (needs rw)
+#   cortex.sh setup dir=<path> provider=<venice|openai|openrouter|custom> key=<api_key>
+#            [base=<url>] [model=<id>] [emb_key=] [emb_base=] [emb_model=] [emb_dim=] [offset=<N>]
+#                                                  # self-host a NEW Cortex from scratch (detached boot)
+#   cortex.sh setup-status dir=<path>              # poll the boot; when healthy, mint key + connect
 #
 # The DEFAULT source is env (CORTEX_BASE_URL / CORTEX_API_KEY / CORTEX_COLLECTION)
 # if set, else the source marked default in sources.json. The personal/env cortex
@@ -179,6 +183,9 @@ case "$cmd" in
     cid=$(collection_id)
     resp=$(api -X POST "$BASE_URL/api/ask" -H "Content-Type: application/json" -d "$(ask_body "$q" "$cid" false)")
     jq -r '.answer // .detail.message // "cortex: no answer in response"' <<<"$resp"
+    # A busy/slow LLM backend trips the non-streaming endpoint's server deadline;
+    # the streaming path has none — tell the agent the right next move.
+    grep -q "deadline" <<<"$resp" && echo "hint: the backend LLM is busy/slow — use the streaming path instead: cortex.sh ask \"$q\""
     jq -r 'if (.sources|length)>0 then "\nsources (matches [src_N] in the answer):\n" + ([.sources|to_entries[]|"  [\(.key+1)] \(.value.metadata.filename // .value.document_title // .value.document_id) — score \((.value.score // .value.metadata.rerank_score // 0)|tostring|.[0:5]) — doc \(.value.document_id[0:8])"]|join("\n")) else empty end' <<<"$resp"
     ;;
   ask)
@@ -218,6 +225,7 @@ case "$cmd" in
     n="${1:-10}"; case "$n" in ''|*[!0-9]*) die "usage: cortex.sh list [n]";; esac
     cid=$(collection_id)
     resp=$(api "$BASE_URL/api/documents")
+    jq -e '.documents' >/dev/null 2>&1 <<<"$resp" || die "list failed: $(jq -r '.detail // .' 2>/dev/null <<<"$resp" | head -c 200)"
     total=$(jq -r --arg c "$cid" '[.documents[]|select(($c=="") or (.collection_id==$c))]|length' <<<"$resp")
     echo "$total doc(s) in '$SRCNAME'${cid:+ (collection $COLLECTION)} — newest first:"
     jq -r --arg c "$cid" --argjson n "$n" \
@@ -241,6 +249,170 @@ case "$cmd" in
     [ "$code" = 200 ] || die "delete failed (HTTP $code)"
     echo "forgot '$fn' (doc ${d:0:8}) from '$SRCNAME' — its chunks and entities are gone"
     ;;
+  setup)
+    # Self-host a brand-new Cortex instance from scratch. All heredocs/loops live
+    # HERE (safe in a script file) — never in the agent's terminal. The docker
+    # build+boot runs DETACHED so no terminal timeout can kill it; finish with
+    # `setup-status`. Args are order-independent key=value pairs.
+    DIR=""; PROVIDER=""; KEY=""; BASE=""; MODEL=""; EKEY=""; EBASE=""; EMODEL=""; EDIM=""; OFFSET=0; REPO="https://github.com/mocaOS/cortex-app.git"
+    for a in "$@"; do case "$a" in
+      dir=*) DIR="${a#dir=}";; provider=*) PROVIDER="${a#provider=}";; key=*) KEY="${a#key=}";;
+      base=*) BASE="${a#base=}";; model=*) MODEL="${a#model=}";;
+      emb_key=*) EKEY="${a#emb_key=}";; emb_base=*) EBASE="${a#emb_base=}";;
+      emb_model=*) EMODEL="${a#emb_model=}";; emb_dim=*) EDIM="${a#emb_dim=}";;
+      offset=*) OFFSET="${a#offset=}";; repo=*) REPO="${a#repo=}";;
+      *) die "setup: unknown arg '$a' (use key=value)";;
+    esac; done
+    [ "$PROVIDER" = ollama ] && KEY="${KEY:-ollama}"   # ollama ignores API keys
+    [ -n "$DIR" ] && [ -n "$PROVIDER" ] && [ -n "$KEY" ] || die "usage: cortex.sh setup dir=<path> provider=<ollama|venice|openai|openrouter|custom> key=<api_key> [base=] [model=] [emb_key=] [emb_base=] [emb_model=] [emb_dim=] [offset=N] [repo=]"
+    case "$OFFSET" in ''|*[!0-9]*) die "setup: offset must be a number";; esac
+    DIR="${DIR/#\~/$HOME}"
+    # Provider presets — encode the embeddings caveat: not every provider serves
+    # embedding models. openrouter is chat-only in practice, so it REQUIRES a
+    # separate embedding key (ask your human for one; don't guess).
+    case "$PROVIDER" in
+      ollama)  # fully local, zero cloud keys: chat + embeddings served by ollama.
+               # Docker containers can't reach 127.0.0.1 on the host — use the
+               # docker bridge address unless the caller overrides base=.
+               BASE="${BASE:-http://172.17.0.1:11434/v1}"; MODEL="${MODEL:-hf.co/bartowski/NousResearch_Hermes-4-14B-GGUF:Q8_0}"
+               EMODEL="${EMODEL:-nomic-embed-text}"; EDIM="${EDIM:-768}"
+               OLL="${BASE%/v1}"
+               curl -sf -m 5 "$OLL/api/tags" >/dev/null 2>&1 || die "setup: ollama not reachable at $OLL — install/start it (https://ollama.com), or pass base= for a different host"
+               for m in "$MODEL" "$EMODEL"; do
+                 curl -sf -m 5 "$OLL/api/tags" | jq -e --arg m "$m" '.models[]|select(.name==$m or (.name|startswith($m)))' >/dev/null 2>&1 \
+                   || die "setup: model '$m' not pulled yet — run: ollama pull $m   (then re-run setup)"
+               done;;
+      venice)  BASE="${BASE:-https://api.venice.ai/api/v1}"; MODEL="${MODEL:-google-gemma-4-26b-a4b-it}"
+               EMODEL="${EMODEL:-text-embedding-qwen3-8b}"; EDIM="${EDIM:-4096}";;
+      openai)  BASE="${BASE:-https://api.openai.com/v1}"; MODEL="${MODEL:-gpt-4o-mini}"
+               EMODEL="${EMODEL:-text-embedding-3-small}"; EDIM="${EDIM:-1536}";;
+      openrouter) BASE="${BASE:-https://openrouter.ai/api/v1}"; MODEL="${MODEL:-google/gemini-2.5-flash}"
+               [ -n "$EKEY" ] || die "setup: OpenRouter serves chat but not embeddings — pass emb_key= (an OpenAI or Venice key; ask your human) plus optional emb_base=/emb_model=/emb_dim="
+               EBASE="${EBASE:-https://api.openai.com/v1}"; EMODEL="${EMODEL:-text-embedding-3-small}"; EDIM="${EDIM:-1536}";;
+      custom)  [ -n "$BASE" ] && [ -n "$MODEL" ] || die "setup: provider=custom needs base= and model= (and emb_model=/emb_dim= if the base serves embeddings, else emb_key=/emb_base=/emb_model=/emb_dim=)"
+               [ -n "$EMODEL" ] || die "setup: provider=custom needs emb_model= (+ emb_dim=)"; EDIM="${EDIM:-1536}";;
+      *) die "setup: unknown provider '$PROVIDER' (venice|openai|openrouter|custom)";;
+    esac
+    BPORT=$((8000+OFFSET)); FPORT=$((3000+OFFSET)); N1=$((7474+OFFSET)); N2=$((7687+OFFSET))
+    # Preflight
+    command -v git >/dev/null || die "setup: git not installed"
+    command -v curl >/dev/null || die "setup: curl not installed"
+    command -v jq >/dev/null || die "setup: jq not installed"
+    docker compose version >/dev/null 2>&1 || die "setup: docker compose v2 not available (install Docker + Compose, or ask your human to)"
+    docker info >/dev/null 2>&1 || die "setup: docker daemon not reachable (is it running? do you have permission?)"
+    for p in "$BPORT" "$FPORT" "$N1" "$N2"; do
+      if (exec 3<>"/dev/tcp/127.0.0.1/$p") 2>/dev/null; then exec 3>&- 3<&-; die "setup: port $p is already in use — pass a different offset=N (shifts all ports by N)"; fi
+    done
+    # A parallel/finished setup at this offset may hold the container names even
+    # while its ports aren't bound yet (during build) — check names too.
+    SUF=""; [ "$OFFSET" -gt 0 ] && SUF="-$OFFSET"
+    if docker ps -a --format '{{.Names}}' | grep -qxE "cortex-(backend|frontend|neo4j)$SUF"; then
+      die "setup: containers named cortex-*$SUF already exist (another instance at this offset) — pick a different offset=N or remove them"
+    fi
+    # Compose derives the project (and VOLUME namespace) from the dir basename —
+    # two checkouts both named "cortex-app" would silently SHARE volumes, and one
+    # stack's cleanup can destroy the other's graph. Pin an explicit project name.
+    PROJ="cortex-hermes$SUF"
+    docker volume ls --format '{{.Name}}' | grep -q "^${PROJ}_" && die "setup: volumes for project '$PROJ' already exist — another instance at this offset? pick a different offset=N"
+    # Clone (or reuse an existing clone)
+    if [ -d "$DIR/.git" ]; then echo "using existing checkout: $DIR"
+    else git clone --depth 1 "$REPO" "$DIR" || die "setup: git clone failed — is the repo reachable? (a mirror or local checkout works too: repo=<url-or-path>)"; fi
+    [ -f "$DIR/.env" ] && die "setup: $DIR/.env already exists — refusing to overwrite an existing instance's config (use setup-status, or a fresh dir)"
+    cp "$DIR/.env.example" "$DIR/.env" 2>/dev/null || touch "$DIR/.env"
+    # .env.example ships some of these as uncommented placeholders — remove any
+    # existing occurrences so ours are the only (and unambiguous) values.
+    sed -i -E '/^(COMPOSE_PROJECT_NAME|SERVICE_PASSWORD_NEO4J|OPENAI_API_KEY|OPENAI_API_BASE|OPENAI_MODEL|EMBEDDING_API_KEY|EMBEDDING_API_BASE|EMBEDDING_MODEL|EMBEDDING_DIMENSION|ADMIN_EMAIL|ADMIN_PASSWORD|ADMIN_API_KEY|SESSION_SECRET)=/d' "$DIR/.env"
+    NEO_PW=$(openssl rand -hex 16); ADMIN_PW=$(openssl rand -base64 18 | tr -d '=+/'); ADMIN_KEY="cortex_admin_$(openssl rand -hex 24)"
+    {
+      echo ""; echo "# --- written by cortex.sh setup $(date -u +%Y-%m-%dT%H:%MZ) ---"
+      echo "COMPOSE_PROJECT_NAME=$PROJ"
+      echo "SERVICE_PASSWORD_NEO4J=$NEO_PW"
+      echo "OPENAI_API_KEY=$KEY"
+      echo "OPENAI_API_BASE=$BASE"
+      echo "OPENAI_MODEL=$MODEL"
+      [ -n "$EKEY" ] && echo "EMBEDDING_API_KEY=$EKEY"
+      [ -n "$EBASE" ] && echo "EMBEDDING_API_BASE=$EBASE"
+      echo "EMBEDDING_MODEL=$EMODEL"
+      echo "EMBEDDING_DIMENSION=$EDIM"
+      echo "ADMIN_EMAIL=admin@localhost.local"
+      echo "ADMIN_PASSWORD=$ADMIN_PW"
+      echo "ADMIN_API_KEY=$ADMIN_KEY"
+      echo "SESSION_SECRET=$(openssl rand -base64 32)"
+    } >> "$DIR/.env"
+    chmod 600 "$DIR/.env"
+    if [ "$OFFSET" -gt 0 ]; then
+      cat > "$DIR/docker-compose.override.yml" <<EOF
+services:
+  neo4j:
+    container_name: cortex-neo4j-$OFFSET
+    ports: !override
+      - "$N1:7474"
+      - "$N2:7687"
+  backend:
+    container_name: cortex-backend-$OFFSET
+    ports: !override
+      - "$BPORT:8000"
+  frontend:
+    container_name: cortex-frontend-$OFFSET
+    ports: !override
+      - "$FPORT:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:$BPORT
+EOF
+    fi
+    jq -n --argjson o "$OFFSET" --argjson bp "$BPORT" '{offset:$o, backend_port:$bp}' > "$DIR/.hermes-cortex-setup.json"
+    ( cd "$DIR" && nohup docker compose up -d --build > "$DIR/setup.log" 2>&1 & )
+    echo "setup: Cortex is building + booting in the background (first build can take 5-15 min)."
+    echo "  dir: $DIR   backend: http://localhost:$BPORT   frontend: http://localhost:$FPORT"
+    echo "  next: run  cortex.sh setup-status dir=$DIR  (repeat until it reports connected)"
+    ;;
+  setup-status)
+    DIR=""; for a in "$@"; do case "$a" in dir=*) DIR="${a#dir=}";; esac; done
+    [ -n "$DIR" ] || die "usage: cortex.sh setup-status dir=<path>"
+    DIR="${DIR/#\~/$HOME}"; ST="$DIR/.hermes-cortex-setup.json"
+    [ -f "$ST" ] || die "setup-status: no setup state in $DIR (run cortex.sh setup first)"
+    BPORT=$(jq -r '.backend_port' "$ST")
+    if ! curl -sf -m 5 "http://localhost:$BPORT/health" >/dev/null 2>&1; then
+      echo "not healthy yet (normal during first build/boot: images build 5-15 min, then Neo4j needs 30-60s)."
+      echo "--- containers ---"; (cd "$DIR" && docker compose ps --format '{{.Name}} {{.Status}}' 2>/dev/null) || true
+      echo "--- last build/boot log lines ---"; tail -5 "$DIR/setup.log" 2>/dev/null || true
+      echo "run  cortex.sh setup-status dir=$DIR  again in a minute."
+      exit 0
+    fi
+    echo "healthy: $(curl -sf -m 5 "http://localhost:$BPORT/health")"
+    # Idempotent: if this instance is already a connected source, don't mint
+    # another key on every re-run.
+    if jq -e --arg u "http://localhost:$BPORT" '.sources[]? | select(.base_url==$u)' "$SRCFILE" >/dev/null 2>&1; then
+      echo "already connected (see: cortex.sh sources). Try: cortex.sh --source local status"
+      exit 0
+    fi
+    # Mint a least-privilege rw key for day-to-day memory work. The admin key
+    # never leaves $DIR/.env.
+    # tail -1: dotenv gives the LAST occurrence precedence if duplicates exist
+    ADMIN_KEY=$(grep '^ADMIN_API_KEY=' "$DIR/.env" | tail -1 | cut -d= -f2-)
+    RWKEY=$(curl -sf -X POST "http://localhost:$BPORT/api/admin/api-keys" -H "X-API-Key: $ADMIN_KEY" -H "Content-Type: application/json" -d '{"name":"hermes-agent","permissions":["read","manage"]}' | jq -r '.key // empty')
+    [ -n "$RWKEY" ] || die "setup-status: healthy, but minting an API key failed — check ADMIN_API_KEY in $DIR/.env"
+    if grep -q '^CORTEX_BASE_URL=' "$HOME/.hermes/.env" 2>/dev/null; then
+      # A personal cortex is already configured — register the new instance as a
+      # named source instead of clobbering the existing connection.
+      bash "$0" connect local "http://localhost:$BPORT" "$RWKEY" Hermes rw "self-hosted Cortex ($DIR)"
+      echo "connected as named source 'local' (your env-configured personal cortex stays the default)."
+    else
+      { echo ""; echo "# Cortex long-term memory (written by cortex.sh setup)"
+        echo "CORTEX_BASE_URL=http://localhost:$BPORT"
+        echo "CORTEX_API_KEY=$RWKEY"
+        echo "CORTEX_COLLECTION=Hermes"; } >> "$HOME/.hermes/.env"
+      # Env vars reach future sessions; register a named source too so it works
+      # RIGHT NOW (this session's terminal doesn't see the fresh env vars).
+      bash "$0" connect local "http://localhost:$BPORT" "$RWKEY" Hermes rw "your self-hosted long-term memory"
+      echo "connected: CORTEX_BASE_URL/CORTEX_API_KEY written to ~/.hermes/.env (your personal cortex)."
+      echo "  usable immediately (named source 'local' is the default until the env vars load); verify with: cortex.sh status"
+    fi
+    echo "IMPORTANT next steps for the agent:"
+    echo "  1. store the native routing memory (see SKILL.md Validate)"
+    echo "  2. never use the admin key for memory work — it stays in $DIR/.env"
+    echo "  3. try: cortex.sh status && cortex.sh list"
+    ;;
   wait)
     resolve; d="${1:-}"; [ -n "$d" ] || die "usage: cortex.sh wait <doc_id>"
     for _ in $(seq 1 60); do
@@ -262,6 +434,6 @@ case "$cmd" in
     done; echo "synced $n file(s) to '$SRCNAME'"
     ;;
   *)
-    die "usage: cortex.sh [--source NAME] {sources|connect|use|status|save <file>|check \"<q>\"|ask \"<q>\"|search \"<q>\"|list [n]|show <id>|forget <id>|wait <id>|sync}"
+    die "usage: cortex.sh [--source NAME] {sources|connect|use|status|save <file>|check \"<q>\"|ask \"<q>\"|search \"<q>\"|list [n]|show <id>|forget <id>|wait <id>|sync|setup dir=... provider=... key=...|setup-status dir=...}"
     ;;
 esac

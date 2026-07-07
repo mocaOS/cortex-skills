@@ -18,13 +18,24 @@ metadata:
     category: memory
     requires_toolsets: [terminal]
     required_environment_variables:
-      - CORTEX_BASE_URL
-      - CORTEX_API_KEY
+      - name: CORTEX_BASE_URL
+        prompt: "Cortex instance URL (e.g. http://localhost:8000)"
+        help: "No instance yet? Leave blank and tell the agent: 'set up a new cortex' — the skill self-hosts one via Docker (see Connect)."
+      - name: CORTEX_API_KEY
+        prompt: "Cortex API key (cortex_rw_… = read/write, cortex_ro_… = recall only)"
+        help: "Mint one at {BASE_URL}/admin → API Keys, or let the setup flow mint it for you."
     config:
       - key: cortex.collection
         description: Collection that holds this agent's long-term memory.
         default: Hermes
         prompt: "Which Cortex collection should hold your long-term memory?"
+    blueprint:
+      schedule: "every 6h"
+      prompt: >
+        Load the cortex skill, then run the memory heartbeat: bash the skill's
+        scripts/cortex.sh with `sync` to push changed memory files and outbox
+        notes to your personal cortex. Report only if something new was synced
+        or the sync failed; stay silent otherwise.
 ---
 
 # Cortex — Long-Term Memory for Hermes
@@ -40,6 +51,10 @@ metadata:
 > It installs as `/cortex`. Then set `CORTEX_BASE_URL` + `CORTEX_API_KEY` in `~/.hermes/.env` (see Connect).
 >
 > Why curl and not `hermes skills install mocaOS/cortex-skills/public/hermes`? Hermes' skill scanner hard-blocks third-party skills that send API keys over the network — which is this skill's entire job (`curl -H "X-API-Key: …"` against your own Cortex). The verdict is a false positive for any API-client skill, but it can't be overridden, so fetch the files directly and review them yourself — they're short.
+
+## When to use
+
+Any request that mentions **"cortex"** — saving to it, recalling from it, listing/showing/forgetting what's in it, connecting one, or **setting up a new instance** ("set up a cortex for me"). Also when the human asks something that plausibly lives in past sessions or a connected knowledge cortex: check before answering from memory. Load this skill (`skill_view cortex`) **before** running `cortex.sh` — loading is also what registers the `CORTEX_*` env passthrough on sandboxed terminal backends.
 
 **Your cortex is the memory your session can't hold.**
 
@@ -75,6 +90,7 @@ Speak to a cortex in plain language — these phrases are the interface:
 | **"what's in your cortex?"** / **"what have you saved?"** | exact inventory of saved docs (`list`) — never a guess |
 | **"show me that note"** | print a saved doc's full content (`show`) |
 | **"forget that"** / **"delete that note"** | remove a saved doc, with a receipt (`forget`) |
+| **"set up a cortex for me"** / **"self-host a cortex"** | boot a brand-new instance via Docker and connect it (`setup` → `setup-status`) |
 | **"ask the community cortex about X"** / **"check the team cortex for X"** | same verbs, routed to a **named** source |
 | **"share this to the team cortex"** | save to a named cortex you have write access to |
 
@@ -95,16 +111,37 @@ CORTEX_API_KEY=cortex_rw_your_key_here      # cortex_ro_ = recall only
 CORTEX_COLLECTION=Hermes                     # your private collection; defaults to "Hermes"
 ```
 
-No instance yet? Either connect to one you're given, or self-host and reuse the provider keys already in your `~/.hermes/.env` (OpenRouter / Venice / OpenAI). Both paths — and the OpenRouter/Venice→Cortex mapping and embeddings caveat — are in [references/CONNECT.md](references/CONNECT.md). Self-host in one ask:
+No instance yet? Either connect to one you're given, or **set up a new one from scratch** (below). Provider-key mapping details and the embeddings caveat are in [references/CONNECT.md](references/CONNECT.md).
 
-> Fetch `https://cortexskills.org/setup/SKILL.md` and boot Cortex with my existing `OPENROUTER_API_KEY` (or Venice key), then connect this skill to `http://localhost:8000`.
+### Set up a new cortex from scratch ("set up a cortex for me")
+
+The helper self-hosts a full Cortex stack (Neo4j + backend + frontend, via Docker) in **two calls** — the build/boot runs detached, so no terminal timeout can kill it:
+
+```bash
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh setup dir=~/cortex-app provider=venice key=$VENICE_API_KEY
+# …then repeat until it reports connected (first build 5-15 min):
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh setup-status dir=~/cortex-app
+```
+
+`setup` preflights (docker/git/ports), clones `mocaOS/cortex-app`, writes its `.env` with generated secrets, and boots detached. `setup-status` polls; once healthy it mints a least-privilege `cortex_rw_` key with the instance's admin key, writes `CORTEX_*` to `~/.hermes/.env`, and registers the source so it works immediately. If ports 8000/3000/7474/7687 are taken, add `offset=1` (shifts all ports by N, isolates container names).
+
+**Getting the credentials — ask, don't guess.** Cortex needs one thing from your human: an OpenAI-compatible **provider API key** (chat + embeddings). The right way to ask:
+
+1. Check `~/.hermes/.env` for keys you already have (`VENICE_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, …). If one exists, **ask your human which to reuse** (a choice — `clarify` is fine): Venice and OpenAI serve chat *and* embeddings; OpenRouter is chat-only, so it additionally needs `emb_key=` from OpenAI/Venice (the helper refuses without it and says so).
+2. If no key exists, **never ask them to paste a secret into chat.** Ask them to add it to `~/.hermes/.env` (e.g. `VENICE_API_KEY=…`) and tell you when done — then read it from the env like above.
+   - **No cloud key at all?** `provider=ollama` runs the whole stack locally, zero keys: it needs a running [ollama](https://ollama.com) with a chat model and `nomic-embed-text` pulled (the preflight tells you exactly what to `ollama pull`). Default chat model is Nous' own Hermes-4-14B. Containers reach the host's ollama via `172.17.0.1` — the preset handles that.
+3. Provider choice, ports, install dir, collection name = normal questions. Key **values** = env only.
+
+**Setup safety rails — non-negotiable.** Setup touches ONLY the directory you pass as `dir=` and the containers/volumes it creates (project `cortex-hermes*`). Never `docker compose down`, remove containers, or delete volumes of a stack you didn't create in this flow — an existing cortex stack on the machine is somebody's knowledge base, and volumes hold the graph: deleting one destroys it. If an existing stack looks broken or in the way, STOP and tell your human what you found; don't "clean it up." If ports collide, use `offset=N` — never free ports by stopping things.
+
+After `setup-status` reports connected: store the routing memory (Validate, below), then prove the loop — `status`, `save` a hello note, `wait`, `check` it back.
 
 ### Additional cortexes (community, company)
 
 Register named sources with the helper (stored in `~/.hermes/skills/state/cortex/sources.json`, `chmod 600`):
 
 ```bash
-S="$(find "$HOME/.hermes/skills" -name cortex.sh -path "*/scripts/*" | head -1)"
+S=${HERMES_SKILL_DIR}/scripts/cortex.sh
 # read-only community cortex — empty collection = query the whole instance:
 bash "$S" connect community https://cortex.example.org cortex_ro_xxx "" ro "our community's shared knowledge"
 # company cortex scoped to one collection, with write access:
@@ -120,14 +157,14 @@ An empty collection (`""`) or `all` means "query the whole instance" — right f
 ### Validate
 
 ```bash
-bash "$(find "$HOME/.hermes/skills" -name cortex.sh -path "*/scripts/*" | head -1)" status
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh status
 ```
 
 Prints the resolved source, health, and collection. A `503 degraded` means a self-hosted Neo4j is still warming up (30–60s) — wait and retry.
 
 Once connected, store a one-line **native** memory (with your built-in memory tool) so every future session routes correctly:
 
-> Your cortex = the external Cortex knowledge base, reached through the cortex skill (cortex.sh). Any request mentioning "cortex" goes through that skill — the memory file is NOT the cortex.
+> Your cortex = the external Cortex knowledge base, reached through the cortex skill (cortex.sh). Any request mentioning "cortex" goes through that skill — the memory file is NOT the cortex. Load the skill first (skill_view cortex), then run its commands.
 
 This matters: without it, a future session may answer "what's in your cortex?" from MEMORY.md and never load this skill. The native memory is injected into every session start — it's the router.
 
@@ -147,8 +184,10 @@ A **community** cortex is read-only for consumers. A **company** cortex hands ou
 **Never paste multi-line bash into the terminal.** Hermes flattens multi-line blocks into semicolon-joined one-liners and `eval`s them — heredocs and `{ … }` groups break with a syntax error. Every operation is a **single call** to the bundled helper `scripts/cortex.sh`, which carries all the API logic. Locate and run it in one command:
 
 ```bash
-bash "$(find "$HOME/.hermes/skills" -name cortex.sh -path "*/scripts/*" | head -1)" status
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh status
 ```
+
+`${HERMES_SKILL_DIR}` is substituted by Hermes when this skill loads. If you see it **literally** (template vars disabled), locate the script once with `find "$HOME/.hermes/skills" -name cortex.sh -path "*/scripts/*" | head -1` and use that path.
 
 Add `--source NAME` right after the script path to target a named cortex. **Omit `--source` to hit your personal cortex** — or, when you want to be explicit that you mean *your own* memory (e.g. saving while a community cortex is also connected), pass **`--source mine`** (aliases: `me`, `self`, `personal`). That's the same name the helper prints back (`source: mine`, `saved … to 'mine'`), so it always round-trips.
 
@@ -167,6 +206,7 @@ Add `--source NAME` right after the script path to target a named cortex. **Omit
 | "show me that note" | `cortex.sh show <doc_id>` (ids come from `list` or a save receipt) |
 | "forget that" / "delete that note" | `cortex.sh forget <doc_id>` |
 | (wait for a save to be searchable) | `cortex.sh wait <doc_id>` |
+| "set up a new cortex" | `cortex.sh setup dir=~/cortex-app provider=… key=…` then `cortex.sh setup-status dir=~/cortex-app` |
 
 `check` is the fast answer (non-streaming `/api/ask`); `ask` is deep agentic research — the helper uses the **streaming** endpoint because non-streaming `/api/ask` rejects `use_agentic:true` (`400 agentic_requires_streaming`). Credentials/collection resolve from the source (env for the default, `sources.json` for named). The exact REST calls live in `scripts/cortex.sh`.
 
@@ -184,7 +224,7 @@ Add `--source NAME` right after the script path to target a named cortex. **Omit
 2. Save it (prints the `document_id`), and optionally wait until it's searchable:
 
    ```bash
-   S="$(find "$HOME/.hermes/skills" -name cortex.sh -path "*/scripts/*" | head -1)"; bash "$S" save ~/.hermes/skills/state/cortex/outbox/session-<date>.md
+   S=${HERMES_SKILL_DIR}/scripts/cortex.sh; bash "$S" save ~/.hermes/skills/state/cortex/outbox/session-<date>.md
    ```
 
 Upload is async — chunking, embedding, and entity extraction run in the background. Use `cortex.sh wait <document_id>` before an immediate recall.
@@ -194,7 +234,7 @@ Upload is async — chunking, embedding, and entity extraction run in the backgr
 "Save today's memory into your cortex" — push changed Hermes memory files (`~/.hermes/memories/*.md`) and anything in your outbox. Hash-guarded, so unchanged files are skipped:
 
 ```bash
-bash "$(find "$HOME/.hermes/skills" -name cortex.sh -path "*/scripts/*" | head -1)" sync
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh sync
 ```
 
 The full workflow — bulk uploads, `process-pending`, dedup, cadence — is in [references/LTM.md](references/LTM.md).
@@ -204,13 +244,13 @@ The full workflow — bulk uploads, `process-pending`, dedup, cadence — is in 
 "Check your cortex for X" — a fast, synthesized answer scoped to your collection:
 
 ```bash
-bash "$(find "$HOME/.hermes/skills" -name cortex.sh -path "*/scripts/*" | head -1)" check "what do I know about X?"
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh check "what do I know about X?"
 ```
 
 "Ask your cortex about X" / "what does your cortex know about X" — deeper agentic research (`ask`). "Search your cortex for X" — raw top chunks (`search`), best as a fallback when `check` synthesizes "nothing found" but you expect a hit:
 
 ```bash
-bash "$(find "$HOME/.hermes/skills" -name cortex.sh -path "*/scripts/*" | head -1)" search "X"
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh search "X"
 ```
 
 **Inventory is not recall.** When the human asks *"what's in your cortex?"*, *"what have you saved?"*, or *"how many notes do you have?"*, run `cortex.sh list` — it returns the exact set of saved docs (filename, date, status, doc id), newest first. Don't answer inventory questions with `check`: synthesis summarizes what retrieval surfaced, and will confidently under-count what's actually stored. `list` also gives you the doc ids that `show <doc_id>` (print a note's full content) and `forget <doc_id>` (delete a note) take.
@@ -268,4 +308,6 @@ Hermes speaks MCP. Instead of these curl calls you can wire the Cortex MCP serve
 | `collection_id=&…` in the upload URL | Same fresh-shell cause — `$CID` was empty. Never split a block; the preamble must run in the same shell as the action. |
 | `ask` says "nothing found" but it's there | `ask` synthesis can miss what raw retrieval has — fall back to **search**. Also check you're scoped to the right collection. |
 | `500 "Inference processing failed"` | Cortex's LLM/embedding provider is erroring (down, bad key, wrong model) — a server-side inference failure, not your request. On a self-host, check the backend logs and provider keys. |
+| `check` says "exceeded the server-side deadline (28s)" | The LLM backend is busy or slow (common on self-hosted GPU boxes mid-ingestion) — switch to `ask` (streaming, no deadline) |
+| First save on a fresh self-host takes many minutes | First-use model loading (Docling cache, GPU model load/queue). Normal. `wait` it out; later docs are fast |
 | Connection refused | Instance down, or (self-host) `docker compose up -d` not run |
