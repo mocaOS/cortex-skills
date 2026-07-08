@@ -55,10 +55,22 @@ For a complete index, point your agent to the root:
 
 ### Ecosystem
 * `/hermes` — Long-term memory for the Hermes agent (nousresearch.com). Installs as `/cortex`; dump sessions and recall them via natural language.
-* `/mcp` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP client.
+* `/mcp` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP client. The server itself lives in this repo under [`mcp-server/`](mcp-server/).
 * `/integration` — LangChain, CrewAI, MCP, Slack, Webhooks.
 * `/apps` — Source and workflow apps (YouTube, Notion).
 * `/cortex-design` — The generative design principles for building Cortex UIs.
+
+## MCP Server
+
+The Cortex MCP server is maintained here under [`mcp-server/`](mcp-server/). It bridges any MCP-compatible client (Claude Desktop, Claude Code, Cursor, Windsurf, VS Code) to a running Cortex instance over its REST API. It is not published to npm — build it from source:
+
+```bash
+cd mcp-server
+npm install
+npm run build
+```
+
+See [`mcp-server/README.md`](mcp-server/README.md) or the [`/mcp` skill](public/mcp/SKILL.md) for client configuration.
 
 ## Development
 
@@ -74,7 +86,7 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) to see the web interface.
 
-All skill definitions live in the `public/` directory so they can be served as raw static files with wide open CORS headers.
+All skill definitions live in the `public/` directory so they can be served as raw static files with wide open CORS headers. The MCP server package in `mcp-server/` has its own independent toolchain and is excluded from the Next.js build.
 
 ## Credits
 

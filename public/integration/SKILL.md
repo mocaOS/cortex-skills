@@ -238,14 +238,14 @@ For skill installation, configuration, and management, see the [Admin skill](../
 
 ## MCP (Model Context Protocol) for Claude
 
-Cortex is MCP-server compatible. Configure for Claude Desktop:
+Cortex ships an MCP server in the [`mcp-server/`](https://github.com/mocaOS/cortex-skills/tree/main/mcp-server) directory of the cortex-skills repo (not on npm — build it from source with `npm install && npm run build`). Configure for Claude Desktop:
 
 ```json
 {
   "mcpServers": {
     "cortex": {
       "command": "node",
-      "args": ["path/to/cortex-mcp-server.js"],
+      "args": ["/absolute/path/to/cortex-skills/mcp-server/dist/index.js"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
         "CORTEX_API_KEY": "cortex_rw_your_key"
@@ -255,7 +255,7 @@ Cortex is MCP-server compatible. Configure for Claude Desktop:
 }
 ```
 
-The MCP server exposes tools: `search_knowledge`, `ask_question`, `list_documents`, `list_entities`.
+The MCP server exposes tools for search (`search_knowledge`, `search_entities`), Q&A (`ask_question` with chat and deep-research modes), documents (`list_documents`, `get_document`, `get_document_content`, `upload_document`), and graph exploration (`list_entities`, `get_entity`, `list_collections`, `list_communities`, `get_stats`). See the [MCP skill](../mcp/SKILL.md) for full setup and tool schemas.
 
 ## Slack Bot
 

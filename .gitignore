@@ -42,3 +42,7 @@ next-env.d.ts
 
 # claude
 .claude/
+
+# mcp-server package (own toolchain)
+mcp-server/node_modules/
+mcp-server/dist/
