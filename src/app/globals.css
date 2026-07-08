@@ -68,7 +68,7 @@ a:hover {
 }
 
 .skill-item:hover {
-  border-color: var(--accent);
+  border-color: var(--dim);
 }
 
 .skill-title {
@@ -103,22 +103,70 @@ a:hover {
 }
 
 .skill-prompt {
-  display: block;
-  margin-top: 0.5rem;
+  display: inline-block;
+  margin-top: 0.75rem;
+  padding: 0.45rem 0.9rem;
+  border: 1px solid var(--accent);
   color: var(--accent);
-  opacity: 0.8;
+  background: transparent;
   text-align: left;
+  transition: background 0.15s, color 0.15s;
 }
 
 .skill-prompt:hover {
-  opacity: 1;
+  background: var(--accent);
+  color: var(--bg);
 }
+
+.hero-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
 
 .skill-item.skill-item-hero {
   border: 1px solid var(--accent);
   background: var(--bg);
   padding: 1.5rem;
-  margin-bottom: 3rem;
+  margin-bottom: 0;
+}
+
+.hero-row .skill-item-hero {
+  display: flex;
+  flex-direction: column;
+}
+
+.hero-row .skill-item-hero .skill-desc {
+  margin-bottom: 0.75rem;
+}
+
+.hero-row .skill-item-hero .skill-prompt {
+  margin-top: auto;
+  align-self: flex-start;
+}
+
+.skill-item-hermes .skill-prompt {
+  border-color: var(--fg);
+  color: var(--fg);
+}
+
+.skill-item-hermes .skill-prompt:hover {
+  background: var(--fg);
+  color: var(--bg);
+}
+
+.skill-item.skill-item-hermes {
+  border-color: var(--border);
+}
+
+.skill-item.skill-item-hero.skill-item-hermes:hover {
+  border-color: var(--fg);
+}
+
+.skill-item-hero.skill-item-hermes .skill-name {
+  color: var(--fg);
 }
 
 .skill-item-hero .skill-name {
@@ -209,6 +257,7 @@ a:hover {
 /* Mobile */
 @media (max-width: 640px) {
   body { padding: 1rem; }
+  .hero-row { grid-template-columns: 1fr; gap: 1rem; }
   .skill-title { flex-direction: column; align-items: flex-start; gap: 0.25rem; }
   .skill-item-hero .skill-name { font-size: 1.25rem; }
   #modal-overlay { padding: 0.5rem; }

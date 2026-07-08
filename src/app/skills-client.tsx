@@ -94,29 +94,72 @@ export function SkillsClient() {
     return () => document.removeEventListener("keydown", handleKeyDown);
   }, [closeModal]);
 
+  const hermesSkill = skills.find((s) => s.slug === "hermes");
+
   return (
     <>
-      <div
-        className="skill-item skill-item-hero"
-        onClick={() => openSkill("", "Cortex Skills")}
-      >
-        <div className="skill-title">
-          <span className="skill-name skill-name-hero">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img className="hero-logo" src="/logo.svg" alt="Cortex" />
-            Cortex Skills
-          </span>
-          <button className="skill-url" onClick={(e) => copyUrl(null, e)}>
+      <div className="hero-row">
+        <div
+          className="skill-item skill-item-hero"
+          onClick={() => openSkill("", "Cortex Skills")}
+        >
+          <div className="skill-title">
+            <span className="skill-name skill-name-hero">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img className="hero-logo" src="/logo.svg" alt="Cortex" />
+              Cortex Skills
+            </span>
+          </div>
+          <p className="skill-desc">
+            The missing knowledge between AI agents and the Cortex ecosystem.
+            Give any agent the general skill and let it navigate the rest.
+          </p>
+          <button
+            className="skill-url skill-prompt"
+            onClick={(e) => copyUrl(null, e)}
+          >
             {copiedSlug === "__root__"
-              ? "copied!"
-              : "cortexskills.org/SKILL.md"}
+              ? "copied! feed it to your agent"
+              : "> copy general skill"}
             {copiedSlug === "__root__" ? <CheckIcon /> : <CopyIcon />}
           </button>
         </div>
-        <p className="skill-desc">
-          The missing knowledge between AI agents and the Cortex ecosystem.
-          Integrate the main skill and let your agent navigate the rest.
-        </p>
+
+        {hermesSkill?.agentPrompt && (
+          <div
+            className="skill-item skill-item-hero skill-item-hermes"
+            onClick={() => openSkill("hermes", "Hermes")}
+          >
+            <div className="skill-title">
+              <span className="skill-name skill-name-hero">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img className="hero-logo" src="/nous.png" alt="Nous Research" />
+                Hermes
+              </span>
+              <button className="skill-url" onClick={(e) => copyUrl("hermes", e)}>
+                {copiedSlug === "hermes"
+                  ? "copied!"
+                  : "hermes/SKILL.md"}
+                {copiedSlug === "hermes" ? <CheckIcon /> : <CopyIcon />}
+              </button>
+            </div>
+            <p className="skill-desc">
+              Long-term memory and community scale knowledge for your Hermes.
+              Send this prompt to your agent to connect any cortex or install
+              your own.
+            </p>
+            <button
+              className="skill-url skill-prompt"
+              title={hermesSkill.agentPrompt}
+              onClick={(e) => copyPrompt("hermes", hermesSkill.agentPrompt!, e)}
+            >
+              {copiedSlug === "prompt:hermes"
+                ? "copied! paste it to your agent"
+                : "> copy install prompt"}
+              {copiedSlug === "prompt:hermes" ? <CheckIcon /> : <CopyIcon />}
+            </button>
+          </div>
+        )}
       </div>
 
       <ul className="skill-list">
