@@ -17,6 +17,12 @@ description: Use this skill when deploying or configuring Cortex, including self
 
 5. **Neo4j takes 30-60 seconds to initialize.** If the backend fails to connect on first boot, wait and restart the backend container.
 
+6. **The dashboard breaks from any browser that isn't on the host itself** unless you override `NEXT_PUBLIC_API_URL`. The shipped `docker-compose.yml` hardcodes `http://localhost:8000` in the frontend's `environment:` block, which beats your `.env` — browsers on other machines then call *their own* localhost and get "session expired" / `ERR_CONNECTION_REFUSED`. See [Self-host on a LAN/remote box](#self-host-on-a-lanremote-box).
+
+7. **`docker restart` does NOT reload `.env`.** Containers keep the env snapshot from `create`. After any `.env` change run `docker compose up -d --force-recreate` (add `--no-deps <service>` to scope it).
+
+8. **Never put inline comments after `.env` values.** dotenv parses `KEY=false  # comment` as the string `false  # comment`; bool coercion fails silently and the field falls back to its default. Comments go on their own line.
+
 ## Prerequisites
 
 - [Docker](https://docs.docker.com/get-docker/) and Docker Compose
@@ -348,6 +354,30 @@ NEXT_PUBLIC_LOGO_URL=https://example.com/logo.png    # Custom logo
 ACCENT_COLOR=#3b82f6                                  # Custom accent color (server-side, read at runtime — no rebuild needed)
 ```
 
+### Self-host on a LAN/remote box {#self-host-on-a-lanremote-box}
+
+`NEXT_PUBLIC_API_URL` is the URL **browsers** use to reach the backend — it must be the host's LAN IP or domain, not `localhost`, whenever anyone opens the dashboard from another machine. Two traps stack on top of each other here:
+
+1. The shipped compose file hardcodes it under the frontend's `environment:`, which **overrides `.env`**. Fix with a compose override:
+
+```yaml
+# docker-compose.override.yml
+services:
+  frontend:
+    environment:
+      NEXT_PUBLIC_API_URL: http://192.168.1.50:8000
+```
+
+2. `NEXT_PUBLIC_*` is baked into the bundle at **build time**, and the repo's `frontend/.next` build cache is COPY'd into the image — it survives `docker compose build --no-cache` and silently serves the old URL. Purge it and keep it out of the build context:
+
+```bash
+rm -rf frontend/.next
+grep -qxF '.next' frontend/.dockerignore 2>/dev/null || echo '.next' >> frontend/.dockerignore
+docker compose build --no-cache frontend && docker compose up -d --force-recreate --no-deps frontend
+```
+
+(The hermes skill's `cortex.sh setup` does all of this for you when you pass `host=<lan-ip-or-domain>`.)
+
 ### Git Integration (Optional)
 
 Connect GitHub/GitLab/Gitea repos as a knowledge source. See the [git-integration skill](../git-integration/SKILL.md).
@@ -435,11 +465,16 @@ docker compose logs -f
 # View backend logs only
 docker compose logs -f backend
 
-# Restart backend after config change
-docker compose restart backend
+# Apply a .env change — restart is NOT enough (containers keep the env
+# snapshot from create); force-recreate re-reads compose + .env
+docker compose up -d --force-recreate --no-deps backend
 
 # Rebuild after code changes
 docker compose up -d --build
+
+# Rebuild after changing NEXT_PUBLIC_* (frontend env is baked at build time,
+# and a stale frontend/.next cache survives --no-cache)
+rm -rf frontend/.next && docker compose build --no-cache frontend && docker compose up -d --force-recreate --no-deps frontend
 ```
 
 ## Production Deployment

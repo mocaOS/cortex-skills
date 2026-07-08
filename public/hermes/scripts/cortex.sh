@@ -255,17 +255,22 @@ case "$cmd" in
     # build+boot runs DETACHED so no terminal timeout can kill it; finish with
     # `setup-status`. Args are order-independent key=value pairs.
     DIR=""; PROVIDER=""; KEY=""; BASE=""; MODEL=""; EKEY=""; EBASE=""; EMODEL=""; EDIM=""; OFFSET=0; REPO="https://github.com/mocaOS/cortex-app.git"
+    HOSTADDR="localhost"; SENDDIMS=""; TUNING=""
     for a in "$@"; do case "$a" in
       dir=*) DIR="${a#dir=}";; provider=*) PROVIDER="${a#provider=}";; key=*) KEY="${a#key=}";;
       base=*) BASE="${a#base=}";; model=*) MODEL="${a#model=}";;
       emb_key=*) EKEY="${a#emb_key=}";; emb_base=*) EBASE="${a#emb_base=}";;
       emb_model=*) EMODEL="${a#emb_model=}";; emb_dim=*) EDIM="${a#emb_dim=}";;
       offset=*) OFFSET="${a#offset=}";; repo=*) REPO="${a#repo=}";;
+      host=*) HOSTADDR="${a#host=}";; send_dims=*) SENDDIMS="${a#send_dims=}";; tuning=*) TUNING="${a#tuning=}";;
       *) die "setup: unknown arg '$a' (use key=value)";;
     esac; done
     [ "$PROVIDER" = ollama ] && KEY="${KEY:-ollama}"   # ollama ignores API keys
-    [ -n "$DIR" ] && [ -n "$PROVIDER" ] && [ -n "$KEY" ] || die "usage: cortex.sh setup dir=<path> provider=<ollama|venice|openai|openrouter|custom> key=<api_key> [base=] [model=] [emb_key=] [emb_base=] [emb_model=] [emb_dim=] [offset=N] [repo=]"
+    [ -n "$DIR" ] && [ -n "$PROVIDER" ] && [ -n "$KEY" ] || die "usage: cortex.sh setup dir=<path> provider=<ollama|venice|openai|openrouter|custom> key=<api_key> [base=] [model=] [emb_key=] [emb_base=] [emb_model=] [emb_dim=] [send_dims=true|false] [host=<lan-ip-or-domain>] [tuning=fast|bench] [offset=N] [repo=]"
     case "$OFFSET" in ''|*[!0-9]*) die "setup: offset must be a number";; esac
+    case "$HOSTADDR" in http://*|https://*) die "setup: host= takes a bare hostname/IP, no scheme — e.g. host=192.168.1.50 (it's where BROWSERS reach the dashboard; the agent keeps using localhost)";; esac
+    case "$SENDDIMS" in ''|true|false) ;; *) die "setup: send_dims must be true or false";; esac
+    case "$TUNING" in ''|fast|bench) ;; *) die "setup: tuning must be fast (local/slow models) or bench (cloud-provider defaults)";; esac
     DIR="${DIR/#\~/$HOME}"
     # Provider presets — encode the embeddings caveat: not every provider serves
     # embedding models. openrouter is chat-only in practice, so it REQUIRES a
@@ -293,7 +298,21 @@ case "$cmd" in
                [ -n "$EMODEL" ] || die "setup: provider=custom needs emb_model= (+ emb_dim=)"; EDIM="${EDIM:-1536}";;
       *) die "setup: unknown provider '$PROVIDER' (venice|openai|openrouter|custom)";;
     esac
+    # Fixed-output-dimension embedding models 400 when the backend sends the
+    # OpenAI `dimensions` parameter (litellm routes them into the
+    # text-embedding-3 group). Auto-set EMBEDDING_SEND_DIMENSIONS=false for the
+    # known ones; send_dims= overrides either way.
+    if [ -z "$SENDDIMS" ]; then
+      case "$EMODEL" in
+        qwen3-vl-embedding*|*/qwen3-vl-embedding*|bge-*|*/bge-*|e5-*|*/e5-*|gte-*|*/gte-*|nomic-embed*|*/nomic-embed*) SENDDIMS=false;;
+        *) SENDDIMS=true;;
+      esac
+    fi
+    # Tuning: local/slow models need smaller extraction contexts + reasoning off
+    # or graph extraction times out; cloud providers keep upstream defaults.
+    [ -z "$TUNING" ] && case "$PROVIDER" in ollama|custom) TUNING=fast;; *) TUNING=bench;; esac
     BPORT=$((8000+OFFSET)); FPORT=$((3000+OFFSET)); N1=$((7474+OFFSET)); N2=$((7687+OFFSET))
+    PUBURL="http://$HOSTADDR:$BPORT"
     # Preflight
     command -v git >/dev/null || die "setup: git not installed"
     command -v curl >/dev/null || die "setup: curl not installed"
@@ -321,7 +340,11 @@ case "$cmd" in
     cp "$DIR/.env.example" "$DIR/.env" 2>/dev/null || touch "$DIR/.env"
     # .env.example ships some of these as uncommented placeholders — remove any
     # existing occurrences so ours are the only (and unambiguous) values.
-    sed -i -E '/^(COMPOSE_PROJECT_NAME|SERVICE_PASSWORD_NEO4J|OPENAI_API_KEY|OPENAI_API_BASE|OPENAI_MODEL|EMBEDDING_API_KEY|EMBEDDING_API_BASE|EMBEDDING_MODEL|EMBEDDING_DIMENSION|ADMIN_EMAIL|ADMIN_PASSWORD|ADMIN_API_KEY|SESSION_SECRET)=/d' "$DIR/.env"
+    # NOTE: values are written WITHOUT inline comments — dotenv parses
+    # `KEY=val  # comment` as the whole string and bool coercion silently
+    # falls back to the field default. Never append `# ...` after a value.
+    sed -i -E '/^(COMPOSE_PROJECT_NAME|SERVICE_PASSWORD_NEO4J|OPENAI_API_KEY|OPENAI_API_BASE|OPENAI_MODEL|EMBEDDING_API_KEY|EMBEDDING_API_BASE|EMBEDDING_MODEL|EMBEDDING_DIMENSION|EMBEDDING_SEND_DIMENSIONS|NEXT_PUBLIC_API_URL|ADMIN_EMAIL|ADMIN_PASSWORD|ADMIN_API_KEY|SESSION_SECRET)=/d' "$DIR/.env"
+    [ "$TUNING" = fast ] && sed -i -E '/^(GRAPH_EXTRACTION_MAX_CONTEXT|EXTRACTION_MAX_OUTPUT_TOKENS|EMBEDDING_MAX_INPUT_TOKENS|EXTRACTION_REASONING_MODE|RELATIONSHIP_REASONING_MODE|VISION_REASONING_MODE|DEFAULT_REASONING_MODE|CONCURRENT_EXTRACTIONS|CONCURRENT_RELATIONS|VISION_MAX_CONCURRENT|BATCH_PROCESSING_CONCURRENCY)=/d' "$DIR/.env"
     NEO_PW=$(openssl rand -hex 16); ADMIN_PW=$(openssl rand -base64 18 | tr -d '=+/'); ADMIN_KEY="cortex_admin_$(openssl rand -hex 24)"
     {
       echo ""; echo "# --- written by cortex.sh setup $(date -u +%Y-%m-%dT%H:%MZ) ---"
@@ -334,12 +357,32 @@ case "$cmd" in
       [ -n "$EBASE" ] && echo "EMBEDDING_API_BASE=$EBASE"
       echo "EMBEDDING_MODEL=$EMODEL"
       echo "EMBEDDING_DIMENSION=$EDIM"
+      echo "EMBEDDING_SEND_DIMENSIONS=$SENDDIMS"
+      echo "NEXT_PUBLIC_API_URL=$PUBURL"
       echo "ADMIN_EMAIL=admin@localhost.local"
       echo "ADMIN_PASSWORD=$ADMIN_PW"
       echo "ADMIN_API_KEY=$ADMIN_KEY"
       echo "SESSION_SECRET=$(openssl rand -base64 32)"
+      if [ "$TUNING" = fast ]; then
+        echo "GRAPH_EXTRACTION_MAX_CONTEXT=24000"
+        echo "EXTRACTION_MAX_OUTPUT_TOKENS=8000"
+        echo "EMBEDDING_MAX_INPUT_TOKENS=5400"
+        echo "EXTRACTION_REASONING_MODE=off"
+        echo "RELATIONSHIP_REASONING_MODE=off"
+        echo "VISION_REASONING_MODE=off"
+        echo "DEFAULT_REASONING_MODE=off"
+        echo "CONCURRENT_EXTRACTIONS=4"
+        echo "CONCURRENT_RELATIONS=4"
+        echo "VISION_MAX_CONCURRENT=4"
+        echo "BATCH_PROCESSING_CONCURRENCY=3"
+      fi
     } >> "$DIR/.env"
     chmod 600 "$DIR/.env"
+    # The override is written UNCONDITIONALLY: the upstream compose file
+    # hardcodes NEXT_PUBLIC_API_URL=http://localhost:8000 in the frontend's
+    # environment block, which beats .env — without this override the dashboard
+    # is broken from every browser that isn't on the host itself ("session
+    # expired" / ERR_CONNECTION_REFUSED to localhost:8000).
     if [ "$OFFSET" -gt 0 ]; then
       cat > "$DIR/docker-compose.override.yml" <<EOF
 services:
@@ -357,13 +400,28 @@ services:
     ports: !override
       - "$FPORT:3000"
     environment:
-      NEXT_PUBLIC_API_URL: http://localhost:$BPORT
+      NEXT_PUBLIC_API_URL: $PUBURL
+EOF
+    else
+      cat > "$DIR/docker-compose.override.yml" <<EOF
+services:
+  frontend:
+    environment:
+      NEXT_PUBLIC_API_URL: $PUBURL
 EOF
     fi
-    jq -n --argjson o "$OFFSET" --argjson bp "$BPORT" '{offset:$o, backend_port:$bp}' > "$DIR/.hermes-cortex-setup.json"
+    # NEXT_PUBLIC_* is baked into the frontend bundle at build time, and the
+    # repo's frontend/.next build cache is COPY'd into the image — a stale cache
+    # silently wins over env changes even with --no-cache. Purge it and keep it
+    # out of the build context for future rebuilds.
+    rm -rf "$DIR/frontend/.next"
+    grep -qxF '.next' "$DIR/frontend/.dockerignore" 2>/dev/null || echo '.next' >> "$DIR/frontend/.dockerignore"
+    jq -n --argjson o "$OFFSET" --argjson bp "$BPORT" --argjson fp "$FPORT" --arg h "$HOSTADDR" \
+      '{offset:$o, backend_port:$bp, frontend_port:$fp, host:$h}' > "$DIR/.hermes-cortex-setup.json"
     ( cd "$DIR" && nohup docker compose up -d --build > "$DIR/setup.log" 2>&1 & )
     echo "setup: Cortex is building + booting in the background (first build can take 5-15 min)."
-    echo "  dir: $DIR   backend: http://localhost:$BPORT   frontend: http://localhost:$FPORT"
+    echo "  dir: $DIR   backend: http://localhost:$BPORT   dashboard: http://$HOSTADDR:$FPORT   tuning: $TUNING   send_dims: $SENDDIMS"
+    [ "$HOSTADDR" = localhost ] && echo "  note: dashboard will only work from a browser ON this machine — for LAN access re-run with host=<this-box's-ip>"
     echo "  next: run  cortex.sh setup-status dir=$DIR  (repeat until it reports connected)"
     ;;
   setup-status)
@@ -408,10 +466,13 @@ EOF
       echo "connected: CORTEX_BASE_URL/CORTEX_API_KEY written to ~/.hermes/.env (your personal cortex)."
       echo "  usable immediately (named source 'local' is the default until the env vars load); verify with: cortex.sh status"
     fi
+    DASH_HOST=$(jq -r '.host // "localhost"' "$ST"); DASH_PORT=$(jq -r '.frontend_port // (3000 + (.offset // 0))' "$ST")
+    echo "dashboard for your human: http://$DASH_HOST:$DASH_PORT  (login: ADMIN_EMAIL / ADMIN_PASSWORD from $DIR/.env)"
     echo "IMPORTANT next steps for the agent:"
     echo "  1. store the native routing memory (see SKILL.md Validate)"
     echo "  2. never use the admin key for memory work — it stays in $DIR/.env"
     echo "  3. try: cortex.sh status && cortex.sh list"
+    echo "  4. if you ever edit $DIR/.env: docker compose up -d --force-recreate (a plain restart does NOT reload env); NEXT_PUBLIC_* changes also need rm -rf frontend/.next + rebuild"
     ;;
   wait)
     resolve; d="${1:-}"; [ -n "$d" ] || die "usage: cortex.sh wait <doc_id>"
