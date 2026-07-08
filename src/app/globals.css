@@ -148,7 +148,7 @@ a:hover {
   background: rgba(0, 0, 0, 0.8);
   z-index: 100;
   padding: 2rem;
-  overflow-y: auto;
+  overflow: hidden;
 }
 
 #modal-content {
@@ -158,6 +158,10 @@ a:hover {
   margin: 0 auto;
   padding: 2rem;
   position: relative;
+  /* Scroll on the non-fixed content, not the fixed overlay, so browser
+     find-in-page (Ctrl+F) can scroll matches into view. */
+  max-height: 100%;
+  overflow-y: auto;
 }
 
 #modal-close {
