@@ -129,19 +129,26 @@ OPENAI_API_KEY=
 OPENAI_API_BASE=https://api.venice.ai/api/v1
 OPENAI_MODEL=google-gemma-4-26b-a4b-it
 
-# Extraction — drives relationship via inheritance (Qwen3.6 27B: 256K window)
+# Extraction — drives relationship via inheritance (Qwen3.6 27B)
 GRAPH_EXTRACTION_MODEL=qwen3-6-27b
-GRAPH_EXTRACTION_MAX_CONTEXT=256000
+GRAPH_EXTRACTION_MAX_CONTEXT=24000   # deliberately small — see note below
+EXTRACTION_MAX_OUTPUT_TOKENS=8000
+RELATIONSHIP_MAX_CONTEXT=256000      # relationship batches have bounded output, so wide is safe
 
 # Vision — image analysis (api_base/api_key inherit from OPENAI_*)
 VISION_MODEL=qwen3-6-27b
 
-# Embeddings — Qwen3-Embedding-8B (native 4096, MRL 32-4096)
-EMBEDDING_MODEL=text-embedding-qwen3-8b
-EMBEDDING_DIMENSION=4096            # Neo4j 5.26 supports up to 4096-dim vector indexes
+# Embeddings — OpenAI text-embedding-3-small (recommended)
+EMBEDDING_MODEL=text-embedding-3-small
+EMBEDDING_DIMENSION=1536
+EMBEDDING_MAX_INPUT_TOKENS=5400     # providers re-count with their own tokenizer — see note below
+# Venice-only single-provider alternative: Qwen3-Embedding-8B
+#   EMBEDDING_MODEL=text-embedding-qwen3-8b
+#   EMBEDDING_DIMENSION=4096          # Neo4j 5.26 supports up to 4096-dim vector indexes
 ```
 
-> The `GRAPH_EXTRACTION_MAX_CONTEXT` override is needed because the conservative default (32768) caps Qwen3.6 27B at a fraction of its real 256K window. The embedding model inherits `OPENAI_API_BASE`/`OPENAI_API_KEY` unless overridden.
+> **Keep `GRAPH_EXTRACTION_MAX_CONTEXT` small (24000) — do NOT match the model's context window.** Extraction is decode-bound: its output scales with input, and at real provider decode speeds (~70 tok/s) full-window batches can't finish inside the request timeout, producing retries and silently lost entities. 24000 keeps worst-case output inside the 8000-token output cap and completes reliably; treat it as a graph-density/cost dial (12000 ≈ denser graph, ~2× the calls). `RELATIONSHIP_MAX_CONTEXT` can stay wide (256000) because relationship batch calls have a pairs-per-call cap that bounds their output.
+> **`EMBEDDING_MAX_INPUT_TOKENS=5400`**: the client counts tokens with cl100k, but providers validate with their own tokenizer (1.2–1.4× higher on punctuation-heavy text), so 8192-passing chunks get 400-rejected upstream. 5400 × ~1.4 ≈ 7500 stays under every 8192-cap provider, and smaller chunks embed more precisely into 1536-dim vectors. The embedding model inherits `OPENAI_API_BASE`/`OPENAI_API_KEY` unless overridden.
 
 ## Optional Environment Variables
 
@@ -152,7 +159,7 @@ OPENAI_MODEL=google-gemma-4-26b-a4b-it       # Primary model (Q&A, research, cha
 OPENAI_MODEL_FAST_MODE=google-gemma-4-26b-a4b-it   # Faster/cheaper model for Fast Mode
 OPENAI_API_BASE=https://api.openai.com/v1
 OPENAI_MAX_OUTPUT_TOKENS=8000         # Floor of the output-token budget chain
-OPENAI_MAX_CONTEXT=32768              # Floor of the input-context budget chain
+OPENAI_MAX_CONTEXT=256000             # Floor of the input-context budget chain (code default 32768; 256000 recommended for large-context primary models)
 ```
 
 ### Embedding Configuration
@@ -160,6 +167,7 @@ OPENAI_MAX_CONTEXT=32768              # Floor of the input-context budget chain
 ```bash
 EMBEDDING_MODEL=openai/text-embedding-3-small
 EMBEDDING_DIMENSION=1536
+EMBEDDING_MAX_INPUT_TOKENS=5400       # default 5400 — providers re-count with their own tokenizer (1.2-1.4x on punctuation-heavy text); 5400 stays under every 8192-cap provider
 EMBEDDING_SEND_DIMENSIONS=true        # set false for models with fixed output dim
 USE_OPENAI_EMBEDDINGS=true
 # EMBEDDING_API_BASE=                 # defaults to OPENAI_API_BASE
@@ -251,13 +259,13 @@ MIN_FREE_DISK_MB=500      # Refuse uploads/reprocess/imports with 507 below this
 VISION_MODEL=gpt-4o
 VISION_MODEL_API_BASE=https://api.openai.com/v1
 VISION_MODEL_API_KEY=sk-your-key
-VISION_MAX_CONCURRENT=3    # Concurrent vision API calls system-wide
+VISION_MAX_CONCURRENT=2    # Concurrent vision API calls system-wide (default 2 — each image spawns a multi-call chain; ~20 in-flight slots per provider key is the binding limit)
 ```
 
 ### Concurrency Tuning
 
 ```bash
-BATCH_PROCESSING_CONCURRENCY=3     # Documents processed in parallel
+BATCH_PROCESSING_CONCURRENCY=2     # Documents processed in parallel (default 2 — 3 drops per-call decode ~70→~23 tok/s and multiplies timeouts)
 CONCURRENT_EXTRACTIONS=3            # Entity extraction thread pool
 CONCURRENT_RELATIONS=3              # Per-chunk relationship extractions per document
 PARALLEL_RELATIONSHIP_BATCHES=5     # Phase B relationship analysis batches in parallel
@@ -268,7 +276,7 @@ PROCESSING_THREAD_WORKERS=4         # Thread workers for document processing
 
 ```bash
 RELATIONSHIP_EXTRACTION_MODEL=qwen3-6-27b     # Dedicated model (inherits GRAPH_EXTRACTION_MODEL → OPENAI_MODEL)
-RELATIONSHIP_MAX_CONTEXT=0                     # 0 = inherit GRAPH_EXTRACTION_MAX_CONTEXT → OPENAI_MAX_CONTEXT
+RELATIONSHIP_MAX_CONTEXT=256000                # recommended; 0 = inherit GRAPH_EXTRACTION_MAX_CONTEXT → OPENAI_MAX_CONTEXT. Safe to keep wide: batch calls have bounded output (pairs-per-call cap)
 RELATIONSHIP_MAX_OUTPUT_TOKENS=0              # 0 = inherit; feeds per-chunk + candidate scan
 RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS=16000    # Phase 2 batch budget (standalone, NOT in chain)
 RELATIONSHIP_DISCOVERY_MODE=targeted          # DEFAULT: kNN + co-mention candidates, LLM verifies pairs ('llm_scan' = legacy)
@@ -282,7 +290,7 @@ RELATIONSHIP_MAX_ROUNDS=3                     # Legacy 'llm_scan' only: max disc
 
 > **Budget fallback chain.** Sub-tier token knobs default to `0` (= inherit from the next tier up), so a multi-model stack needs only two or three env vars.
 > Output: `OPENAI_MAX_OUTPUT_TOKENS` → `EXTRACTION_MAX_OUTPUT_TOKENS` → `RELATIONSHIP_MAX_OUTPUT_TOKENS` → `VISION_MAX_OUTPUT_TOKENS`.
-> Input: `OPENAI_MAX_CONTEXT` → `GRAPH_EXTRACTION_MAX_CONTEXT` → `RELATIONSHIP_MAX_CONTEXT`.
+> Input: `OPENAI_MAX_CONTEXT` → `GRAPH_EXTRACTION_MAX_CONTEXT` (inherit is clamped to 48000; recommended explicit `24000` — extraction output scales with input, so keep this window small) → `RELATIONSHIP_MAX_CONTEXT` (safe at `256000` — bounded output).
 > `RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS` (16000) is standalone (Phase 2 batch only). Migration: `EXTRACTION_MAX_CONTEXT` was renamed to `GRAPH_EXTRACTION_MAX_CONTEXT` (legacy name honored one release with a startup WARN).
 
 ### Reasoning Control for Ingestion
@@ -304,10 +312,10 @@ DEFAULT_REASONING_MODE=off           # chat/answer path; deep-research stays AUT
 Crank ingestion throughput on Venice or large self-hosted vLLM endpoints. Dial back for stock OpenAI or smaller hosts to avoid rate limits.
 
 ```bash
-BATCH_PROCESSING_CONCURRENCY=3    # docs processed in parallel (now the shipped default)
+BATCH_PROCESSING_CONCURRENCY=2    # docs processed in parallel (the shipped default — live measurement showed 3 drops per-call decode ~70→~23 tok/s and multiplies timeouts; 2 finishes builds faster)
 CONCURRENT_EXTRACTIONS=4          # entity-extraction threads per doc (default 3 — biggest multiplier)
 CONCURRENT_RELATIONS=4            # per-chunk relationship threads per doc (default 3)
-VISION_MAX_CONCURRENT=4           # system-wide vision-API semaphore (default 3)
+VISION_MAX_CONCURRENT=2           # system-wide vision-API semaphore (default 2 — each image spawns a multi-call chain; ~20 in-flight slots per key is the binding limit, not RPM)
 ```
 
 ### Agent Skills
@@ -386,12 +394,14 @@ LOG_FORMAT=plain                  # plain | json (json adds request_id correlati
 METRICS_ENABLED=true              # Prometheus metrics at GET /metrics (admin key)
 RATE_LIMIT_QPM=0                  # Per-key requests/minute on ask/upload (0 = off)
 RATE_LIMIT_BURST=10               # Token-bucket burst capacity
-NEO4J_MAX_POOL_SIZE=100
-NEO4J_CONNECTION_TIMEOUT=10
+NEO4J_MAX_POOL_SIZE=100           # ⚠️ scope to the backend service only — see warning below
+NEO4J_CONNECTION_TIMEOUT=10       # ⚠️ scope to the backend service only — see warning below
 LLM_REQUEST_TIMEOUT_SECONDS=360   # Explicit transport timeout on every LLM client (0 = SDK default 600s)
 AUTO_RESUME_PENDING_ON_STARTUP=true  # Auto-resume docs stranded mid-processing by a restart (quota-guarded)
 ENABLE_AUDIT_LOG=false            # Append-only JSONL audit log (metadata only; server-side file, no API endpoint)
 ```
+
+> ⚠️ **Never put `NEO4J_*` tunables in project-wide env.** On PaaS deployments (Dokploy, Coolify) that inject env vars project-wide, a bare `NEO4J_*` var also lands on the neo4j container — which interprets **every** `NEO4J_*` env as server configuration and can fail to boot. Scope `NEO4J_MAX_POOL_SIZE` / `NEO4J_CONNECTION_TIMEOUT` / `NEO4J_CONNECTION_ACQUISITION_TIMEOUT` to the backend service's `environment:` block only, and use the `CORTEX_NEO4J_*` passthroughs (like `CORTEX_NEO4J_TX_TIMEOUT`) where available.
 
 > **Slim image:** build with `--build-arg INSTALL_LOCAL_ML=false` for a torch-free backend (~1.2 GB) when reranking + conversion are offloaded to cortex-helper. Requires OpenAI embeddings; pair with `HELPER_STRICT_REMOTE=true`.
 

@@ -388,7 +388,7 @@ When the `VISION_MODEL` environment variable is configured, the system automatic
 
 Without `VISION_MODEL` set, Docling's built-in picture-description model is used for image descriptions (enabled via `do_picture_description=True`). If Docling is also unavailable, basic OCR (EasyOCR/Tesseract) is used as a fallback, which may miss contextual information from charts, diagrams, or handwritten content.
 
-Image analysis runs concurrently — control parallelism with `VISION_MAX_CONCURRENT` (default 3). With 200 images at ~30s each: 3 concurrency ≈ 33 min, 10 concurrency ≈ 10 min.
+Image analysis runs concurrently — control parallelism with `VISION_MAX_CONCURRENT` (default 2). The default is deliberate: each in-flight image spawns a multi-call chain, and ~20 concurrent slots per provider key is the binding limit (not RPM), so higher values saturate the key rather than speeding things up.
 
 Image entities are extracted with fuzzy deduplication, and each image chunk stores page number and caption metadata. Check `image_progress_current` vs `image_progress_total` on the document to track background image processing (a document can be `completed` while images are still analyzing).
 
@@ -401,7 +401,7 @@ Docling provides advanced document conversion with layout-aware extraction. When
 | `VISION_MODEL` | — (disabled) | Vision model for image analysis (e.g., `gpt-4o`) |
 | `VISION_MODEL_API_BASE` | `OPENAI_API_BASE` | API endpoint for the vision model |
 | `VISION_MODEL_API_KEY` | `OPENAI_API_KEY` | API key for the vision model |
-| `VISION_MAX_CONCURRENT` | `3` | Max concurrent vision API calls system-wide |
+| `VISION_MAX_CONCURRENT` | `2` | Max concurrent vision API calls system-wide |
 
 ---
 

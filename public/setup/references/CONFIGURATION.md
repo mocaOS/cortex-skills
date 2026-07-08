@@ -34,7 +34,7 @@ These must be set for Cortex to start.
 | `OPENAI_MODEL` | `string` | `google-gemma-4-26b-a4b-it` | Model ID for the primary LLM used for Q&A, research, and chat. |
 | `OPENAI_MODEL_FAST_MODE` | `string` | `` (inherits `OPENAI_MODEL`) | Model ID for Fast Mode -- a cheaper/faster model used when the user selects fast search. Empty = falls back to `OPENAI_MODEL`. |
 | `OPENAI_MAX_OUTPUT_TOKENS` | `integer` | `8000` | Floor of the output-token budget chain. Default output tokens for every LLM call. |
-| `OPENAI_MAX_CONTEXT` | `integer` | `32768` | Floor of the input-context budget chain. Default input context budget. |
+| `OPENAI_MAX_CONTEXT` | `integer` | `32768` | Floor of the input-context budget chain. Default input context budget. Recommended: `256000` for large-context primary models (this budget serves chat/answers; the extraction window is governed separately by `GRAPH_EXTRACTION_MAX_CONTEXT`, which should stay small — see below). |
 | `LLM_REQUEST_TIMEOUT_SECONDS` | `integer` | `360` | Explicit transport timeout on every LLM client the backend builds (the SDK default is 600s, which lets one hung provider connection pin an ingestion slot for 10 minutes). For streaming, the read component applies between chunks, so long answers are unaffected. `0` restores the SDK default. |
 
 ### Embedding Configuration
@@ -43,6 +43,7 @@ These must be set for Cortex to start.
 |----------|------|---------|-------------|
 | `EMBEDDING_MODEL` | `string` | `openai/text-embedding-3-small` | Model ID for generating vector embeddings. |
 | `EMBEDDING_DIMENSION` | `integer` | `1536` | Dimensionality of embedding vectors. Must match the model's output dimension. |
+| `EMBEDDING_MAX_INPUT_TOKENS` | `integer` | `5400` | Maximum input tokens per embedding request. The client counts tokens with `cl100k`, but providers validate with their **own** tokenizer, which can count 1.2–1.4× higher on punctuation-heavy text — so chunks that pass an 8192 client-side check get 400-rejected upstream. `5400 × ~1.4 ≈ 7500` stays under every 8192-cap provider, including `text-embedding-3-small` (8191 cap). Smaller chunks also embed more precisely into 1536-dim vectors. |
 | `EMBEDDING_SEND_DIMENSIONS` | `boolean` | `true` | Whether to send the `dimensions` parameter to the embedding API. Set to `false` for models with fixed output dimensions that do not accept this parameter. |
 | `USE_OPENAI_EMBEDDINGS` | `boolean` | `true` | Use the OpenAI-compatible embedding endpoint. |
 | `EMBEDDING_API_BASE` | `string` | value of `OPENAI_API_BASE` | API base URL for the embedding provider, if different from the primary LLM. |
@@ -76,7 +77,7 @@ These must be set for Cortex to start.
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
-| `BATCH_PROCESSING_CONCURRENCY` | `integer` | `3` | Number of documents processed concurrently during batch operations (`POST /api/documents/process-pending`). Default raised from `2` to `3` (bench-validated, Venice-safe). |
+| `BATCH_PROCESSING_CONCURRENCY` | `integer` | `2` | Number of documents processed concurrently during batch operations (`POST /api/documents/process-pending`). `2` is the shipped default and the recommended value: live measurement showed 3 concurrent documents drop per-call decode speed (~70 → ~23 tok/s) and multiply timeouts, so 2 finishes builds *faster* than 3. |
 | `PROCESSING_THREAD_WORKERS` | `integer` | `4` | Number of thread workers used for document processing tasks. |
 | `AUTO_RESUME_PENDING_ON_STARTUP` | `boolean` | `true` | Automatically resume documents stranded mid-processing by a restart/redeploy (quota-guarded). Bulk uploads parked deliberately with `start_processing=false` stay parked. Set `false` to require a manual trigger after every redeploy. |
 
@@ -101,8 +102,8 @@ These must be set for Cortex to start.
 | `GRAPH_EXTRACTION_API_KEY` | `string` | value of `OPENAI_API_KEY` | API key for the extraction model, if different from primary. |
 | `MAX_GRAPH_HOPS` | `integer` | `2` | Number of graph traversal hops during search context retrieval. Range: 1-3. Higher values pull in more distantly connected context at the cost of relevance. |
 | `CONCURRENT_EXTRACTIONS` | `integer` | `3` | Number of parallel entity extraction operations during document processing. Increase if your LLM endpoint can handle higher concurrency. |
-| `GRAPH_EXTRACTION_MAX_CONTEXT` | `integer` | `0` (=inherit) | Maximum context window tokens for entity extraction batching. `0` inherits `OPENAI_MAX_CONTEXT`. Renamed from `EXTRACTION_MAX_CONTEXT` (deprecated alias honored one release with a startup WARN). |
-| `EXTRACTION_MAX_OUTPUT_TOKENS` | `integer` | `0` (=inherit) | Output budget for entity-extraction LLM calls. `0` inherits `OPENAI_MAX_OUTPUT_TOKENS`. Bump to 3500-4000 for Qwen3-family models. |
+| `GRAPH_EXTRACTION_MAX_CONTEXT` | `integer` | `0` (=inherit) | Maximum context window tokens for entity extraction batching. `0` inherits `min(OPENAI_MAX_CONTEXT, 48000)` — note the 48K clamp. **Recommended: set it explicitly to `24000`.** Extraction is decode-bound (output scales with input), so at real provider decode speeds (~70 tok/s) full-window batches can't finish inside the request timeout — causing retries and silently lost entities. `24000` keeps worst-case output inside the 8000-token output cap and completes reliably. It's a graph-density/cost dial (`12000` ≈ denser graph at ~2× the calls), **not** "match the model's context window". Renamed from `EXTRACTION_MAX_CONTEXT` (deprecated alias honored one release with a startup WARN). |
+| `EXTRACTION_MAX_OUTPUT_TOKENS` | `integer` | `0` (=inherit) | Output budget for entity-extraction LLM calls. `0` inherits `OPENAI_MAX_OUTPUT_TOKENS` (8000). Recommended: `8000` (set explicitly). |
 
 ### Relationship Extraction Model
 
@@ -125,7 +126,7 @@ Cross-document relationship discovery. Two modes, selected by `RELATIONSHIP_DISC
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|
 | `RELATIONSHIP_DISCOVERY_MODE` | `string` | `targeted` | `targeted` (kNN + co-mention candidates, LLM verifies pairs) or `llm_scan` (legacy two-phase batch scan). |
-| `RELATIONSHIP_MAX_CONTEXT` | `integer` | `0` (=inherit) | Maximum INPUT context window tokens for Phase 2 batch analysis. `0` inherits `GRAPH_EXTRACTION_MAX_CONTEXT` → `OPENAI_MAX_CONTEXT`. |
+| `RELATIONSHIP_MAX_CONTEXT` | `integer` | `0` (=inherit) | Maximum INPUT context window tokens for Phase 2 batch analysis. `0` inherits `GRAPH_EXTRACTION_MAX_CONTEXT` → `OPENAI_MAX_CONTEXT`. Recommended: `256000` on large-context models — unlike extraction, relationship batch calls have bounded output (pairs-per-call cap), so this window can safely stay wide. |
 | `RELATIONSHIP_MAX_OUTPUT_TOKENS` | `integer` | `0` (=inherit) | Output budget for **per-chunk + candidate scan** (was the Phase 2 batch budget in old releases — see migration note). `0` inherits `EXTRACTION_MAX_OUTPUT_TOKENS`. |
 | `RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS` | `integer` | `16000` | Output budget for **Phase 2 batch** relationship analysis (standalone, NOT in the inheritance chain). Batch processes hundreds of entity pairs per call. |
 | `PARALLEL_RELATIONSHIP_BATCHES` | `integer` | `5` | Number of relationship analysis batches processed in parallel. |
@@ -182,7 +183,7 @@ Sub-tier token knobs default to `0` (= inherit from the next tier up):
 ```
 OUTPUT TOKENS:                          INPUT CONTEXT:
   OPENAI_MAX_OUTPUT_TOKENS=8000           OPENAI_MAX_CONTEXT=32768
-       ↓                                       ↓
+       ↓                                       ↓ (clamped to 48000)
   EXTRACTION_MAX_OUTPUT_TOKENS            GRAPH_EXTRACTION_MAX_CONTEXT
        ↓                                       ↓
   RELATIONSHIP_MAX_OUTPUT_TOKENS          RELATIONSHIP_MAX_CONTEXT
@@ -272,7 +273,7 @@ Configure image analysis capabilities for extracting and understanding images fr
 | `VISION_MODEL` | `string` | -- (disabled) | Vision model for image analysis (e.g., `gpt-4o`, `claude-3-5-sonnet`). If not set, Docling's built-in SmolDocling is used for image descriptions. |
 | `VISION_MODEL_API_BASE` | `string` | value of `OPENAI_API_BASE` | API endpoint for the vision model. |
 | `VISION_MODEL_API_KEY` | `string` | value of `OPENAI_API_KEY` | API key for the vision model. |
-| `VISION_MAX_CONCURRENT` | `integer` | `3` | Maximum number of concurrent vision API calls system-wide. Increase for faster image-heavy document processing. With 200 images at ~30s each: 3 concurrency ~33 min, 10 concurrency ~10 min. |
+| `VISION_MAX_CONCURRENT` | `integer` | `2` | Maximum number of concurrent vision API calls system-wide. `2` is the shipped default and the recommended value: each in-flight image spawns a multi-call chain, and ~20 concurrent slots per provider key is the binding limit (not RPM) — raising this saturates the key's slots rather than speeding things up. |
 | `VISION_MAX_OUTPUT_TOKENS` | `integer` | `0` (=inherit) | Output budget for image analysis. Inherits `RELATIONSHIP_MAX_OUTPUT_TOKENS` → extraction → primary. |
 | `VISION_MAX_IMAGE_SIDE` | `integer` | `1568` | Caps the longer image side (Lanczos downscale) before the vision call. `0` disables. |
 | `VISION_JPEG_QUALITY` | `integer` | `85` | JPEG recompression quality before vision call (RGBA stays PNG). |
@@ -317,6 +318,8 @@ Configure image analysis capabilities for extracting and understanding images fr
 | `NEO4J_CONNECTION_TIMEOUT` | `integer` | `10` | Neo4j TCP connect timeout (seconds). |
 | `NEO4J_CONNECTION_ACQUISITION_TIMEOUT` | `integer` | `60` | Max wait for a pooled connection (seconds). |
 | `CORTEX_NEO4J_TX_TIMEOUT` | `string` | `300s` | Server-side Neo4j transaction timeout so a runaway query can't pin a connection and an API worker forever. **Compose-level tunable, not a backend var**: the deploy composes (prod overlay, Coolify, Dokploy) map it onto the neo4j service as `NEO4J_db_transaction_timeout=${CORTEX_NEO4J_TX_TIMEOUT:-300s}`. |
+
+> ⚠️ **Scope `NEO4J_*` vars to the backend service only.** The bare `NEO4J_MAX_POOL_SIZE` / `NEO4J_CONNECTION_TIMEOUT` / `NEO4J_CONNECTION_ACQUISITION_TIMEOUT` tunables above are legitimate **backend-app** settings — but on PaaS deployments (Dokploy, Coolify) that inject env vars project-wide, any bare `NEO4J_*` var also lands on the **neo4j container**, which interprets every `NEO4J_*` env as server configuration and can fail to boot. Never put `NEO4J_*` tunables in project-wide env; set them in the backend service's `environment:` block only, and prefer the `CORTEX_NEO4J_*` passthroughs (like `CORTEX_NEO4J_TX_TIMEOUT`) where available.
 
 ---
 

@@ -417,7 +417,7 @@ There is no `degraded` status value. A **degraded** document is derived client-s
 | `PROCESSING_THREAD_WORKERS`     | `4`         | Thread workers for processing                     |
 | `CONCURRENT_EXTRACTIONS`        | `3`         | Entity extraction thread pool size                |
 | `CONCURRENT_RELATIONS`          | `3`         | Per-chunk relationship extractions per document   |
-| `VISION_MAX_CONCURRENT`         | `3`         | Max concurrent vision API calls system-wide       |
+| `VISION_MAX_CONCURRENT`         | `2`         | Max concurrent vision API calls system-wide       |
 | `ENABLE_GRAPH_EXTRACTION`       | `true`      | Enable entity/relationship extraction             |
 | `START_PROCESSING` (default)    | `true`      | Default for the query parameter                   |
 | `PAGE_CHUNK_SIZE`               | varies      | Chunked PDF processing page count                 |

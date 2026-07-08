@@ -73,12 +73,14 @@ OPENAI_API_BASE=https://openrouter.ai/api/v1
 OPENAI_MODEL=google/gemini-2.5-flash        # any chat model OpenRouter serves
 ```
 
-**Venice** (your Venice key) — Venice serves both chat and embeddings, so it's the smoothest single-provider self-host and it's what Cortex's minimal stack is bench-validated on:
+**Venice** (your Venice key) — Venice serves both chat and embeddings, so it's the smoothest single-provider self-host:
 
 ```bash
 OPENAI_API_KEY=$VENICE_API_KEY
 OPENAI_API_BASE=https://api.venice.ai/api/v1
 OPENAI_MODEL=google-gemma-4-26b-a4b-it
+# Venice-only single-provider embeddings (alternative — the primary recommendation
+# is OpenAI text-embedding-3-small / 1536, see the embeddings caveat below):
 EMBEDDING_MODEL=text-embedding-qwen3-8b
 EMBEDDING_DIMENSION=4096
 ```
@@ -91,8 +93,8 @@ Cortex needs **two** model capabilities: a **chat/LLM** model (Q&A, entity extra
 
 | Provider | Chat | Embeddings | Notes |
 |----------|:---:|:---:|-------|
-| OpenAI | ✅ | ✅ | Simplest — one key does everything |
-| Venice | ✅ | ✅ | `text-embedding-qwen3-8b`; bench-validated minimal stack |
+| OpenAI | ✅ | ✅ | Simplest — one key does everything. `text-embedding-3-small` / 1536 is the **recommended** embedding setup |
+| Venice | ✅ | ✅ | `text-embedding-qwen3-8b` / 4096 — single-provider alternative |
 | OpenRouter | ✅ | ⚠️ | Chat only in practice — **set a separate embedding provider** |
 
 If you self-host on OpenRouter, give the embedding model its own credentials (OpenAI or Venice) via Cortex's `EMBEDDING_API_KEY` / `EMBEDDING_API_BASE` / `EMBEDDING_MODEL`:
@@ -102,11 +104,12 @@ If you self-host on OpenRouter, give the embedding model its own credentials (Op
 OPENAI_API_KEY=$OPENROUTER_API_KEY
 OPENAI_API_BASE=https://openrouter.ai/api/v1
 OPENAI_MODEL=google/gemini-2.5-flash
-# …embeddings on OpenAI (or Venice)
+# …embeddings on OpenAI (recommended: text-embedding-3-small / 1536)
 EMBEDDING_API_KEY=$OPENAI_API_KEY
 EMBEDDING_API_BASE=https://api.openai.com/v1
 EMBEDDING_MODEL=text-embedding-3-small
 EMBEDDING_DIMENSION=1536
+EMBEDDING_MAX_INPUT_TOKENS=5400   # providers validate with their own tokenizer — 5400 stays under every 8192-cap provider
 ```
 
 The setup skill's "Recommended Minimal Stack" covers the full model matrix, context budgets, and the `EMBEDDING_DIMENSION` ceiling (Neo4j 5.26 supports up to 4096-dim indexes).

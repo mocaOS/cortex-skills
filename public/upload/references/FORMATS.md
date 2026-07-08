@@ -116,7 +116,7 @@ Image analysis activates only when `VISION_MODEL` is set. Without it, images use
 | `VISION_MODEL`            | No       | (none)               | Vision model name (e.g., `gpt-4o`, `claude-3-5-sonnet-20241022`, `llava`) |
 | `VISION_MODEL_API_BASE`   | No       | `OPENAI_API_BASE`    | API endpoint for vision model                     |
 | `VISION_MODEL_API_KEY`    | No       | `OPENAI_API_KEY`     | API key for vision model                          |
-| `VISION_MAX_CONCURRENT`   | No       | `3`                  | Max concurrent vision API calls system-wide       |
+| `VISION_MAX_CONCURRENT`   | No       | `2`                  | Max concurrent vision API calls system-wide       |
 
 ### Supported Vision Providers
 
@@ -137,9 +137,9 @@ Image analysis activates only when `VISION_MODEL` is set. Without it, images use
 
 - Each image adds 2-5 seconds processing time (depends on vision model latency)
 - Images within a document are processed concurrently via `asyncio.gather`
-- Concurrency controlled by `VISION_MAX_CONCURRENT` (default 3, system-wide semaphore)
+- Concurrency controlled by `VISION_MAX_CONCURRENT` (default 2, system-wide semaphore)
 - Thread pool sizes scale automatically with `VISION_MAX_CONCURRENT`
-- For a document with 200 images at ~30s per image: ~100 minutes sequential vs ~10 minutes with `VISION_MAX_CONCURRENT=10`
+- The default of 2 is deliberate: each in-flight image spawns a multi-call chain, and ~20 concurrent slots per provider key is the binding limit (not RPM) — raising this saturates the key's slots rather than speeding things up
 - Image analysis runs asynchronously after text processing completes; document may show `status: "completed"` while images are still being analyzed
 
 ---

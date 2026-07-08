@@ -287,7 +287,7 @@ The extraction pipeline has two phases:
 
 For each chunk in a document:
 
-1. **Entity Extraction** — LLM identifies entities using XML-formatted prompts
+1. **Entity Extraction** — LLM identifies entities, returning compact `ENT|`/`REL|` lines (one record per line)
 2. **Type Classification** — Each entity gets one of the 10 types (non-standard types are fuzzy-matched to the nearest allowed type)
 3. **Per-Chunk Relationship Extraction** — LLM identifies relationships between entities within the same chunk, with types, descriptions, and weight scores
 4. **Entity Resolution** — New entities are compared against existing ones and merged if similar
