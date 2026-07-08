@@ -102,6 +102,18 @@ a:hover {
   font-size: 0.9rem;
 }
 
+.skill-prompt {
+  display: block;
+  margin-top: 0.5rem;
+  color: var(--accent);
+  opacity: 0.8;
+  text-align: left;
+}
+
+.skill-prompt:hover {
+  opacity: 1;
+}
+
 .skill-item.skill-item-hero {
   border: 1px solid var(--accent);
   background: var(--bg);

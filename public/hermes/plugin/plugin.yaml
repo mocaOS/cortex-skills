@@ -1,0 +1,3 @@
+name: cortex
+version: 1.0.0
+description: "Cortex knowledge-graph long-term memory — ambient recall (prefetch), native search/ask/save/list tools, backed by a self-hosted or shared Cortex instance."

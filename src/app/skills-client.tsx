@@ -20,6 +20,13 @@ export function SkillsClient() {
     setTimeout(() => setCopiedSlug(null), 1500);
   };
 
+  const copyPrompt = (slug: string, prompt: string, e?: React.MouseEvent) => {
+    e?.stopPropagation();
+    navigator.clipboard.writeText(prompt);
+    setCopiedSlug(`prompt:${slug}`);
+    setTimeout(() => setCopiedSlug(null), 1500);
+  };
+
   const CopyIcon = () => (
     <svg
       width="14"
@@ -132,6 +139,22 @@ export function SkillsClient() {
               </button>
             </div>
             <p className="skill-desc">{skill.description}</p>
+            {skill.agentPrompt && (
+              <button
+                className="skill-url skill-prompt"
+                title={skill.agentPrompt}
+                onClick={(e) => copyPrompt(skill.slug, skill.agentPrompt!, e)}
+              >
+                {copiedSlug === `prompt:${skill.slug}`
+                  ? "copied! paste it to your agent"
+                  : "> copy prompt for your agent"}
+                {copiedSlug === `prompt:${skill.slug}` ? (
+                  <CheckIcon />
+                ) : (
+                  <CopyIcon />
+                )}
+              </button>
+            )}
           </li>
         ))}
       </ul>

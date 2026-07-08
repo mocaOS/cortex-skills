@@ -103,6 +103,22 @@ Add to `.vscode/mcp.json` (note: `servers`, not `mcpServers`):
 }
 ```
 
+### Hermes Agent
+
+Add to `~/.hermes/config.yaml` (YAML, key is `mcp_servers`):
+
+```yaml
+mcp_servers:
+  cortex:
+    command: node
+    args: ["/absolute/path/to/cortex-skills/mcp-server/dist/index.js"]
+    env:
+      CORTEX_BASE_URL: "http://localhost:8000"
+      CORTEX_API_KEY: "cortex_rw_your_key_here"
+```
+
+The tools appear as an `mcp-cortex` toolset. Same env vars as the [hermes skill](https://cortexskills.org/hermes/SKILL.md) and its memory-provider plugin — one set of credentials serves all three integration tiers.
+
 ## Available Tools
 
 | Tool | Description | Key Parameters |

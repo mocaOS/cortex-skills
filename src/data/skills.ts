@@ -4,6 +4,8 @@ export interface Skill {
   description: string;
   icon: string;
   category: "core" | "features" | "ecosystem" | "design";
+  /** Ready-to-paste message a human sends their agent to install + connect this skill. */
+  agentPrompt?: string;
 }
 
 export const skills: Skill[] = [
@@ -118,6 +120,8 @@ export const skills: Skill[] = [
       "Give a Hermes agent long-term memory. Install as /cortex, then \"dump your session into your cortex\" to save and \"check your cortex for X\" to recall. Connect to a cloud instance or self-host on your existing OpenRouter/Venice keys.",
     icon: "BrainCircuit",
     category: "ecosystem",
+    agentPrompt:
+      "Give yourself long-term memory: install the cortex skill from https://cortexskills.org/hermes/SKILL.md, then hook into the cortex at <BASE_URL> — API key: <KEY>, call it <NAME>. Validate the connection and prove recall with one question. (No instance yet? Drop the URL/key part and say: set up a new cortex for me.)",
   },
   {
     slug: "mcp",
