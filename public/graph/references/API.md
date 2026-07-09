@@ -481,13 +481,13 @@ All environment variables that affect Graph API behavior:
 | `RELATIONSHIP_EXTRACTION_API_KEY` | `GRAPH_EXTRACTION_API_KEY` | API key for relationship model |
 | `CONCURRENT_EXTRACTIONS` | `3` | Concurrent entity extraction operations |
 | `CONCURRENT_RELATIONS` | `3` | Concurrent per-chunk relationship extractions per document |
-| `GRAPH_EXTRACTION_MAX_CONTEXT` | `0` = inherit `min(OPENAI_MAX_CONTEXT, 48000)` | Max context tokens for entity extraction batching. Recommended: `24000` — extraction output scales with input, so a small window keeps worst-case output inside the 8000-token output cap and completes reliably (it's a graph-density/cost dial, not "match the model's window"). Renamed from `EXTRACTION_MAX_CONTEXT` (deprecated) |
+| `GRAPH_EXTRACTION_MAX_CONTEXT` | `0` = inherit `min(OPENAI_MAX_CONTEXT, 48000)` | Max context tokens for entity extraction batching. Recommended: `24000` — extraction output scales with input, so full-window batches time out and lose entities (it's a graph-density/cost dial, not "match the model's window"). Pair with `EXTRACTION_MAX_OUTPUT_TOKENS=12000` (≈ half the input budget — entity-dense docs overflow an 8000 cap). Renamed from `EXTRACTION_MAX_CONTEXT` (deprecated) |
 | `MAX_GRAPH_HOPS` | `2` | Default traversal depth for graph-augmented search |
 | `GRAPH_WEIGHT` | `0.2` | Weight of graph results in hybrid search |
 | `ENABLE_SEMANTIC_ENTITY_RESOLUTION` | `true` | Enable embedding-based entity dedup at storage time |
 | `ENTITY_SIMILARITY_THRESHOLD` | `0.85` | Cosine similarity threshold for merging (0.0-1.0) |
 | `ENTITY_EMBEDDING_MODEL` | `EMBEDDING_MODEL` | Model for entity name embeddings |
-| `RELATIONSHIP_MAX_CONTEXT` | `0` = inherit `GRAPH_EXTRACTION_MAX_CONTEXT` → `OPENAI_MAX_CONTEXT` | Max input context for Phase B batching. Recommended: `256000` — batch calls have bounded output (pairs-per-call cap), so this window can safely stay wide |
+| `RELATIONSHIP_MAX_CONTEXT` | `0` = inherit `GRAPH_EXTRACTION_MAX_CONTEXT` → `OPENAI_MAX_CONTEXT` | Max input context for Phase B batching (legacy `llm_scan` mode only — `targeted` sizes verification calls with `RELATIONSHIP_PAIR_CONTEXT_TOKENS`). Recommended: leave `0` — bounded output doesn't bound prefill time; wide values (256000) prefill for minutes and time out on self-hosted GPUs |
 | `RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS` | `16000` | Max output tokens for Phase B batch LLM responses (standalone; `RELATIONSHIP_MAX_OUTPUT_TOKENS`, default `0` = inherit, feeds the per-chunk + candidate-scan calls) |
 | `PARALLEL_RELATIONSHIP_BATCHES` | `5` | Batches processed in parallel during Phase B |
 | `RELATIONSHIP_DISCOVERY_MODE` | `targeted` | Phase B engine: `targeted` (kNN + co-mention candidates, LLM verifies pairs — default) or `llm_scan` (legacy batch scan) |
