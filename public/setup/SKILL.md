@@ -165,7 +165,7 @@ OPENAI_MODEL=google-gemma-4-26b-a4b-it       # Primary model (Q&A, research, cha
 OPENAI_MODEL_FAST_MODE=google-gemma-4-26b-a4b-it   # Faster/cheaper model for Fast Mode
 OPENAI_API_BASE=https://api.openai.com/v1
 OPENAI_MAX_OUTPUT_TOKENS=8000         # Floor of the output-token budget chain
-OPENAI_MAX_CONTEXT=256000             # Floor of the input-context budget chain (code default 32768; 256000 recommended for large-context primary models)
+OPENAI_MAX_CONTEXT=256000             # Floor of the input-context budget chain (= code default; sized to the large-context primary — extraction inherit is clamped at 48000)
 ```
 
 ### Embedding Configuration

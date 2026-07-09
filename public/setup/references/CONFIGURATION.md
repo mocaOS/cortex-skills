@@ -34,7 +34,7 @@ These must be set for Cortex to start.
 | `OPENAI_MODEL` | `string` | `google-gemma-4-26b-a4b-it` | Model ID for the primary LLM used for Q&A, research, and chat. |
 | `OPENAI_MODEL_FAST_MODE` | `string` | `` (inherits `OPENAI_MODEL`) | Model ID for Fast Mode -- a cheaper/faster model used when the user selects fast search. Empty = falls back to `OPENAI_MODEL`. |
 | `OPENAI_MAX_OUTPUT_TOKENS` | `integer` | `8000` | Floor of the output-token budget chain. Default output tokens for every LLM call. |
-| `OPENAI_MAX_CONTEXT` | `integer` | `32768` | Floor of the input-context budget chain. Default input context budget. Recommended: `256000` for large-context primary models (this budget serves chat/answers; the extraction window is governed separately by `GRAPH_EXTRACTION_MAX_CONTEXT`, which should stay small — see below). |
+| `OPENAI_MAX_CONTEXT` | `integer` | `256000` | Floor of the input-context budget chain, sized to the recommended large-context primary. This budget serves chat/answers; the extraction window is governed separately by `GRAPH_EXTRACTION_MAX_CONTEXT` (the value it inherits from here is clamped at 48000, so the large floor never leaks into extraction batch sizing — see below). |
 | `LLM_REQUEST_TIMEOUT_SECONDS` | `integer` | `360` | Explicit transport timeout on every LLM client the backend builds (the SDK default is 600s, which lets one hung provider connection pin an ingestion slot for 10 minutes). For streaming, the read component applies between chunks, so long answers are unaffected. `0` restores the SDK default. |
 
 ### Embedding Configuration
@@ -103,7 +103,7 @@ These must be set for Cortex to start.
 | `MAX_GRAPH_HOPS` | `integer` | `2` | Number of graph traversal hops during search context retrieval. Range: 1-3. Higher values pull in more distantly connected context at the cost of relevance. |
 | `CONCURRENT_EXTRACTIONS` | `integer` | `3` | Number of parallel entity extraction operations during document processing. Increase if your LLM endpoint can handle higher concurrency. |
 | `GRAPH_EXTRACTION_MAX_CONTEXT` | `integer` | `0` (=inherit) | Maximum context window tokens for entity extraction batching. `0` inherits `min(OPENAI_MAX_CONTEXT, 48000)` — note the 48K clamp. **Recommended: set it explicitly to `24000`.** Extraction is decode-bound (output scales with input), so at real provider decode speeds (~70 tok/s) full-window batches can't finish inside the request timeout — causing retries and silently lost entities. `24000` completes reliably. It's a graph-density/cost dial (`12000` ≈ denser graph at ~2× the calls), **not** "match the model's context window". Renamed from `EXTRACTION_MAX_CONTEXT` (deprecated alias honored one release with a startup WARN). |
-| `EXTRACTION_MAX_OUTPUT_TOKENS` | `integer` | `0` (=inherit) | Output budget for entity-extraction LLM calls. `0` inherits `OPENAI_MAX_OUTPUT_TOKENS` (8000). **Recommended: `12000` — size it to ≈ half of `GRAPH_EXTRACTION_MAX_CONTEXT`.** Entity-dense documents overflow an 8000 cap on 24k-token batches; overflows self-heal (the batch splits and retries) but roughly double that batch's wall time, and the stalled progress reads as a hang. The backend logs a one-shot "output budget looks too small" warning when the ratio is off. Caveat: on very slow gateways (~70 tok/s) 12000 can't decode inside the request window — lower `GRAPH_EXTRACTION_MAX_CONTEXT` there instead of raising this. |
+| `EXTRACTION_MAX_OUTPUT_TOKENS` | `integer` | `12000` | Output budget for entity-extraction LLM calls, sized to ≈ half of `GRAPH_EXTRACTION_MAX_CONTEXT`. Set `0` to inherit `OPENAI_MAX_OUTPUT_TOKENS` (8000) instead. Entity-dense documents overflow an 8000 cap on 24k-token batches; overflows self-heal (the batch splits and retries) but roughly double that batch's wall time, and the stalled progress reads as a hang. The backend logs a one-shot "output budget looks too small" warning when the ratio is off. Caveat: on very slow gateways where 12000 can't decode inside the request window (`LLM_REQUEST_TIMEOUT_SECONDS`), lower `GRAPH_EXTRACTION_MAX_CONTEXT` there instead of raising this. |
 
 ### Relationship Extraction Model
 
@@ -178,13 +178,13 @@ Force reasoning OFF so reasoning-capable models (GPT-5/5.1, Claude 4.x, Qwen3, D
 
 ### Budget Fallback Chain
 
-Sub-tier token knobs default to `0` (= inherit from the next tier up):
+Sub-tier token knobs default to `0` (= inherit from the next tier up), except `EXTRACTION_MAX_OUTPUT_TOKENS`, which ships a real default of `12000` (set `0` to restore inherit):
 
 ```
 OUTPUT TOKENS:                          INPUT CONTEXT:
-  OPENAI_MAX_OUTPUT_TOKENS=8000           OPENAI_MAX_CONTEXT=32768
+  OPENAI_MAX_OUTPUT_TOKENS=8000           OPENAI_MAX_CONTEXT=256000
        ↓                                       ↓ (clamped to 48000)
-  EXTRACTION_MAX_OUTPUT_TOKENS            GRAPH_EXTRACTION_MAX_CONTEXT
+  EXTRACTION_MAX_OUTPUT_TOKENS=12000     GRAPH_EXTRACTION_MAX_CONTEXT
        ↓                                       ↓
   RELATIONSHIP_MAX_OUTPUT_TOKENS          RELATIONSHIP_MAX_CONTEXT
        ↓
