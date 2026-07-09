@@ -137,9 +137,9 @@ OPENAI_MODEL=google-gemma-4-26b-a4b-it
 
 # Extraction — drives relationship via inheritance (Qwen3.6 27B)
 GRAPH_EXTRACTION_MODEL=qwen3-6-27b
-GRAPH_EXTRACTION_MAX_CONTEXT=24000   # deliberately small — see note below
-EXTRACTION_MAX_OUTPUT_TOKENS=12000   # ≈ half the input budget — see note below
-# RELATIONSHIP_MAX_CONTEXT: leave unset (inherits 24000) — see note below
+GRAPH_EXTRACTION_MAX_CONTEXT=16000   # batch-size/graph-density dial — see note below
+EXTRACTION_MAX_OUTPUT_TOKENS=16000   # generous ceiling matched to the context — see note below
+# RELATIONSHIP_MAX_CONTEXT: leave unset (inherits 16000) — see note below
 
 # Vision — image analysis (api_base/api_key inherit from OPENAI_*)
 VISION_MODEL=qwen3-6-27b
@@ -153,7 +153,7 @@ EMBEDDING_MAX_INPUT_TOKENS=5400     # providers re-count with their own tokenize
 #   EMBEDDING_DIMENSION=4096          # Neo4j 5.26 supports up to 4096-dim vector indexes
 ```
 
-> **Keep `GRAPH_EXTRACTION_MAX_CONTEXT` small (24000) — do NOT match the model's context window.** Extraction is decode-bound: its output scales with input, and at real provider decode speeds (~70 tok/s) full-window batches can't finish inside the request timeout, producing retries and silently lost entities. Treat it as a graph-density/cost dial (12000 ≈ denser graph, ~2× the calls). **Size `EXTRACTION_MAX_OUTPUT_TOKENS` to ≈ half the input budget (12000 for 24000)** — entity-dense documents overflow an 8000 cap on 24k batches; overflows self-heal via split-retry but roughly double that batch's wall time and read as a hang from the UI. On very slow gateways where 12000 can't decode inside the request window, lower `GRAPH_EXTRACTION_MAX_CONTEXT` instead. **Leave `RELATIONSHIP_MAX_CONTEXT` unset** — bounded per-call output does not bound prefill time; a full-window value (256000) prefills for minutes and times out on self-hosted GPUs, and the default `targeted` discovery mode doesn't use this budget for verification calls anyway (only widen it for legacy `llm_scan` mode on fast-prefill hosted endpoints).
+> **Keep `GRAPH_EXTRACTION_MAX_CONTEXT` moderate (recommended 16000) — do NOT match the model's context window.** Extraction is decode-bound: its output scales with input, and at real provider decode speeds (~70 tok/s) full-window batches can't finish inside the request timeout, producing retries and silently lost entities. Treat it as a graph-density/cost dial; slower gateways favor smaller. **Set `EXTRACTION_MAX_OUTPUT_TOKENS=16000` as a generous ceiling matched to the context — NOT a ½-ratio.** Entity-dense documents are kept under the cap by the terse-description extraction prompt (it emits short descriptions; a later enrichment step restores depth); 16000/16000 is validated zero-truncation, zero-entity-loss. If overflows still repeat on a slow gateway, lower `GRAPH_EXTRACTION_MAX_CONTEXT` rather than raising the cap. **Leave `RELATIONSHIP_MAX_CONTEXT` unset** — bounded per-call output does not bound prefill time; a full-window value (256000) prefills for minutes and times out on self-hosted GPUs, and the default `targeted` discovery mode doesn't use this budget for verification calls anyway (only widen it for legacy `llm_scan` mode on fast-prefill hosted endpoints).
 > **`EMBEDDING_MAX_INPUT_TOKENS=5400`**: the client counts tokens with cl100k, but providers validate with their own tokenizer (1.2–1.4× higher on punctuation-heavy text), so 8192-passing chunks get 400-rejected upstream. 5400 × ~1.4 ≈ 7500 stays under every 8192-cap provider, and smaller chunks embed more precisely into 1536-dim vectors. The embedding model inherits `OPENAI_API_BASE`/`OPENAI_API_KEY` unless overridden.
 
 ## Optional Environment Variables
@@ -296,7 +296,7 @@ RELATIONSHIP_MAX_ROUNDS=3                     # Legacy 'llm_scan' only: max disc
 
 > **Budget fallback chain.** Sub-tier token knobs default to `0` (= inherit from the next tier up), so a multi-model stack needs only two or three env vars.
 > Output: `OPENAI_MAX_OUTPUT_TOKENS` → `EXTRACTION_MAX_OUTPUT_TOKENS` → `RELATIONSHIP_MAX_OUTPUT_TOKENS` → `VISION_MAX_OUTPUT_TOKENS`.
-> Input: `OPENAI_MAX_CONTEXT` → `GRAPH_EXTRACTION_MAX_CONTEXT` (inherit is clamped to 48000; recommended explicit `24000` — extraction output scales with input, so keep this window small) → `RELATIONSHIP_MAX_CONTEXT` (leave `0` = inherit — bounded output does not bound prefill time; wide values time out on self-hosted GPUs).
+> Input: `OPENAI_MAX_CONTEXT` → `GRAPH_EXTRACTION_MAX_CONTEXT` (inherit is clamped to 48000; recommended explicit `16000` — extraction output scales with input, so keep this window moderate) → `RELATIONSHIP_MAX_CONTEXT` (leave `0` = inherit — bounded output does not bound prefill time; wide values time out on self-hosted GPUs).
 > `RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS` (16000) is standalone (Phase 2 batch only). Migration: `EXTRACTION_MAX_CONTEXT` was renamed to `GRAPH_EXTRACTION_MAX_CONTEXT` (legacy name honored one release with a startup WARN).
 
 ### Reasoning Control for Ingestion

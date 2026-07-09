@@ -364,8 +364,8 @@ case "$cmd" in
       echo "ADMIN_API_KEY=$ADMIN_KEY"
       echo "SESSION_SECRET=$(openssl rand -base64 32)"
       if [ "$TUNING" = fast ]; then
-        echo "GRAPH_EXTRACTION_MAX_CONTEXT=24000"
-        echo "EXTRACTION_MAX_OUTPUT_TOKENS=12000"
+        echo "GRAPH_EXTRACTION_MAX_CONTEXT=16000"
+        echo "EXTRACTION_MAX_OUTPUT_TOKENS=16000"
         echo "EMBEDDING_MAX_INPUT_TOKENS=5400"
         echo "EXTRACTION_REASONING_MODE=off"
         echo "RELATIONSHIP_REASONING_MODE=off"

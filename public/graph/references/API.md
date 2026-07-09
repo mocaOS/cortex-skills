@@ -481,7 +481,7 @@ All environment variables that affect Graph API behavior:
 | `RELATIONSHIP_EXTRACTION_API_KEY` | `GRAPH_EXTRACTION_API_KEY` | API key for relationship model |
 | `CONCURRENT_EXTRACTIONS` | `3` | Concurrent entity extraction operations |
 | `CONCURRENT_RELATIONS` | `3` | Concurrent per-chunk relationship extractions per document |
-| `GRAPH_EXTRACTION_MAX_CONTEXT` | `0` = inherit `min(OPENAI_MAX_CONTEXT, 48000)` | Max context tokens for entity extraction batching. Recommended: `24000` — extraction output scales with input, so full-window batches time out and lose entities (it's a graph-density/cost dial, not "match the model's window"). Pair with `EXTRACTION_MAX_OUTPUT_TOKENS=12000` (≈ half the input budget — entity-dense docs overflow an 8000 cap). Renamed from `EXTRACTION_MAX_CONTEXT` (deprecated) |
+| `GRAPH_EXTRACTION_MAX_CONTEXT` | `0` = inherit `min(OPENAI_MAX_CONTEXT, 48000)` | Max context tokens for entity extraction batching. Recommended: `16000` — extraction output scales with input, so full-window batches time out and lose entities (it's a graph-density/cost dial, not "match the model's window"; slower gateways favor smaller). Pair with `EXTRACTION_MAX_OUTPUT_TOKENS=16000` (a generous ceiling matched to the context — the terse-description extraction prompt keeps entity-dense docs under it). Renamed from `EXTRACTION_MAX_CONTEXT` (deprecated) |
 | `MAX_GRAPH_HOPS` | `2` | Default traversal depth for graph-augmented search |
 | `GRAPH_WEIGHT` | `0.2` | Weight of graph results in hybrid search |
 | `ENABLE_SEMANTIC_ENTITY_RESOLUTION` | `true` | Enable embedding-based entity dedup at storage time |
