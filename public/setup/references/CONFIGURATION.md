@@ -80,6 +80,7 @@ These must be set for Cortex to start.
 | `BATCH_PROCESSING_CONCURRENCY` | `integer` | `2` | Number of documents processed concurrently during batch operations (`POST /api/documents/process-pending`). `2` is the shipped default and the recommended value: live measurement showed 3 concurrent documents drop per-call decode speed (~70 → ~23 tok/s) and multiply timeouts, so 2 finishes builds *faster* than 3. |
 | `PROCESSING_THREAD_WORKERS` | `integer` | `4` | Number of thread workers used for document processing tasks. |
 | `AUTO_RESUME_PENDING_ON_STARTUP` | `boolean` | `true` | Automatically resume documents stranded mid-processing by a restart/redeploy (quota-guarded). Bulk uploads parked deliberately with `start_processing=false` stay parked. Set `false` to require a manual trigger after every redeploy. |
+| `AUTO_RESUME_IMAGE_ANALYSIS` | `boolean` | `true` | Automatically resume image analysis killed by a restart. A restart leaves completed documents with frozen image counters (`current < total`) that would otherwise stick forever; on boot Cortex re-extracts their images via local Docling re-conversion (CPU only, no LLM cost) and analyzes **only** the images whose chunk isn't stored yet — already-paid vision/extraction work is never redone. Quota-guarded. Set `false` to require a manual reprocess. |
 
 ### Large PDF Processing
 

@@ -425,6 +425,7 @@ NEO4J_MAX_POOL_SIZE=100           # ⚠️ scope to the backend service only —
 NEO4J_CONNECTION_TIMEOUT=10       # ⚠️ scope to the backend service only — see warning below
 LLM_REQUEST_TIMEOUT_SECONDS=360   # Explicit transport timeout on every LLM client (0 = SDK default 600s)
 AUTO_RESUME_PENDING_ON_STARTUP=true  # Auto-resume docs stranded mid-processing by a restart (quota-guarded)
+AUTO_RESUME_IMAGE_ANALYSIS=true   # Auto-resume image analysis killed by a restart — re-extracts images (no LLM cost) and analyzes only the ones not yet stored
 ENABLE_AUDIT_LOG=false            # Append-only JSONL audit log (metadata only; server-side file, no API endpoint)
 ```
 
