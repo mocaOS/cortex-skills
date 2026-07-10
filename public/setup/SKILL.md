@@ -36,15 +36,17 @@ description: Use this skill when deploying or configuring Cortex, including self
 git clone https://github.com/mocaOS/cortex-app.git
 cd cortex-app
 
-# Copy environment template
-cp .env.example .env
+# Copy the RECOMMENDED config — the lowest-friction way to start
+cp .env.recommended .env
 
-# Edit .env with your values (see Required Variables below)
+# Edit .env: fill the secrets block at the top + your LLM API key — that's it
 nano .env
 
 # Start all services
 docker compose up -d
 ```
+
+`.env.recommended` is the bench-validated starting point: secrets at the top, the recommended model stack below, and everything else running on production-tuned code defaults. Any model from any OpenAI-compatible API works, but the recommendation is **Gemma4 26B A4B** (`google-gemma-4-26b-a4b-it`) as the primary agent model and **Qwen3.6 27B** (`qwen3-6-27b`) for knowledge-graph generation (extraction + vision). Use `.env.example` only when you need the full 160+ variable reference.
 
 ### Autonomous install (for an agent self-hosting on its own VM)
 
@@ -52,14 +54,12 @@ No interactive editor needed — write `.env` directly, bring the stack up, then
 
 ```bash
 git clone https://github.com/mocaOS/cortex-app.git && cd cortex-app
-cp .env.example .env
+cp .env.recommended .env
 
-# Write the required values non-interactively (generate strong secrets)
+# Overwrite the placeholder secrets non-interactively (last occurrence wins)
 cat >> .env <<EOF
-NEO4J_PASSWORD=$(openssl rand -base64 24)
 OPENAI_API_KEY=${OPENAI_API_KEY:?export your LLM API key first}
-OPENAI_API_BASE=https://api.openai.com/v1
-OPENAI_MODEL=google-gemma-4-26b-a4b-it
+SERVICE_PASSWORD_NEO4J=$(openssl rand -base64 24)
 ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=$(openssl rand -base64 18)
 ADMIN_API_KEY=cortex_admin_$(openssl rand -hex 24)
@@ -76,7 +76,7 @@ echo "Cortex is up at http://localhost:8000"
 grep '^ADMIN_API_KEY=' .env
 ```
 
-> `.env.example` already contains sensible defaults for the other ~160 variables; only the values above are required to boot. After it's healthy, drive the instance with the `cortex` + feature skills against `http://localhost:8000`.
+> `.env.recommended` already carries the recommended model stack (Venice API base, Gemma4 26B A4B primary, Qwen3.6 27B extraction + vision) and leaves every other knob on production-tuned code defaults; only the secrets above are required to boot. Using a different provider? Also append `OPENAI_API_BASE=` (and `OPENAI_MODEL=` / `OPENAI_MAX_CONTEXT=` for a different primary). After it's healthy, drive the instance with the `cortex` + feature skills against `http://localhost:8000`.
 
 ## Service URLs
 
@@ -127,34 +127,28 @@ openssl rand -base64 32
 
 ## Recommended Minimal Stack (bench-validated)
 
-A 2-model setup. Fill two API values and you're done — relationship + vision inherit from the extraction model and output budgets cascade automatically:
+This is exactly what `.env.recommended` ships — a 2-model setup where relationship analysis + vision inherit from the extraction model, api_base/api_key cascade from `OPENAI_*`, and the token budgets run on production-tuned code defaults:
 
 ```bash
-# Primary — agentic Q&A / researcher (Gemma4 26B A4B)
-OPENAI_API_KEY=
+# Primary — agentic Q&A / researcher (Gemma4 26B A4B: fast MoE, 256K window)
+OPENAI_API_KEY=your-venice-api-key
 OPENAI_API_BASE=https://api.venice.ai/api/v1
 OPENAI_MODEL=google-gemma-4-26b-a4b-it
+OPENAI_MAX_CONTEXT=256000            # set to YOUR primary model's input window
 
-# Extraction — drives relationship via inheritance (Qwen3.6 27B)
-GRAPH_EXTRACTION_MODEL=qwen3-6-27b
-GRAPH_EXTRACTION_MAX_CONTEXT=16000   # batch-size/graph-density dial — see note below
-EXTRACTION_MAX_OUTPUT_TOKENS=16000   # generous ceiling matched to the context — see note below
-# RELATIONSHIP_MAX_CONTEXT: leave unset (inherits 16000) — see note below
+# Embeddings — text-embedding-3-small (1536-dim; both are code defaults)
+EMBEDDING_MODEL=text-embedding-3-small
 
-# Vision — image analysis (api_base/api_key inherit from OPENAI_*)
+# Vision — image analysis (api_base/api_key inherit from OPENAI_*;
+# must be set explicitly — empty disables vision → Docling fallback)
 VISION_MODEL=qwen3-6-27b
 
-# Embeddings — OpenAI text-embedding-3-small (recommended)
-EMBEDDING_MODEL=text-embedding-3-small
-EMBEDDING_DIMENSION=1536
-EMBEDDING_MAX_INPUT_TOKENS=5400     # providers re-count with their own tokenizer — see note below
-# Venice-only single-provider alternative: Qwen3-Embedding-8B
-#   EMBEDDING_MODEL=text-embedding-qwen3-8b
-#   EMBEDDING_DIMENSION=4096          # Neo4j 5.26 supports up to 4096-dim vector indexes
+# Knowledge-graph generation — drives relationship analysis via inheritance
+GRAPH_EXTRACTION_MODEL=qwen3-6-27b
 ```
 
-> **Keep `GRAPH_EXTRACTION_MAX_CONTEXT` moderate (recommended 16000) — do NOT match the model's context window.** Extraction is decode-bound: its output scales with input, and at real provider decode speeds (~70 tok/s) full-window batches can't finish inside the request timeout, producing retries and silently lost entities. Treat it as a graph-density/cost dial; slower gateways favor smaller. **Set `EXTRACTION_MAX_OUTPUT_TOKENS=16000` as a generous ceiling matched to the context — NOT a ½-ratio.** Entity-dense documents are kept under the cap by the terse-description extraction prompt (it emits short descriptions; a later enrichment step restores depth); 16000/16000 is validated zero-truncation, zero-entity-loss. If overflows still repeat on a slow gateway, lower `GRAPH_EXTRACTION_MAX_CONTEXT` rather than raising the cap. **Leave `RELATIONSHIP_MAX_CONTEXT` unset** — bounded per-call output does not bound prefill time; a full-window value (256000) prefills for minutes and times out on self-hosted GPUs, and the default `targeted` discovery mode doesn't use this budget for verification calls anyway (only widen it for legacy `llm_scan` mode on fast-prefill hosted endpoints).
-> **`EMBEDDING_MAX_INPUT_TOKENS=5400`**: the client counts tokens with cl100k, but providers validate with their own tokenizer (1.2–1.4× higher on punctuation-heavy text), so 8192-passing chunks get 400-rejected upstream. 5400 × ~1.4 ≈ 7500 stays under every 8192-cap provider, and smaller chunks embed more precisely into 1536-dim vectors. The embedding model inherits `OPENAI_API_BASE`/`OPENAI_API_KEY` unless overridden.
+> **You do NOT need to set context windows for the extraction or vision models.** Ingestion runs on its own fine-tuned budgets — `GRAPH_EXTRACTION_MAX_CONTEXT=16000` and `EXTRACTION_MAX_OUTPUT_TOKENS=16000` are the code defaults (validated zero-truncation, zero entity loss) — because extraction is decode-bound: sized to provider decode speed, not the model window. Only `OPENAI_MAX_CONTEXT` should match the primary model's real window. **Leave `RELATIONSHIP_MAX_CONTEXT` unset** — it inherits the extraction budget; a full-window value (256000) prefills for minutes and times out on self-hosted GPUs, and the default `targeted` discovery mode doesn't use this budget for verification calls anyway (only widen it for legacy `llm_scan` mode on fast-prefill hosted endpoints).
+> **`EMBEDDING_MAX_INPUT_TOKENS` defaults to 5400**: the client counts tokens with cl100k, but providers validate with their own tokenizer (1.2–1.4× higher on punctuation-heavy text), so 8192-passing chunks get 400-rejected upstream. 5400 × ~1.4 ≈ 7500 stays under every 8192-cap provider. The embedding model inherits `OPENAI_API_BASE`/`OPENAI_API_KEY` unless overridden (`EMBEDDING_API_BASE`/`EMBEDDING_API_KEY`). Venice-only alternative: `EMBEDDING_MODEL=text-embedding-qwen3-8b` + `EMBEDDING_DIMENSION=4096` (Neo4j 5.26 supports 4096-dim vector indexes).
 
 ## Optional Environment Variables
 
@@ -165,13 +159,13 @@ OPENAI_MODEL=google-gemma-4-26b-a4b-it       # Primary model (Q&A, research, cha
 OPENAI_MODEL_FAST_MODE=google-gemma-4-26b-a4b-it   # Faster/cheaper model for Fast Mode
 OPENAI_API_BASE=https://api.openai.com/v1
 OPENAI_MAX_OUTPUT_TOKENS=8000         # Floor of the output-token budget chain
-OPENAI_MAX_CONTEXT=256000             # Floor of the input-context budget chain (= code default; sized to the large-context primary — extraction inherit is clamped at 48000)
+OPENAI_MAX_CONTEXT=256000             # Floor of the input-context budget chain (code default; set to your primary model's window)
 ```
 
 ### Embedding Configuration
 
 ```bash
-EMBEDDING_MODEL=openai/text-embedding-3-small
+EMBEDDING_MODEL=text-embedding-3-small
 EMBEDDING_DIMENSION=1536
 EMBEDDING_MAX_INPUT_TOKENS=5400       # default 5400 — providers re-count with their own tokenizer (1.2-1.4x on punctuation-heavy text); 5400 stays under every 8192-cap provider
 EMBEDDING_SEND_DIMENSIONS=true        # set false for models with fixed output dim
@@ -294,9 +288,9 @@ RELATIONSHIP_MAX_ROUNDS=3                     # Legacy 'llm_scan' only: max disc
 
 > `RELATIONSHIP_DISCOVERY_MODE=targeted` is now the default: candidates come from entity-embedding kNN + document co-mention, and the LLM only verifies ranked pairs (orders of magnitude fewer/cheaper calls). `RELATIONSHIP_TARGET_RATIO` and `RELATIONSHIP_MAX_ROUNDS` apply only to the legacy `llm_scan` mode.
 
-> **Budget fallback chain.** Sub-tier token knobs default to `0` (= inherit from the next tier up), so a multi-model stack needs only two or three env vars.
+> **Budget fallback chain.** Sub-tier token knobs default to `0` (= inherit from the next tier up) — except the two extraction budgets, which ship production-tuned real defaults of `16000` (`GRAPH_EXTRACTION_MAX_CONTEXT`, `EXTRACTION_MAX_OUTPUT_TOKENS`; set `0` explicitly to restore inherit). A multi-model stack therefore needs only the model names.
 > Output: `OPENAI_MAX_OUTPUT_TOKENS` → `EXTRACTION_MAX_OUTPUT_TOKENS` → `RELATIONSHIP_MAX_OUTPUT_TOKENS` → `VISION_MAX_OUTPUT_TOKENS`.
-> Input: `OPENAI_MAX_CONTEXT` → `GRAPH_EXTRACTION_MAX_CONTEXT` (inherit is clamped to 48000; recommended explicit `16000` — extraction output scales with input, so keep this window moderate) → `RELATIONSHIP_MAX_CONTEXT` (leave `0` = inherit — bounded output does not bound prefill time; wide values time out on self-hosted GPUs).
+> Input: `OPENAI_MAX_CONTEXT` → `GRAPH_EXTRACTION_MAX_CONTEXT` (explicit-0 inherit is clamped to 48000 — extraction output scales with input, so this window stays small) → `RELATIONSHIP_MAX_CONTEXT` (leave `0` = inherit — bounded output does not bound prefill time; wide values time out on self-hosted GPUs).
 > `RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS` (16000) is standalone (Phase 2 batch only). Migration: `EXTRACTION_MAX_CONTEXT` was renamed to `GRAPH_EXTRACTION_MAX_CONTEXT` (legacy name honored one release with a startup WARN).
 
 ### Reasoning Control for Ingestion

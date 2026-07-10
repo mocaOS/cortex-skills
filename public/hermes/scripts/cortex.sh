@@ -255,7 +255,7 @@ case "$cmd" in
     # build+boot runs DETACHED so no terminal timeout can kill it; finish with
     # `setup-status`. Args are order-independent key=value pairs.
     DIR=""; PROVIDER=""; KEY=""; BASE=""; MODEL=""; EKEY=""; EBASE=""; EMODEL=""; EDIM=""; OFFSET=0; REPO="https://github.com/mocaOS/cortex-app.git"
-    HOSTADDR="localhost"; SENDDIMS=""; TUNING=""
+    HOSTADDR="localhost"; SENDDIMS=""; TUNING=""; GMODEL=""; VMODEL=""
     for a in "$@"; do case "$a" in
       dir=*) DIR="${a#dir=}";; provider=*) PROVIDER="${a#provider=}";; key=*) KEY="${a#key=}";;
       base=*) BASE="${a#base=}";; model=*) MODEL="${a#model=}";;
@@ -287,8 +287,11 @@ case "$cmd" in
                  curl -sf -m 5 "$OLL/api/tags" | jq -e --arg m "$m" '.models[]|select(.name==$m or (.name|startswith($m)))' >/dev/null 2>&1 \
                    || die "setup: model '$m' not pulled yet — run: ollama pull $m   (then re-run setup)"
                done;;
-      venice)  BASE="${BASE:-https://api.venice.ai/api/v1}"; MODEL="${MODEL:-google-gemma-4-26b-a4b-it}"
-               EMODEL="${EMODEL:-text-embedding-qwen3-8b}"; EDIM="${EDIM:-4096}";;
+      venice)  # matches the repo's .env.recommended stack: Gemma4 26B A4B primary,
+               # qwen3-6-27b for graph extraction + vision, 1536-dim embeddings.
+               BASE="${BASE:-https://api.venice.ai/api/v1}"; MODEL="${MODEL:-google-gemma-4-26b-a4b-it}"
+               EMODEL="${EMODEL:-text-embedding-3-small}"; EDIM="${EDIM:-1536}"
+               GMODEL="qwen3-6-27b"; VMODEL="qwen3-6-27b";;
       openai)  BASE="${BASE:-https://api.openai.com/v1}"; MODEL="${MODEL:-gpt-4o-mini}"
                EMODEL="${EMODEL:-text-embedding-3-small}"; EDIM="${EDIM:-1536}";;
       openrouter) BASE="${BASE:-https://openrouter.ai/api/v1}"; MODEL="${MODEL:-google/gemini-2.5-flash}"
@@ -308,8 +311,9 @@ case "$cmd" in
         *) SENDDIMS=true;;
       esac
     fi
-    # Tuning: local/slow models need smaller extraction contexts + reasoning off
-    # or graph extraction times out; cloud providers keep upstream defaults.
+    # Tuning: local/slow models need extraction contexts below the tuned code
+    # defaults (16000/16000) + reasoning off or graph extraction times out;
+    # cloud providers keep upstream defaults (bench).
     [ -z "$TUNING" ] && case "$PROVIDER" in ollama|custom) TUNING=fast;; *) TUNING=bench;; esac
     BPORT=$((8000+OFFSET)); FPORT=$((3000+OFFSET)); N1=$((7474+OFFSET)); N2=$((7687+OFFSET))
     PUBURL="http://$HOSTADDR:$BPORT"
@@ -337,13 +341,19 @@ case "$cmd" in
     if [ -d "$DIR/.git" ]; then echo "using existing checkout: $DIR"
     else git clone --depth 1 "$REPO" "$DIR" || die "setup: git clone failed — is the repo reachable? (a mirror or local checkout works too: repo=<url-or-path>)"; fi
     [ -f "$DIR/.env" ] && die "setup: $DIR/.env already exists — refusing to overwrite an existing instance's config (use setup-status, or a fresh dir)"
-    cp "$DIR/.env.example" "$DIR/.env" 2>/dev/null || touch "$DIR/.env"
-    # .env.example ships some of these as uncommented placeholders — remove any
+    # .env.recommended is the repo's bench-validated baseline (secrets +
+    # model stack as active placeholders, everything else on tuned code
+    # defaults); older checkouts fall back to .env.example.
+    cp "$DIR/.env.recommended" "$DIR/.env" 2>/dev/null || cp "$DIR/.env.example" "$DIR/.env" 2>/dev/null || touch "$DIR/.env"
+    # The base file ships some of these as uncommented placeholders — remove any
     # existing occurrences so ours are the only (and unambiguous) values.
+    # OPENAI_MAX_CONTEXT / GRAPH_EXTRACTION_MODEL / VISION_MODEL are deleted too:
+    # .env.recommended pins them to the Venice stack, which would poison a
+    # non-venice provider (we re-add them below when the preset defines them).
     # NOTE: values are written WITHOUT inline comments — dotenv parses
     # `KEY=val  # comment` as the whole string and bool coercion silently
     # falls back to the field default. Never append `# ...` after a value.
-    sed -i -E '/^(COMPOSE_PROJECT_NAME|SERVICE_PASSWORD_NEO4J|OPENAI_API_KEY|OPENAI_API_BASE|OPENAI_MODEL|EMBEDDING_API_KEY|EMBEDDING_API_BASE|EMBEDDING_MODEL|EMBEDDING_DIMENSION|EMBEDDING_SEND_DIMENSIONS|NEXT_PUBLIC_API_URL|ADMIN_EMAIL|ADMIN_PASSWORD|ADMIN_API_KEY|SESSION_SECRET)=/d' "$DIR/.env"
+    sed -i -E '/^(COMPOSE_PROJECT_NAME|SERVICE_PASSWORD_NEO4J|OPENAI_API_KEY|OPENAI_API_BASE|OPENAI_MODEL|OPENAI_MAX_CONTEXT|GRAPH_EXTRACTION_MODEL|VISION_MODEL|EMBEDDING_API_KEY|EMBEDDING_API_BASE|EMBEDDING_MODEL|EMBEDDING_DIMENSION|EMBEDDING_SEND_DIMENSIONS|NEXT_PUBLIC_API_URL|ADMIN_EMAIL|ADMIN_PASSWORD|ADMIN_API_KEY|SESSION_SECRET)=/d' "$DIR/.env"
     [ "$TUNING" = fast ] && sed -i -E '/^(GRAPH_EXTRACTION_MAX_CONTEXT|EXTRACTION_MAX_OUTPUT_TOKENS|EMBEDDING_MAX_INPUT_TOKENS|EXTRACTION_REASONING_MODE|RELATIONSHIP_REASONING_MODE|VISION_REASONING_MODE|DEFAULT_REASONING_MODE|CONCURRENT_EXTRACTIONS|CONCURRENT_RELATIONS|VISION_MAX_CONCURRENT|BATCH_PROCESSING_CONCURRENCY)=/d' "$DIR/.env"
     NEO_PW=$(openssl rand -hex 16); ADMIN_PW=$(openssl rand -base64 18 | tr -d '=+/'); ADMIN_KEY="cortex_admin_$(openssl rand -hex 24)"
     {
@@ -353,6 +363,8 @@ case "$cmd" in
       echo "OPENAI_API_KEY=$KEY"
       echo "OPENAI_API_BASE=$BASE"
       echo "OPENAI_MODEL=$MODEL"
+      [ -n "$GMODEL" ] && echo "GRAPH_EXTRACTION_MODEL=$GMODEL"
+      [ -n "$VMODEL" ] && echo "VISION_MODEL=$VMODEL"
       [ -n "$EKEY" ] && echo "EMBEDDING_API_KEY=$EKEY"
       [ -n "$EBASE" ] && echo "EMBEDDING_API_BASE=$EBASE"
       echo "EMBEDDING_MODEL=$EMODEL"
@@ -364,8 +376,10 @@ case "$cmd" in
       echo "ADMIN_API_KEY=$ADMIN_KEY"
       echo "SESSION_SECRET=$(openssl rand -base64 32)"
       if [ "$TUNING" = fast ]; then
-        echo "GRAPH_EXTRACTION_MAX_CONTEXT=16000"
-        echo "EXTRACTION_MAX_OUTPUT_TOKENS=16000"
+        # Below the tuned 16000/16000 code defaults: local/slow hosts decode
+        # slower, so smaller batches keep extraction inside the request window.
+        echo "GRAPH_EXTRACTION_MAX_CONTEXT=8000"
+        echo "EXTRACTION_MAX_OUTPUT_TOKENS=8000"
         echo "EMBEDDING_MAX_INPUT_TOKENS=5400"
         echo "EXTRACTION_REASONING_MODE=off"
         echo "RELATIONSHIP_REASONING_MODE=off"

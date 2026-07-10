@@ -73,16 +73,16 @@ OPENAI_API_BASE=https://openrouter.ai/api/v1
 OPENAI_MODEL=google/gemini-2.5-flash        # any chat model OpenRouter serves
 ```
 
-**Venice** (your Venice key) — Venice serves both chat and embeddings, so it's the smoothest single-provider self-host:
+**Venice** (your Venice key) — Venice serves both chat and embeddings, so it's the smoothest single-provider self-host. This is exactly the stack the repo's `.env.recommended` ships (and what `cortex.sh setup provider=venice` writes):
 
 ```bash
 OPENAI_API_KEY=$VENICE_API_KEY
 OPENAI_API_BASE=https://api.venice.ai/api/v1
-OPENAI_MODEL=google-gemma-4-26b-a4b-it
-# Venice-only single-provider embeddings (alternative — the primary recommendation
-# is OpenAI text-embedding-3-small / 1536, see the embeddings caveat below):
-EMBEDDING_MODEL=text-embedding-qwen3-8b
-EMBEDDING_DIMENSION=4096
+OPENAI_MODEL=google-gemma-4-26b-a4b-it     # recommended primary agent model
+GRAPH_EXTRACTION_MODEL=qwen3-6-27b         # recommended for knowledge-graph generation
+VISION_MODEL=qwen3-6-27b                   # image analysis (same endpoint)
+EMBEDDING_MODEL=text-embedding-3-small     # Venice serves it; 1536-dim code default
+# Higher-dim alternative: EMBEDDING_MODEL=text-embedding-qwen3-8b + EMBEDDING_DIMENSION=4096
 ```
 
 **OpenAI** (your `OPENAI_API_KEY`): the default — no `OPENAI_API_BASE` override needed.
@@ -94,7 +94,7 @@ Cortex needs **two** model capabilities: a **chat/LLM** model (Q&A, entity extra
 | Provider | Chat | Embeddings | Notes |
 |----------|:---:|:---:|-------|
 | OpenAI | ✅ | ✅ | Simplest — one key does everything. `text-embedding-3-small` / 1536 is the **recommended** embedding setup |
-| Venice | ✅ | ✅ | `text-embedding-qwen3-8b` / 4096 — single-provider alternative |
+| Venice | ✅ | ✅ | Serves `text-embedding-3-small` / 1536 (**recommended**); `text-embedding-qwen3-8b` / 4096 as higher-dim alternative |
 | OpenRouter | ✅ | ⚠️ | Chat only in practice — **set a separate embedding provider** |
 
 If you self-host on OpenRouter, give the embedding model its own credentials (OpenAI or Venice) via Cortex's `EMBEDDING_API_KEY` / `EMBEDDING_API_BASE` / `EMBEDDING_MODEL`:
