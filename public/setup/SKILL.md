@@ -56,7 +56,9 @@ No interactive editor needed — write `.env` directly, bring the stack up, then
 git clone https://github.com/mocaOS/cortex-app.git && cd cortex-app
 cp .env.recommended .env
 
-# Overwrite the placeholder secrets non-interactively (last occurrence wins)
+# Overwrite the placeholder secrets non-interactively (last occurrence wins).
+# ENCRYPTION_KEY (a Fernet key: urlsafe-base64 of 32 random bytes) encrypts
+# git PATs + skill secrets at rest — without it they're stored plaintext.
 cat >> .env <<EOF
 OPENAI_API_KEY=${OPENAI_API_KEY:?export your LLM API key first}
 SERVICE_PASSWORD_NEO4J=$(openssl rand -base64 24)
@@ -64,6 +66,7 @@ ADMIN_EMAIL=admin@example.com
 ADMIN_PASSWORD=$(openssl rand -base64 18)
 ADMIN_API_KEY=cortex_admin_$(openssl rand -hex 24)
 SESSION_SECRET=$(openssl rand -base64 32)
+ENCRYPTION_KEY=$(openssl rand -base64 32 | tr '+/' '-_')
 EOF
 
 docker compose up -d

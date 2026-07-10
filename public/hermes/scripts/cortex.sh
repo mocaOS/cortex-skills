@@ -353,7 +353,7 @@ case "$cmd" in
     # NOTE: values are written WITHOUT inline comments — dotenv parses
     # `KEY=val  # comment` as the whole string and bool coercion silently
     # falls back to the field default. Never append `# ...` after a value.
-    sed -i -E '/^(COMPOSE_PROJECT_NAME|SERVICE_PASSWORD_NEO4J|OPENAI_API_KEY|OPENAI_API_BASE|OPENAI_MODEL|OPENAI_MAX_CONTEXT|GRAPH_EXTRACTION_MODEL|VISION_MODEL|EMBEDDING_API_KEY|EMBEDDING_API_BASE|EMBEDDING_MODEL|EMBEDDING_DIMENSION|EMBEDDING_SEND_DIMENSIONS|NEXT_PUBLIC_API_URL|ADMIN_EMAIL|ADMIN_PASSWORD|ADMIN_API_KEY|SESSION_SECRET)=/d' "$DIR/.env"
+    sed -i -E '/^(COMPOSE_PROJECT_NAME|SERVICE_PASSWORD_NEO4J|OPENAI_API_KEY|OPENAI_API_BASE|OPENAI_MODEL|OPENAI_MAX_CONTEXT|GRAPH_EXTRACTION_MODEL|VISION_MODEL|EMBEDDING_API_KEY|EMBEDDING_API_BASE|EMBEDDING_MODEL|EMBEDDING_DIMENSION|EMBEDDING_SEND_DIMENSIONS|NEXT_PUBLIC_API_URL|ADMIN_EMAIL|ADMIN_PASSWORD|ADMIN_API_KEY|SESSION_SECRET|ENCRYPTION_KEY)=/d' "$DIR/.env"
     [ "$TUNING" = fast ] && sed -i -E '/^(GRAPH_EXTRACTION_MAX_CONTEXT|EXTRACTION_MAX_OUTPUT_TOKENS|EMBEDDING_MAX_INPUT_TOKENS|EXTRACTION_REASONING_MODE|RELATIONSHIP_REASONING_MODE|VISION_REASONING_MODE|DEFAULT_REASONING_MODE|CONCURRENT_EXTRACTIONS|CONCURRENT_RELATIONS|VISION_MAX_CONCURRENT|BATCH_PROCESSING_CONCURRENCY)=/d' "$DIR/.env"
     NEO_PW=$(openssl rand -hex 16); ADMIN_PW=$(openssl rand -base64 18 | tr -d '=+/'); ADMIN_KEY="cortex_admin_$(openssl rand -hex 24)"
     {
@@ -375,6 +375,9 @@ case "$cmd" in
       echo "ADMIN_PASSWORD=$ADMIN_PW"
       echo "ADMIN_API_KEY=$ADMIN_KEY"
       echo "SESSION_SECRET=$(openssl rand -base64 32)"
+      # Fernet key (urlsafe-base64, 32 bytes): encrypts git PATs + skill
+      # secrets at rest — without it they'd be stored plaintext.
+      echo "ENCRYPTION_KEY=$(openssl rand -base64 32 | tr '+/' '-_')"
       if [ "$TUNING" = fast ]; then
         # Below the tuned 16000/16000 code defaults: local/slow hosts decode
         # slower, so smaller batches keep extraction inside the request window.
