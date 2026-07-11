@@ -258,7 +258,7 @@ CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 EXPOSE_API_DOCS=auto              # auto = docs on in dev, OFF in production
 ```
 
-With `ENVIRONMENT=production`, startup refuses to boot if `NEO4J_PASSWORD` is empty or the default `password123`, or if `SESSION_SECRET` is shorter than 32 characters while `ADMIN_PASSWORD` is set. `CORS_ALLOWED_ORIGINS` defaults to `*` (credentials disabled, since auth is header-based) — set an explicit allowlist in production. Interactive API docs (`/docs`, `/redoc`, `/openapi.json`) auto-disable in production so a directly-exposed backend doesn't leak its schema; force with `EXPOSE_API_DOCS=true`/`false`.
+With `ENVIRONMENT=production`, startup refuses to boot if `NEO4J_PASSWORD` is empty/`password123`/a known placeholder, or if `SESSION_SECRET` is shorter than 32 characters or a known placeholder (and likewise for placeholder `ADMIN_PASSWORD`/`ADMIN_API_KEY`) while `ADMIN_PASSWORD` is set. The Next.js frontend enforces the same on `SESSION_SECRET` at startup, and the prod compose files default `ENVIRONMENT` to `production` (overridable). `CORS_ALLOWED_ORIGINS` defaults to `*` (credentials disabled, since auth is header-based) — set an explicit allowlist in production. Interactive API docs (`/docs`, `/redoc`, `/openapi.json`) auto-disable in production so a directly-exposed backend doesn't leak its schema; force with `EXPOSE_API_DOCS=true`/`false`.
 
 Set `ENCRYPTION_KEY` (comma-separated Fernet keys; first encrypts, all decrypt) to encrypt git PATs and skill secrets at rest.
 

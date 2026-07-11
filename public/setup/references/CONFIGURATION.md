@@ -293,7 +293,7 @@ Configure image analysis capabilities for extracting and understanding images fr
 | `PROMPT_GUARD_THRESHOLD` | `float` | `0.5` | Injection-class probability at/above which a question is refused (lower = stricter). |
 | `PROMPT_GUARD_MODEL` | `string` | `leolee99/PIGuard` | HuggingFace model id for the in-process (local) classifier. |
 | `INGESTION_INJECTION_SCAN` | `boolean` | `true` | Scan ingested document text for embedded injection attempts during processing (flag, does not block ingestion). |
-| `ENVIRONMENT` | `string` | `development` | `production` makes startup fail fast on weak/default secrets (empty/`password123` `NEO4J_PASSWORD`, or `SESSION_SECRET` < 32 chars when `ADMIN_PASSWORD` is set). |
+| `ENVIRONMENT` | `string` | `development` | `production` makes startup fail fast on weak/default/placeholder secrets: `NEO4J_PASSWORD` empty/`password123`/known-placeholder; `SESSION_SECRET` < 32 chars or a known placeholder, and `ADMIN_PASSWORD`/`ADMIN_API_KEY` a known placeholder, when `ADMIN_PASSWORD` is set. The Next.js frontend applies the same check to `SESSION_SECRET` at startup. The prod compose files default this to `production` via `${ENVIRONMENT:-production}` (overridable). |
 | `CORS_ALLOWED_ORIGINS` | `string` | `*` | Comma-separated CORS allowlist. Default `*` (credentials disabled, since auth is header-based). Restrict to your domains in production. |
 | `EXPOSE_API_DOCS` | `string` | `auto` | Interactive API docs (`/docs`, `/redoc`, `/openapi.json`). `auto` = on in development, off in production. Set `true`/`false` to force. |
 | `ENCRYPTION_KEY` | `string` | -- | At-rest encryption for git PATs + skill secrets. Comma-separated Fernet keys (first encrypts, all decrypt). |
@@ -345,6 +345,8 @@ Configure image analysis capabilities for extracting and understanding images fr
 | `ENABLE_SKILL_SCRIPTS` | `boolean` | `false` | Allow skills to execute local scripts. **Security-sensitive** -- disabled by default. Only enable if you trust all installed skills. |
 | `SKILL_SCRIPT_TIMEOUT` | `integer` | `30` | Timeout in seconds for skill script execution. |
 | `SKILL_HTTP_TIMEOUT` | `integer` | `15` | Timeout in seconds for skill HTTP tool requests. |
+| `SKILL_HTTP_ALLOW_PRIVATE` | `boolean` | `false` | SSRF policy for the agent `http_request` tool. The tool's URL is LLM-chosen (steerable via prompt injection), so by default requests resolving to private/loopback/link-local/metadata (`169.254.169.254`) addresses are blocked, revalidated on each redirect hop. Set `true` only if skills legitimately call APIs on private IPs. |
+| `SKILL_HTTP_ALLOWED_HOSTS` | `string` | -- | Comma-separated hostnames exempt from the `http_request` SSRF check (explicit opt-in for a self-hosted skill API on an internal host). Union'd with `SKILL_HTTP_INSECURE_HOSTS`. |
 | `MAX_SKILL_TOOLS` | `integer` | `10` | Maximum number of skill tools available to the researcher agent in a single conversation. |
 
 ---
@@ -389,6 +391,7 @@ Harvest web pages into clean markdown via a self-hosted crawl4ai service (MDHarv
 | `ENABLE_WEB_CRAWL` | `boolean` | `false` | Master switch — Web Import appears only when true AND `CRAWL_SERVICE_URL` is set. |
 | `CRAWL_SERVICE_URL` | `string` | -- | crawl4ai service base URL (e.g. `http://crawl4ai:11235`). Empty = feature off. |
 | `CRAWL_SERVICE_TOKEN` | `string` | -- | Optional bearer token (must match crawl4ai's `security.api_token`). |
+| `WEB_IMPORT_ALLOW_PRIVATE` | `boolean` | `true` | SSRF policy for Web Import URLs. Loopback/link-local/metadata are always blocked; private (RFC1918/ULA) ranges are allowed by default so intranet crawls work. Set `false` to also block private targets. (Note: crawl4ai itself performs the fetch and has no built-in egress filter — also enforce egress deny at the network layer on the crawl4ai host.) |
 | `CRAWL_CONTENT_FILTER` | `string` | `fit` | Default content filter: `fit` (readable) \| `raw` (full page) \| `bm25` (ranked). |
 | `CRAWL_HTTP_TIMEOUT` | `integer` | `60` | Per-page crawl timeout (seconds). |
 | `CRAWL_CONCURRENCY` | `integer` | `5` | Concurrency within one import job. |
