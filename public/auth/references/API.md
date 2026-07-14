@@ -322,7 +322,7 @@ curl "$CORTEX_URL/api/admin/config" \
   -H "X-API-Key: $ADMIN_KEY"
 ```
 
-`PATCH /api/admin/config` updates the admin-editable runtime toggles (`prompt_guard`, `ingestion_injection_scan`) without a restart — covered in depth in the [Admin skill](../../admin/SKILL.md).
+`PATCH /api/admin/config` updates the admin-editable runtime toggles (`prompt_guard`, plus `ingestion_injection_scan` when the experimental ingestion scan is enabled via `ENABLE_INGESTION_INJECTION_SCAN=true`; otherwise that field is rejected with `400`) without a restart — covered in depth in the [Admin skill](../../admin/SKILL.md).
 
 ---
 
@@ -443,7 +443,7 @@ Not a permission value — these endpoints require the root **admin API key** (t
 | `POST` | `/api/admin/api-keys/{id}/activate` | Activate a key. |
 | `DELETE` | `/api/admin/api-keys/{id}` | Delete a key. |
 | `GET` | `/api/admin/config` | View system configuration. |
-| `PATCH` | `/api/admin/config` | Update runtime toggles (`prompt_guard`, `ingestion_injection_scan`). |
+| `PATCH` | `/api/admin/config` | Update runtime toggles (`prompt_guard`; `ingestion_injection_scan` only when the experimental scan is enabled). |
 | `POST` | `/api/admin/reset` | System reset. |
 | `GET` | `/api/admin/skills` | List skills. |
 | `POST` | `/api/admin/skills/install` | Install a skill. |

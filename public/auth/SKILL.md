@@ -222,9 +222,9 @@ Beyond the pattern/output filtering above, Cortex can run a query-time **Prompt 
 | `PROMPT_GUARD_LOCAL` | `false` | Load the classifier in-process instead (needs torch/transformers). Ignored when a service URL is set. |
 | `PROMPT_GUARD_THRESHOLD` | `0.5` | Injection-probability cutoff for refusal. |
 
-There is also an ingestion-time scan, `INGESTION_INJECTION_SCAN` (default `true`), which flags (never blocks) documents whose content carries injection attempts planted for a downstream AI assistant.
+There is also an **experimental** ingestion-time scan which flags (never blocks) documents whose content carries injection attempts planted for a downstream AI assistant. It is disabled and completely hidden by default — opt in with `ENABLE_INGESTION_INJECTION_SCAN=true`; the scan's LLM-classifier layer then defaults to `INGESTION_INJECTION_SCAN` (`true`).
 
-Both toggles (`prompt_guard`, `ingestion_injection_scan`) are runtime-editable via `PATCH /api/admin/config` — no restart needed. See the [Admin skill](../admin/SKILL.md) for details.
+`prompt_guard` is runtime-editable via `PATCH /api/admin/config` — no restart needed; `ingestion_injection_scan` is too, but only once `ENABLE_INGESTION_INJECTION_SCAN=true` is set (otherwise the field is rejected with `400`). See the [Admin skill](../admin/SKILL.md) for details.
 
 ## Rate Limiting
 

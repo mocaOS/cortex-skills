@@ -162,6 +162,8 @@ Cross-document relationship discovery. Two modes, selected by `RELATIONSHIP_DISC
 | `ENABLE_SEMANTIC_ENTITY_RESOLUTION` | `boolean` | `true` | Use embedding-based vector similarity (via Neo4j vector index) for entity deduplication during storage. Catches semantic matches like "Museum of Crypto Art" and "MOCA". Falls back to Levenshtein string matching when disabled. |
 | `ENTITY_SIMILARITY_THRESHOLD` | `float` | `0.85` | Similarity threshold for merging entities. Range: 0.0-1.0. Lower values merge more aggressively. |
 | `ENTITY_EMBEDDING_MODEL` | `string` | value of `EMBEDDING_MODEL` | Model used for entity embedding vectors during semantic resolution. |
+| `DEDUP_SCAN_WAIT_SECONDS` | `integer` | `25` | How long `GET /api/entities/duplicates` waits inline before answering `202 {status: running, progress}` for polling. Keep just **below** the edge proxy read timeout (~30s Traefik default). |
+| `DEDUP_SCAN_CACHE_TTL_SECONDS` | `integer` | `600` | Server-side cache TTL for completed duplicate-scan results, per (threshold, limit, collection scope). Entity merges invalidate the cache; `refresh=true` forces a rescan. |
 
 ### Reasoning Control (Ingestion)
 
@@ -292,7 +294,8 @@ Configure image analysis capabilities for extracting and understanding images fr
 | `PROMPT_GUARD_LOCAL` | `boolean` | `false` | Run the classifier in-process instead of via a service URL (needs torch; adds resident RAM). |
 | `PROMPT_GUARD_THRESHOLD` | `float` | `0.5` | Injection-class probability at/above which a question is refused (lower = stricter). |
 | `PROMPT_GUARD_MODEL` | `string` | `leolee99/PIGuard` | HuggingFace model id for the in-process (local) classifier. |
-| `INGESTION_INJECTION_SCAN` | `boolean` | `true` | Scan ingested document text for embedded injection attempts during processing (flag, does not block ingestion). |
+| `ENABLE_INGESTION_INJECTION_SCAN` | `boolean` | `false` | **Experimental.** Master flag for the ingestion-time document injection scan. When off (default) the feature is completely absent: no scan runs (not even the free heuristic), no injection flags are written, and the admin runtime toggle is hidden. |
+| `INGESTION_INJECTION_SCAN` | `boolean` | `true` | Runtime-toggle default for the scan's LLM-classifier layer once enabled (flag, does not block ingestion; admin-toggleable at runtime). Only meaningful when `ENABLE_INGESTION_INJECTION_SCAN=true`. |
 | `ENVIRONMENT` | `string` | `development` | `production` makes startup fail fast on weak/default/placeholder secrets: `NEO4J_PASSWORD` empty/`password123`/known-placeholder; `SESSION_SECRET` < 32 chars or a known placeholder, and `ADMIN_PASSWORD`/`ADMIN_API_KEY` a known placeholder, when `ADMIN_PASSWORD` is set. The Next.js frontend applies the same check to `SESSION_SECRET` at startup. The prod compose files default this to `production` via `${ENVIRONMENT:-production}` (overridable). |
 | `CORS_ALLOWED_ORIGINS` | `string` | `*` | Comma-separated CORS allowlist. Default `*` (credentials disabled, since auth is header-based). Restrict to your domains in production. |
 | `EXPOSE_API_DOCS` | `string` | `auto` | Interactive API docs (`/docs`, `/redoc`, `/openapi.json`). `auto` = on in development, off in production. Set `true`/`false` to force. |

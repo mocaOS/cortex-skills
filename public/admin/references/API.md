@@ -246,5 +246,5 @@ Update admin-editable runtime settings. Persisted as overrides over the env defa
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `ingestion_injection_scan` | `boolean` | Enable/disable the LLM prompt-injection scan on ingested documents |
+| `ingestion_injection_scan` | `boolean` | Enable/disable the LLM prompt-injection scan on ingested documents (**experimental** — rejected with `400` unless the instance sets `ENABLE_INGESTION_INJECTION_SCAN=true`) |
 | `prompt_guard` | `boolean` | Enable/disable the query-time prompt-injection classifier — each guarded question costs one extra unit against the monthly quota |

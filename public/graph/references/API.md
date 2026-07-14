@@ -293,17 +293,21 @@ curl "{BASE_URL}/api/graph/search?query=open" \
 
 Find groups of entities that appear to be duplicates based on name similarity.
 
+One scan runs at a time (single-flight); identical requests join the running scan instead of stacking new ones. On large graphs the scan may outlast the inline wait window, in which case the response is `202` with a progress fraction — poll the same URL (without `refresh`) until it returns `"status": "complete"`. Completed results are cached server-side (default 600s) per parameter set; entity merges invalidate the cache.
+
 **Query parameters:**
 
 | Parameter | Type | Default | Description |
 |-----------|------|---------|-------------|
 | `threshold` | float | 0.85 | Similarity threshold (0.5-1.0). Lower = more candidates, more false positives |
 | `limit` | integer | 50 | Maximum duplicate groups to return |
+| `refresh` | boolean | false | Bypass the cached result and force a fresh scan |
 
-**Response:**
+**Response `200`** (scan complete):
 
 ```json
 {
+  "status": "complete",
   "groups": [
     {
       "canonical": "Machine Learning",
@@ -315,7 +319,18 @@ Find groups of entities that appear to be duplicates based on name similarity.
     }
   ],
   "total_groups": 2,
-  "threshold": 0.85
+  "cached": true
+}
+```
+
+`cached` is `true` when the result was served from the server-side scan cache.
+
+**Response `202`** (scan still running — poll the same URL):
+
+```json
+{
+  "status": "running",
+  "progress": 0.42
 }
 ```
 
@@ -487,6 +502,8 @@ All environment variables that affect Graph API behavior:
 | `ENABLE_SEMANTIC_ENTITY_RESOLUTION` | `true` | Enable embedding-based entity dedup at storage time |
 | `ENTITY_SIMILARITY_THRESHOLD` | `0.85` | Cosine similarity threshold for merging (0.0-1.0) |
 | `ENTITY_EMBEDDING_MODEL` | `EMBEDDING_MODEL` | Model for entity name embeddings |
+| `DEDUP_SCAN_WAIT_SECONDS` | `25` | Inline wait on `GET /api/entities/duplicates` before answering `202 {status: running, progress}`; keep just below the edge proxy read timeout (~30s Traefik default) |
+| `DEDUP_SCAN_CACHE_TTL_SECONDS` | `600` | Server-side cache TTL for completed duplicate-scan results (entity merges invalidate; `refresh=true` forces a rescan) |
 | `RELATIONSHIP_MAX_CONTEXT` | `0` = inherit `GRAPH_EXTRACTION_MAX_CONTEXT` → `OPENAI_MAX_CONTEXT` | Max input context for Phase B batching (legacy `llm_scan` mode only — `targeted` sizes verification calls with `RELATIONSHIP_PAIR_CONTEXT_TOKENS`). Recommended: leave `0` — bounded output doesn't bound prefill time; wide values (256000) prefill for minutes and time out on self-hosted GPUs |
 | `RELATIONSHIP_BATCH_MAX_OUTPUT_TOKENS` | `16000` | Max output tokens for Phase B batch LLM responses (standalone; `RELATIONSHIP_MAX_OUTPUT_TOKENS`, default `0` = inherit, feeds the per-chunk + candidate-scan calls) |
 | `PARALLEL_RELATIONSHIP_BATCHES` | `5` | Batches processed in parallel during Phase B |

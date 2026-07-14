@@ -183,6 +183,8 @@ curl "{BASE_URL}/api/entities/duplicates?threshold=0.85&limit=50" \
 
 Returns groups of entities that appear to be duplicates based on name similarity. Lower the threshold (min 0.5) to find more candidates at the cost of more false positives.
 
+On large graphs the scan can take a while: one scan runs at a time (identical requests join it), and if it outlasts the inline wait window the endpoint answers `202 {"status": "running", "progress": 0.42}` — poll the same URL until it returns `"status": "complete"`. Completed results are cached server-side (entity merges invalidate the cache); pass `refresh=true` to force a fresh scan. See [references/API.md](references/API.md) for the full contract.
+
 ### Merge Duplicates
 
 ```bash

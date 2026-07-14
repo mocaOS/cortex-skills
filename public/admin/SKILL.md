@@ -232,7 +232,9 @@ curl -X PATCH "{BASE_URL}/api/admin/config" \
   -d '{"ingestion_injection_scan": false, "prompt_guard": true}'
 ```
 
-Currently supported (both boolean, both optional — only provided fields are updated): `ingestion_injection_scan` (LLM prompt-injection scan on ingested documents) and `prompt_guard` (query-time prompt-injection classifier — each guarded question costs one extra unit against the monthly quota). Returns the full updated configuration, same shape as `GET /api/admin/config`.
+Currently supported (both boolean, both optional — only provided fields are updated): `prompt_guard` (query-time prompt-injection classifier — each guarded question costs one extra unit against the monthly quota) and `ingestion_injection_scan` (LLM classifier layer of the **experimental** ingestion-time prompt-injection scan). Returns the full updated configuration, same shape as `GET /api/admin/config`.
+
+The ingestion scan is experimental and off by default: unless the instance sets `ENABLE_INGESTION_INJECTION_SCAN=true`, `PATCH` rejects the `ingestion_injection_scan` field with `400`, `GET /api/admin/config` reports `enable_ingestion_injection_scan: false` plus an effective `ingestion_injection_scan: false`, and the toggle is hidden in the admin UI.
 
 ---
 

@@ -234,7 +234,8 @@ PROMPT_GUARD=true                     # Query-time Prompt Guard classifier gate 
 PROMPT_GUARD_SERVICE_URL=             # Offload classification to cortex-helper /classify (remote path wins when set)
 PROMPT_GUARD_LOCAL=false              # Run the guard in-process instead (needs torch)
 PROMPT_GUARD_THRESHOLD=0.5            # Injection-probability cutoff
-INGESTION_INJECTION_SCAN=true         # Scan ingested documents for injection payloads
+ENABLE_INGESTION_INJECTION_SCAN=false # EXPERIMENTAL: ingestion-time injection scan (flag, never block); off & hidden by default
+INGESTION_INJECTION_SCAN=true         # LLM-classifier default once the scan is enabled (admin-toggleable at runtime)
 ENVIRONMENT=production                # Fail fast on weak/default secrets at startup
 CORS_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com
 EXPOSE_API_DOCS=auto                  # auto = docs on in dev, OFF in production

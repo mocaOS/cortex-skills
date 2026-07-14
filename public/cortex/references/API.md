@@ -655,11 +655,15 @@ curl "{BASE_URL}/api/entities/duplicates?threshold=0.85&limit=50" \
 |----------------|------|---------|-------------|
 | `threshold` | float | 0.85 | Similarity threshold (0.5 to 1.0) |
 | `limit` | integer | 50 | Max groups to return |
+| `refresh` | boolean | false | Bypass the cached result and force a fresh scan |
 
-**Response:**
+One scan runs at a time (single-flight); identical requests join the running scan. On large graphs the scan may outlast the inline wait window, in which case the response is `202 {"status": "running", "progress": 0.42}` — poll the same URL (without `refresh`) until it returns `"status": "complete"`. Completed results are cached server-side; entity merges invalidate the cache.
+
+**Response `200`** (scan complete; `cached` is `true` when served from the scan cache):
 
 ```json
 {
+  "status": "complete",
   "groups": [
     {
       "canonical": "Machine Learning",
@@ -671,7 +675,7 @@ curl "{BASE_URL}/api/entities/duplicates?threshold=0.85&limit=50" \
     }
   ],
   "total_groups": 2,
-  "threshold": 0.85
+  "cached": true
 }
 ```
 

@@ -119,7 +119,7 @@ The full sequence:
 | `completed`  | Fully processed and available for queries          |
 | `failed`     | Processing failed — requires manual reprocessing  |
 
-There is no `degraded` status value: a **degraded** document is derived client-side as a `completed` one with `entity_count == 0` or `unembedded_chunk_count > 0` (both returned on the document object; `entity_count` is `-1` when not yet backfilled). Reprocessing a degraded document automatically bypasses the "content unchanged" skip. Documents also carry `injection_flagged` / `injection_reason` from the ingestion-time prompt-injection scan — flagged documents are never blocked and stay answerable.
+There is no `degraded` status value: a **degraded** document is derived client-side as a `completed` one with `entity_count == 0` or `unembedded_chunk_count > 0` (both returned on the document object; `entity_count` is `-1` when not yet backfilled). Reprocessing a degraded document automatically bypasses the "content unchanged" skip. Documents also carry `injection_flagged` / `injection_reason` from the ingestion-time prompt-injection scan (experimental, off by default — only populated on instances that set `ENABLE_INGESTION_INJECTION_SCAN=true`) — flagged documents are never blocked and stay answerable.
 
 ### Example: Check Processing Status
 

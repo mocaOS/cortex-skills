@@ -96,7 +96,7 @@ GET /api/documents/{id}
 
 A document with `status: "completed"` may still have background image analysis running. Check `image_progress_current` vs `image_progress_total` to determine if image processing is finished.
 
-Health and safety signals: `entity_count` is `-1` when unknown (not yet backfilled). `unembedded_chunk_count` counts chunks missing embeddings (invisible to semantic search). `injection_flagged` / `injection_reason` come from the ingestion-time prompt-injection scan — flagged documents are never blocked and stay answerable. See Processing Statuses for how these signals define a *degraded* document.
+Health and safety signals: `entity_count` is `-1` when unknown (not yet backfilled). `unembedded_chunk_count` counts chunks missing embeddings (invisible to semantic search). `injection_flagged` / `injection_reason` come from the ingestion-time prompt-injection scan (experimental, off by default — only set on instances with `ENABLE_INGESTION_INJECTION_SCAN=true`; flags from a previously-enabled period still display) — flagged documents are never blocked and stay answerable. See Processing Statuses for how these signals define a *degraded* document.
 
 ### Errors
 
