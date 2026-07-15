@@ -9,7 +9,7 @@ description: >
   your cortex", "check/ask/search your cortex for X", "what's in your cortex / what
   have you saved" (exact doc list), "show me that note", "forget that note", and
   "ask the community cortex about X". Built for the Hermes agent (nousresearch.com).
-version: 1.0.0
+version: 1.1.0
 license: MIT
 platforms: [macos, linux]
 metadata:
@@ -96,6 +96,8 @@ Speak to a cortex in plain language — these phrases are the interface:
 
 "your cortex" = your default (personal) source; name any other source to route there.
 
+**The recall verbs are one intent, not three commands.** "Check", "search", "ask", "look in", "consult", "does your cortex know…" — the human wants *the answer*, found by researching the cortex. The verb only picks your opening move; the Recall section below has the playbook (formulate → escalate → answer). Never run one literal query, paste what came back, and stop.
+
 ## Connect
 
 A **source** is one connection: a base URL + an API key (+ an optional collection). Your **default** source is your personal long-term memory; add more by name.
@@ -181,7 +183,7 @@ Prints the resolved source, health, and collection. A `503 degraded` means a sel
 
 Once connected, store a one-line **native** memory (with your built-in memory tool) so every future session routes correctly. Adapt it to what's actually connected:
 
-> Your cortex = the external Cortex knowledge base, reached through the cortex skill (load via skill_view cortex, then call cortex.sh). Any request mentioning "cortex" goes through that skill — the memory file is NOT the cortex. Connected: `<name>` (`ro|rw`, `<base_url>`) — query with `--source <name>`. \[If no personal cortex is wired: "No personal cortex configured yet."\]
+> Your cortex = the external Cortex knowledge base, reached through the cortex skill (load via skill_view cortex, then call cortex.sh). Any request mentioning "cortex" goes through that skill — the memory file is NOT the cortex. "Check/search/ask your cortex for X" = research it until answered (check → search reformulations → ask deep research), not one literal query. Connected: `<name>` (`ro|rw`, `<base_url>`) — query with `--source <name>`. \[If no personal cortex is wired: "No personal cortex configured yet."\]
 
 This matters: without it, a future session may answer "what's in your cortex?" from MEMORY.md and never load this skill. The native memory is injected into every session start — it's the router. Keep it current: when you `connect`/`forget` a source later, update this memory too.
 
@@ -258,17 +260,36 @@ The full workflow — bulk uploads, `process-pending`, dedup, cadence — is in 
 
 ## Recall: check / ask / search your cortex
 
-"Check your cortex for X" — a fast, synthesized answer scoped to your collection:
+**Goal first: the human wants an answer that lives in a cortex.** Whatever verb they used, your job is to research until you have it — or until you've genuinely established it isn't there. One thin query is not "not there".
+
+Three moves, one ladder:
+
+| Move | What it really does | Reach for it when |
+|------|--------------------|-------------------|
+| `check "<question>"` | quick research pass — server-side researcher, ~3 search iterations, synthesized answer + citations | simple, single-fact questions |
+| `ask "<question>"` | **deep research** (streaming) — the researcher agent runs up to 8 search iterations, decomposes the question into sub-questions, and follows entities across documents | anything multi-part, comparative, cross-document, "everything about X", timelines — or when `check` came back thin |
+| `search "<terms>" [top_k]` | raw top-matching chunks, no synthesis | exact wording/receipts, or probing whether *anything* matches a term |
 
 ```bash
-bash ${HERMES_SKILL_DIR}/scripts/cortex.sh check "what do I know about X?"
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh check "what did we decide about the auth rewrite?"
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh ask "compare every approach we tried for SSE reconnects and what we settled on"
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh search "SSE reconnect backoff" 15
 ```
 
-"Ask your cortex about X" / "what does your cortex know about X" — deeper agentic research (`ask`). "Search your cortex for X" — raw top chunks (`search`), best as a fallback when `check` synthesizes "nothing found" but you expect a hit:
+**Formulate the query like a researcher, not a parrot.**
 
-```bash
-bash ${HERMES_SKILL_DIR}/scripts/cortex.sh search "X"
-```
+- Send a **self-contained natural-language question**. The cortex knows nothing about the current conversation — resolve pronouns and session context before querying: "check your cortex for that bug we discussed" → `check "root cause and fix of the cortex-app SSE reconnect bug"`.
+- **Name entities.** Retrieval is entity-aware (graph traversal follows people, projects, tools through the knowledge graph): "what did René decide about the MCP server transport" beats "what was decided about transport".
+- Full sentences beat keyword fragments for `check`/`ask` ("how does X handle Y?" > "X Y handler"); terse terms are fine for `search`.
+
+**Escalate — never report "nothing found" after one query.**
+
+1. `check` answered fully → done; present it cited.
+2. `check` thin or empty → `search` 2–3 **reformulations** (synonyms, entity names, the filename you'd expect). Chunks found → `ask` a sharper question built from those terms. Still nothing → **check your scope**: a personal cortex only sees its own collection (`status` shows which); the answer may live in another collection or another connected source — route there before concluding it's absent.
+3. Multi-part / broad / comparative question → skip `check`, go **straight to `ask`**; that's exactly what deep research is for. For "what do we know about X" at full breadth, pair `ask` with `list` to see which docs even exist.
+4. Only after the ladder is exhausted, say plainly what you searched for and where, so the human can redirect you.
+
+A human saying "search your cortex for X" almost never wants raw chunks — they want the answer, found by searching. Run the ladder; give them the answer with the receipts underneath.
 
 **Inventory is not recall.** When the human asks *"what's in your cortex?"*, *"what have you saved?"*, or *"how many notes do you have?"*, run `cortex.sh list` — it returns the exact set of saved docs (filename, date, status, doc id), newest first. Don't answer inventory questions with `check`: synthesis summarizes what retrieval surfaced, and will confidently under-count what's actually stored. `list` also gives you the doc ids that `show <doc_id>` (print a note's full content) and `forget <doc_id>` (delete a note) take.
 

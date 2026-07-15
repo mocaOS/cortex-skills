@@ -101,9 +101,9 @@ need_write(){ [ "$ACCESS" = rw ] || die "source '$SRCNAME' is read-only (recall 
 ask_body(){ local q="$1" cid="$2" ag="$3"
   if [ -n "$cid" ]; then jq -n --arg q "$q" --arg c "$cid" --argjson a "$ag" '{question:$q,collection_id:$c,use_agentic:$a}'
   else jq -n --arg q "$q" --argjson a "$ag" '{question:$q,use_agentic:$a}'; fi; }
-search_body(){ local q="$1" cid="$2"
-  if [ -n "$cid" ]; then jq -n --arg q "$q" --arg c "$cid" '{query:$q,top_k:8,filters:{collection_id:$c}}'
-  else jq -n --arg q "$q" '{query:$q,top_k:8}'; fi; }
+search_body(){ local q="$1" cid="$2" k="${3:-8}"
+  if [ -n "$cid" ]; then jq -n --arg q "$q" --arg c "$cid" --argjson k "$k" '{query:$q,top_k:$k,filters:{collection_id:$c}}'
+  else jq -n --arg q "$q" --argjson k "$k" '{query:$q,top_k:$k}'; fi; }
 
 cmd="${1:-}"; [ $# -gt 0 ] && shift
 
@@ -186,6 +186,11 @@ case "$cmd" in
     # A busy/slow LLM backend trips the non-streaming endpoint's server deadline;
     # the streaming path has none — tell the agent the right next move.
     grep -q "deadline" <<<"$resp" && echo "hint: the backend LLM is busy/slow — use the streaming path instead: cortex.sh ask \"$q\""
+    # Empty sources = retrieval matched nothing. Don't let the agent stop here:
+    # reformulate, probe with raw search, or escalate to deep research.
+    if jq -e '(.sources // [])|length==0' >/dev/null 2>&1 <<<"$resp" && ! grep -q "deadline" <<<"$resp"; then
+      echo "hint: retrieval matched nothing in collection '${COLLECTION:-<whole instance>}' — do NOT report 'not found' yet. Reformulate (entity names, synonyms): cortex.sh search \"<terms>\" — check the scope (cortex.sh status) — or run deep research: cortex.sh ask \"$q\""
+    fi
     jq -r 'if (.sources|length)>0 then "\nsources (matches [src_N] in the answer):\n" + ([.sources|to_entries[]|"  [\(.key+1)] \(.value.metadata.filename // .value.document_title // .value.document_id) — score \((.value.score // .value.metadata.rerank_score // 0)|tostring|.[0:5]) — doc \(.value.document_id[0:8])"]|join("\n")) else empty end' <<<"$resp"
     ;;
   ask)
@@ -211,11 +216,16 @@ case "$cmd" in
     ;;
   search)
     resolve
-    q="${1:-}"; [ -n "$q" ] || die "usage: cortex.sh search \"<query>\""; cid=$(collection_id)
+    q="${1:-}"; [ -n "$q" ] || die "usage: cortex.sh search \"<query>\" [top_k]"
+    k="${2:-8}"; case "$k" in ''|*[!0-9]*) die "top_k must be a number (1-50)";; esac
+    cid=$(collection_id)
     # Search results carry no document_title (always null) — the human-readable
     # label lives in metadata.filename. Fall back to a short doc id if absent.
-    api -X POST "$BASE_URL/api/search" -H "Content-Type: application/json" -d "$(search_body "$q" "$cid")" \
-      | jq -r '(.results // [])[] | "• \(.metadata.filename // .document_title // (.document_id[0:8]))  (score \((.score // 0)|tostring|.[0:5]))\n  \(.content[0:240] | gsub("[[:space:]]+";" "))"'
+    out=$(api -X POST "$BASE_URL/api/search" -H "Content-Type: application/json" -d "$(search_body "$q" "$cid" "$k")" \
+      | jq -r '(.results // [])[] | "• \(.metadata.filename // .document_title // (.document_id[0:8]))  (score \((.score // 0)|tostring|.[0:5]))\n  \(.content[0:240] | gsub("[[:space:]]+";" "))"')
+    if [ -n "$out" ]; then printf '%s\n' "$out"
+    else echo "no matches for \"$q\" in collection '${COLLECTION:-<whole instance>}' — do NOT report 'not found' after one query. Retry with reformulations (entity names, synonyms, expected filenames), check the scope (cortex.sh status; CORTEX_COLLECTION=all searches the whole instance), or run deep research: cortex.sh ask \"<self-contained question>\""
+    fi
     ;;
   list|recent)
     # Ground-truth inventory — GET /api/documents takes no query params, so
@@ -512,6 +522,6 @@ EOF
     done; echo "synced $n file(s) to '$SRCNAME'"
     ;;
   *)
-    die "usage: cortex.sh [--source NAME] {sources|connect|use|status|save <file>|check \"<q>\"|ask \"<q>\"|search \"<q>\"|list [n]|show <id>|forget <id>|wait <id>|sync|setup dir=... provider=... key=...|setup-status dir=...}"
+    die "usage: cortex.sh [--source NAME] {sources|connect|use|status|save <file>|check \"<q>\"|ask \"<q>\"|search \"<q>\" [top_k]|list [n]|show <id>|forget <id>|wait <id>|sync|setup dir=... provider=... key=...|setup-status dir=...}"
     ;;
 esac

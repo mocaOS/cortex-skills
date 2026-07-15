@@ -148,16 +148,21 @@ Cron sessions start with the skill preloaded, so the sync command resolves witho
 
 ## Recall patterns
 
-Match the verb to the need:
+Every recall verb is the same intent — *find the answer in the cortex* — the verb only picks the opening move (the full playbook is the main skill's Recall section):
 
-| Need | Command | Endpoint |
-|------|---------|----------|
-| Fast answer with sources | "check your cortex for X" | `POST /api/ask` (`use_agentic:false`) |
-| Deep, multi-step synthesis | "ask your cortex about X" | `POST /api/ask` (`use_agentic:true`) |
-| Exact source passages | "search your cortex for X" | `POST /api/search` |
-| Live streaming answer | — | `POST /api/ask/stream` (SSE) |
+| Need | Opening move | Endpoint |
+|------|-------------|----------|
+| Fast answer with sources | "check your cortex for X" → `check` | `POST /api/ask` (`use_agentic:false`, ~3 researcher iterations) |
+| Deep multi-step research — multi-part, comparative, cross-document questions | "ask your cortex about X" → `ask` | `POST /api/ask/stream` (`use_agentic:true`, up to 8 iterations, question decomposition) |
+| Exact source passages / probing what matches | "search your cortex for X" → `search` | `POST /api/search` |
 
-**Always scope to your collection** (`collection_id`) so recall stays about *this* agent's memory, not everything on a shared instance. Multi-turn recall: pass prior turns via `conversation_history` on `/api/ask`. Full request/response schemas are in the [ask skill](https://cortexskills.org/ask/SKILL.md) and [search skill](https://cortexskills.org/search/SKILL.md).
+The judgment that matters more than the mapping:
+
+- **Formulate a self-contained question.** The cortex can't see the current conversation — resolve pronouns and context, and name entities (retrieval is graph/entity-aware) before querying.
+- **Escalate instead of giving up.** `check` empty → `search` 2–3 reformulations → `ask` (deep research). Broad or multi-part question → go straight to `ask`. Report "not found" only after the ladder — and after confirming you searched the right collection.
+- **Always scope to your collection** (`collection_id`) so recall stays about *this* agent's memory, not everything on a shared instance — but remember scope cuts both ways: a scoped miss says nothing about the rest of the instance.
+
+Multi-turn recall: pass prior turns via `conversation_history` on `/api/ask`. Full request/response schemas are in the [ask skill](https://cortexskills.org/ask/SKILL.md) and [search skill](https://cortexskills.org/search/SKILL.md).
 
 ### Recall before you answer
 

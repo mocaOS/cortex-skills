@@ -46,3 +46,6 @@ next-env.d.ts
 # mcp-server package (own toolchain)
 mcp-server/node_modules/
 mcp-server/dist/
+
+__pycache__/
+*.pyc

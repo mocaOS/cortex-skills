@@ -249,12 +249,18 @@ class CortexMemoryProvider(MemoryProvider):
                 "description": (
                     "Hybrid search (vector + keyword + graph) over the Cortex "
                     "long-term memory. Returns verbatim chunks with filenames and "
-                    "scores — use for exact wording, receipts, and quick lookups."
+                    "scores — use for exact wording, receipts, and quick lookups. "
+                    "Empty results are not proof of absence: retry with reformulated "
+                    "queries (entity names, synonyms) or fall back to cortex_ask "
+                    "before telling the user something isn't stored."
                 ),
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "query": {"type": "string", "description": "What to search for"},
+                        "query": {
+                            "type": "string",
+                            "description": "Search terms — prefer entity names and concrete keywords over vague phrases",
+                        },
                         "top_k": {
                             "type": "integer",
                             "description": "Max results (default 8)",
@@ -269,12 +275,22 @@ class CortexMemoryProvider(MemoryProvider):
                 "description": (
                     "Ask the Cortex knowledge base a question and get a synthesized, "
                     "cited answer (RAG). Use for open questions over stored memory; "
-                    "cite the returned sources to the user."
+                    "cite the returned sources to the user. If the answer comes back "
+                    "thin, try cortex_search with reformulated terms; for multi-part "
+                    "or cross-document research, load the cortex skill and run its "
+                    "deep-research `ask` command."
                 ),
                 "parameters": {
                     "type": "object",
                     "properties": {
-                        "question": {"type": "string", "description": "The question to answer from memory"}
+                        "question": {
+                            "type": "string",
+                            "description": (
+                                "Self-contained natural-language question. The cortex "
+                                "cannot see this conversation — resolve pronouns and "
+                                "context, and name entities (people, projects, tools)."
+                            ),
+                        }
                     },
                     "required": ["question"],
                 },
