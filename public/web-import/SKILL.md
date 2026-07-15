@@ -13,6 +13,8 @@ description: Use this skill when importing web pages into Cortex as clean markdo
 
 3. **Imported pages become real documents.** Harvested markdown is chunked, embedded, and run through entity/relationship extraction like any uploaded file — it shows up in Search, Ask AI, the knowledge graph, and communities.
 
+4. **You printed a web page to PDF and uploaded that instead.** Don't. Web Import lands the page as clean markdown that ingests instantly; a print-to-PDF of the same page goes through per-page ML layout analysis (~1 s/page) and produces worse structure. If Web Import isn't enabled, save the page as HTML or Markdown and upload that — still no ML pipeline involved.
+
 4. **A single crawl4ai instance is stateless and shared.** It can serve many Cortex backends. It needs ~4 GB RAM and `--shm-size=1g`. Keep port 11235 on a private network — don't expose it to the public internet.
 
 ## Enabling

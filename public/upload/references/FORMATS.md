@@ -4,6 +4,26 @@ Exhaustive list of supported file formats, processing behavior, size limits, and
 
 ---
 
+## Performance Profile — Choose the Source Format
+
+Conversion cost is bimodal. Only two format families run the expensive per-page
+ML pipeline (layout analysis + table structure); everything else parses
+declaratively from its markup:
+
+| Cost tier | Formats | Cost |
+|-----------|---------|------|
+| Instant (no conversion) | `.md`, `.txt`, code files | Ingested as-is |
+| Fast (native parsing) | `.epub`, `.docx`, `.pptx`, `.xlsx`, `.html`, `.tex` | Seconds per document, independent of page count |
+| Expensive (per-page ML) | `.pdf` | ~1 s/page on CPU; a 400-page book ≈ several minutes and may hit the conversion timeout |
+| Most expensive | Scanned PDFs, standalone images | OCR (~tens of s/page) or per-image vision-model calls |
+
+**Agent rule: upload the source format, not a rendering of it.** Books → EPUB
+(convert `.mobi`/`.azw` with `ebook-convert`); Office content → the office file,
+not an "Export as PDF"; web pages → Web Import or HTML/Markdown, not
+print-to-PDF. Reserve PDF for content that only exists as PDF.
+
+---
+
 ## Format Table
 
 | Category      | Format      | Extensions                        | Extraction Method                          | Vision Analysis          |

@@ -21,7 +21,11 @@ Most integration issues with the upload system come from the same handful of mis
 
 6. **You expected image analysis without configuring `VISION_MODEL`.** Vision-based analysis of images and image-heavy documents only activates when the `VISION_MODEL` environment variable is set. Without it, images are either skipped or processed with basic OCR only.
 
-7. **You uploaded a book as PDF when an EPUB exists.** PDFs are converted page by page with ML layout models (~1 s/page on CPU) — a 400-page book takes several minutes and can hit the conversion timeout (`failed` or truncated document). The same book as `.epub` parses natively from its markup in under a second, with cleaner structure (real chapter headings instead of reconstructed layout). **Always prefer the EPUB when both formats are available.** Kindle formats (`.mobi`, `.azw`, `.azw3`) are rejected with a 400 — convert them to EPUB first (e.g. `ebook-convert book.mobi book.epub` with Calibre) before uploading.
+7. **You uploaded a PDF rendering when a native source format existed.** Only PDFs and standalone images go through per-page ML layout analysis (~1 s/page on CPU) — every other format (EPUB, DOCX, PPTX, XLSX, HTML, Markdown, LaTeX) parses natively from its markup in seconds, regardless of length, with cleaner structure. A 400-page book as PDF takes several minutes and can hit the conversion timeout (`failed` or truncated); the same book as `.epub` converts in under a second. **Rule: upload the source format, not a rendering of it.**
+   - Books → EPUB, never the PDF version. Kindle formats (`.mobi`, `.azw`, `.azw3`) are rejected with a 400 — convert them first (`ebook-convert book.mobi book.epub`, from Calibre).
+   - Office documents → the `.docx`/`.pptx`/`.xlsx` itself, never an "Export as PDF" of it.
+   - Web content → the Web Import endpoint (URL) or saved HTML/Markdown, never print-to-PDF.
+   - Reserve PDF for content that only exists as PDF (papers, invoices, scans). Budget ~1 s/page; scanned PDFs are much slower (OCR).
 
 ---
 
@@ -37,7 +41,7 @@ Most integration issues with the upload system come from the same handful of mis
 | Images (OCR / vision)  | `.png`, `.jpg`, `.jpeg`, `.tiff`, `.tif`, `.bmp`                |
 | Audio (transcription)  | `.wav`, `.mp3`, `.webvtt`, `.vtt`                               |
 
-All formats go through the same processing pipeline after text extraction. The extraction method varies by format (e.g., PDF parsing, DOCX XML extraction, image OCR/vision, audio transcription).
+All formats go through the same processing pipeline after text extraction, but the extraction cost differs sharply: **only PDF and images run per-page ML layout analysis (~1 s/page CPU)** — everything else parses natively in seconds regardless of length, and Markdown/plain text/code skip conversion entirely. When both a native format and a PDF rendering exist, upload the native format (see mistake #7).
 
 ---
 
