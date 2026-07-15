@@ -1,6 +1,6 @@
 ---
 name: upload
-description: Handles document ingestion and processing for Cortex. Supports uploading files in a wide range of formats (PDF, DOCX, images, audio, and more), extracting text, chunking content, generating embeddings, resolving entities, and storing everything in Neo4j. Also provides custom input creation, batch processing, bulk operations, and full document lifecycle management through a REST API.
+description: Handles document ingestion and processing for Cortex. Supports uploading files in a wide range of formats (PDF, EPUB, DOCX, images, audio, and more — prefer EPUB over PDF for books), extracting text, chunking content, generating embeddings, resolving entities, and storing everything in Neo4j. Also provides custom input creation, batch processing, bulk operations, and full document lifecycle management through a REST API.
 ---
 
 # Upload — Document Ingestion and Processing
@@ -21,6 +21,8 @@ Most integration issues with the upload system come from the same handful of mis
 
 6. **You expected image analysis without configuring `VISION_MODEL`.** Vision-based analysis of images and image-heavy documents only activates when the `VISION_MODEL` environment variable is set. Without it, images are either skipped or processed with basic OCR only.
 
+7. **You uploaded a book as PDF when an EPUB exists.** PDFs are converted page by page with ML layout models (~1 s/page on CPU) — a 400-page book takes several minutes and can hit the conversion timeout (`failed` or truncated document). The same book as `.epub` parses natively from its markup in under a second, with cleaner structure (real chapter headings instead of reconstructed layout). **Always prefer the EPUB when both formats are available.** Kindle formats (`.mobi`, `.azw`, `.azw3`) are rejected with a 400 — convert them to EPUB first (e.g. `ebook-convert book.mobi book.epub` with Calibre) before uploading.
+
 ---
 
 ## Supported Formats
@@ -28,6 +30,7 @@ Most integration issues with the upload system come from the same handful of mis
 | Category               | Extensions                                                        |
 |------------------------|-------------------------------------------------------------------|
 | PDF                    | `.pdf`                                                            |
+| E-books                | `.epub` — preferred over PDF for books (native parsing, no per-page ML; see mistake #7) |
 | Office                 | `.docx`, `.doc`, `.xlsx`, `.xls`, `.pptx`, `.ppt`                |
 | Web / markup           | `.html`, `.htm`, `.xml`                                          |
 | Text                   | `.txt`, `.md`, `.mdx`, `.markdown`, `.rst`, `.tex`, `.latex`     |

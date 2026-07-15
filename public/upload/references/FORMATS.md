@@ -9,6 +9,7 @@ Exhaustive list of supported file formats, processing behavior, size limits, and
 | Category      | Format      | Extensions                        | Extraction Method                          | Vision Analysis          |
 |---------------|-------------|-----------------------------------|--------------------------------------------|--------------------------|
 | Documents     | PDF         | `.pdf`                            | Docling with layout preservation; PyPdfium backend fallback for large/memory-constrained files (page count via pypdf) | Yes: embedded images, charts, diagrams |
+| Documents     | EPUB        | `.epub`                           | Docling native XHTML parsing — no per-page layout ML; converts a full book in under a second. **Preferred over PDF for books.** | Yes: embedded images     |
 | Documents     | Word        | `.docx`, `.doc`                   | Docling XML extraction                     | Yes: embedded images     |
 | Documents     | PowerPoint  | `.pptx`, `.ppt`                   | Docling extraction                         | Yes: charts, diagrams, images |
 | Documents     | Excel       | `.xlsx`, `.xls`                   | Docling extraction                         | Yes: embedded images     |
@@ -49,6 +50,13 @@ Exhaustive list of supported file formats, processing behavior, size limits, and
 - Without vision model: Docling's built-in picture-description model generates basic image descriptions (`do_picture_description=True`)
 - OCR via Tesseract for scanned documents
 - System dependencies required: X11 libraries, Tesseract OCR (included in Docker image)
+
+### EPUB (E-books)
+
+- Parsed natively by docling from the EPUB's XHTML — no layout model, no OCR, no page images
+- A 400+ page book converts in under a second, vs several minutes (and possible conversion timeout) for the same book as PDF
+- Cleaner output than PDF: real chapter headings and structure from the markup, not reconstructed layout
+- **Agent guidance: when a human wants to import a book, ask for (or fetch) the EPUB rather than the PDF. If only a Kindle file (`.mobi`, `.azw`, `.azw3`) is available, convert it to EPUB first (`ebook-convert book.mobi book.epub`, from Calibre) — Kindle formats are rejected with HTTP 400.**
 
 ### DOCX (Word)
 

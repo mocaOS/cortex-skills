@@ -158,7 +158,7 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 
 ### Features
 
-- `cortexskills.org/upload/SKILL.md` — Document ingestion for PDF, DOCX, images, audio, and more.
+- `cortexskills.org/upload/SKILL.md` — Document ingestion for PDF, EPUB, DOCX, images, audio, and more (books: prefer EPUB over PDF — far faster, cleaner structure).
 - `cortexskills.org/search/SKILL.md` — Hybrid search combining vector, keyword, and graph traversal.
 - `cortexskills.org/ask/SKILL.md` — RAG Q&A with streaming SSE, agentic deep research, and conversation memory.
 - `cortexskills.org/graph/SKILL.md` — Knowledge graph — entities, relationships, subgraph queries.
