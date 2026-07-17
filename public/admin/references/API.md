@@ -290,4 +290,4 @@ Settled-payment totals in human units: `{asset_name, payment_count, total_amount
 
 ### Monetized keys
 
-`POST /api/admin/api-keys` accepts `price_per_query` (decimal string, human units, e.g. `"0.05"`) — requires a verified x402 config and read-only permissions (`422` when combined with `manage`). `PATCH` accepts it too; `""` clears the price. Priced keys mint with the `cortex_pub_` prefix and are restricted to the retrieval endpoints. See the `x402` skill for the payer-side protocol.
+`POST /api/admin/api-keys` accepts `price_per_query` (decimal string, human units, e.g. `"0.05"`) — requires a verified x402 config and read-only permissions (`422` when combined with `manage`) — and `research_multiplier` (default `"10"`): deep-research/agentic queries bill at `price × multiplier`, quoted per request in the 402 challenge; `"0"` forbids research on the key. `PATCH` accepts both; `""` clears the price (and the multiplier with it). Priced keys mint with the `cortex_pub_` prefix and are restricted to the retrieval endpoints. See the `x402` skill for the payer-side protocol.

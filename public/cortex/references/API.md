@@ -868,7 +868,7 @@ Run the verification suite: recipient/asset address format (EIP-55 / base58), fa
 
 Settled-payment totals (human units), overall and per key, each payment recorded with its on-chain tx hash.
 
-Monetized keys are minted via the normal key endpoint with a price: `POST /api/admin/api-keys` with `{"name": "...", "permissions": ["read"], "price_per_query": "0.05"}` (422 if combined with `manage`; on update, `price_per_query: ""` clears the price).
+Monetized keys are minted via the normal key endpoint with a price: `POST /api/admin/api-keys` with `{"name": "...", "permissions": ["read"], "price_per_query": "0.05", "research_multiplier": "10"}` (422 if combined with `manage`; on update, `price_per_query: ""` clears the price). Deep-research (agentic) queries bill at `price × research_multiplier` (default 10, quoted in the 402 challenge per request; `"0"` = research forbidden on the key).
 
 ---
 
