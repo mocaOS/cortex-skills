@@ -114,6 +114,14 @@ export const skills: Skill[] = [
     category: "features",
   },
   {
+    slug: "x402",
+    name: "x402 Payments",
+    description:
+      "Pay-per-query micropayments via the open x402 standard. The 402 → EIP-3009 → receipt handshake for paying agents, plus config, verification, and earnings for operators monetizing an instance.",
+    icon: "Coins",
+    category: "features",
+  },
+  {
     slug: "hermes",
     name: "Hermes",
     description:

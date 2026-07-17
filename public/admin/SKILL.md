@@ -238,6 +238,21 @@ The ingestion scan is experimental and off by default: unless the instance sets 
 
 ---
 
+## x402 Payments (monetization)
+
+When the instance sets `X402_ENABLED=true` (the only x402 env var), the admin API gains a payment-configuration surface — everything else is runtime config stored in Neo4j (survives redeploys; excluded from library export and system reset):
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/api/admin/x402/config` | Config + verification state (secrets masked; carries the `enabled` flag) |
+| `PUT` | `/api/admin/x402/config` | Save recipient wallet, facilitator URL, CAIP-2 network, asset — payment-relevant changes reset verification; 400 while the flag is off |
+| `POST` | `/api/admin/x402/verify` | 4-check verification suite (address formats, facilitator reachability, scheme+network support) — must pass before priced keys can be created or paid requests served |
+| `GET` | `/api/admin/x402/earnings` | Settled totals overall + per key, with on-chain tx hashes |
+
+Monetized public keys (`cortex_pub_`) are minted via `POST /api/admin/api-keys` with `price_per_query` (read-only enforced — 422 when combined with `manage`). Full protocol, payer-side signing, and operator gotchas (EIP-712 asset-name pitfall, facilitator selection): the **`x402` skill**.
+
+---
+
 ## Skill Files
 
 | File | Description |

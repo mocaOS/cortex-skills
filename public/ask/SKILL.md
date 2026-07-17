@@ -23,6 +23,8 @@ description: Use this skill when building RAG-powered Q&A features on Cortex. Co
 
 8. **Injection refusals look like normal streams.** A question flagged by the prompt-injection defenses returns a safe-refusal `content` frame followed by `done` — no `error` frame, no HTTP error, no special field. Don't treat refusals as failures. There are also two 429 flavors: the per-key burst limit (seconds-scale `Retry-After`) and the monthly unit quota (`Retry-After` = seconds until the next UTC month) — see [references/API.md](references/API.md#error-responses).
 
+9. **A 402 means your key is monetized, not broken.** Keys with the `cortex_pub_` prefix pay per query via x402 micropayments: decode the `PAYMENT-REQUIRED` header, sign the EIP-3009 authorization, retry with `PAYMENT-SIGNATURE`. When paying, always use `/api/ask/stream` — the non-streaming `/api/ask` has a ~28s deadline that can expire *after* your payment settled. Full handshake: the [x402 skill](../x402/SKILL.md).
+
 ## Endpoints
 
 ### Non-Streaming: POST /api/ask

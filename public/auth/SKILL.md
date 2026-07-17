@@ -11,7 +11,7 @@ description: Use this skill when implementing authentication, managing API keys,
 
 2. **There are exactly two permissions: `read` and `manage`.** A key's `permissions` is an array holding any combination of these two. `read` = Ask AI, search, list, view graph/stats. `manage` = upload, edit, and delete documents and collections (it is a superset of read for write operations). There is no `write`, `delete`, or `admin` permission value. Full-instance/admin operations (API-key CRUD, system reset, config PATCH) are gated on the **root admin API key** — the `ADMIN_API_KEY` env value — which is not a permission tier.
 
-3. **API key format uses a `cortex_` prefix.** User keys start with `cortex_ro_` (read-only) or `cortex_rw_` (permissions include `manage`) — the prefix is derived from the key's permissions at creation. The admin key is conventionally named `cortex_admin_...` and is set via the `ADMIN_API_KEY` environment variable, not created through the API. (Older builds used a `moca_` prefix.)
+3. **API key format uses a `cortex_` prefix.** User keys start with `cortex_ro_` (read-only), `cortex_rw_` (permissions include `manage`), or `cortex_pub_` (**monetized public key** — carries a `price_per_query` paid via x402 micropayments; see the `x402` skill). The prefix is derived from the key's permissions/price at creation. The admin key is conventionally named `cortex_admin_...` and is set via the `ADMIN_API_KEY` environment variable, not created through the API. (Older builds used a `moca_` prefix.)
 
 4. **Keys are hashed before storage.** The raw key is only shown once at creation time. Keys are hashed before being stored in Neo4j. You cannot retrieve a key after creation — only its `key_prefix`.
 
@@ -60,7 +60,10 @@ Keys are additionally scoped by `collection_scope` (`all` or `restricted` + `all
 |----------|--------|-------------|
 | User key (read-only) | `cortex_ro_` | `POST /api/admin/api-keys` (`permissions: ["read"]`) |
 | User key (read-write) | `cortex_rw_` | `POST /api/admin/api-keys` (permissions include `manage`) |
+| Monetized public key | `cortex_pub_` | `POST /api/admin/api-keys` (`permissions: ["read"]` + `price_per_query`; requires `X402_ENABLED` + a verified x402 config) |
 | Admin key | `cortex_admin_` | `ADMIN_API_KEY` env var (at startup) |
+
+**Monetized public keys** are locked down beyond plain `read`: always read-only (a price can never be combined with `manage` — the API rejects it with 422 and strips `manage` defensively at validation), restricted to the four retrieval endpoints (`/api/search` + the ask endpoints; document/file access, graph browsing, and stats return 403), and still collection-scopable. Callers pay per query via the x402 handshake — full protocol, signing details, and failure modes in the **`x402` skill**.
 
 ### Permission Checks per Endpoint
 

@@ -403,6 +403,16 @@ CRAWL_CONCURRENCY=5
 CRAWL_MAX_URLS_PER_JOB=100
 ```
 
+### x402 Payments (Optional)
+
+Monetize the retrieval endpoints with pay-per-query micropayments. See the [x402 skill](../x402/SKILL.md).
+
+```bash
+X402_ENABLED=true   # The ONLY x402 env var — wallet, facilitator, network,
+                    # and asset are configured at runtime in Settings →
+                    # x402 Payments (stored in Neo4j, survive redeploys).
+```
+
 ### Shared Model Services (cortex-helper)
 
 Offload the cross-encoder reranker and Docling converter to a per-machine service so many tenant stacks don't each load their own copy. Falls back to local automatically when unset.

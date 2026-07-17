@@ -248,3 +248,46 @@ Update admin-editable runtime settings. Persisted as overrides over the env defa
 |-------|------|-------------|
 | `ingestion_injection_scan` | `boolean` | Enable/disable the LLM prompt-injection scan on ingested documents (**experimental** — rejected with `400` unless the instance sets `ENABLE_INGESTION_INJECTION_SCAN=true`) |
 | `prompt_guard` | `boolean` | Enable/disable the query-time prompt-injection classifier — each guarded question costs one extra unit against the monthly quota |
+
+---
+
+## x402 Payments
+
+Available when the instance sets `X402_ENABLED=true`; the config itself is runtime state in Neo4j (survives redeploys, excluded from export/reset). All admin-key gated.
+
+### GET /api/admin/x402/config
+
+Current payment configuration + verification state. Facilitator auth headers are never returned (only `facilitator_auth_headers_set`). `enabled` mirrors the env flag, so clients can gate UI on the response.
+
+### PUT /api/admin/x402/config
+
+Save the configuration. Returns 400 while `X402_ENABLED=false`.
+
+**Request body:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `pay_to` | `string` | Recipient wallet (global payout for the instance) |
+| `facilitator_url` | `string` | Any spec-compliant x402 facilitator (`/supported`, `/verify`, `/settle`) |
+| `network` | `string` | CAIP-2, e.g. `eip155:8453` (Base mainnet) |
+| `asset_address` | `string` | Token contract / mint |
+| `asset_name` | `string` | **The token's EIP-712 domain name** (contract `name()`), not a display label — `"USD Coin"` on Base/Avalanche mainnets, `"USDC"` on Base Sepolia; a mismatch reverts every settlement |
+| `asset_decimals` | `number` | Default 6 |
+| `asset_eip712_version` | `string` | Default `"2"` |
+| `max_timeout_seconds` | `number` | Default 60 |
+| `service_name` | `string?` | Optional discovery metadata (max 32 chars) |
+| `facilitator_auth_headers` | `object?` | Static auth headers, stored encrypted — omit/null = unchanged, `{}` = clear |
+
+Changing any payment-relevant field (including `asset_name`) resets `verified` until the verify suite passes again.
+
+### POST /api/admin/x402/verify
+
+Runs the verification suite and returns per-check results (`payto_format`, `asset_format`, `facilitator_reachable`, `scheme_network_supported`). All passing stamps the config verified — the precondition for minting priced keys and serving paid requests. 400 if the config is incomplete or the flag is off.
+
+### GET /api/admin/x402/earnings
+
+Settled-payment totals in human units: `{asset_name, payment_count, total_amount, by_key: [{key_id, key_name, payment_count, total_amount}]}`. Every payment is stored with its on-chain tx hash.
+
+### Monetized keys
+
+`POST /api/admin/api-keys` accepts `price_per_query` (decimal string, human units, e.g. `"0.05"`) — requires a verified x402 config and read-only permissions (`422` when combined with `manage`). `PATCH` accepts it too; `""` clears the price. Priced keys mint with the `cortex_pub_` prefix and are restricted to the retrieval endpoints. See the `x402` skill for the payer-side protocol.

@@ -39,6 +39,7 @@ Documents / Memory → Cortex Backend (FastAPI) → Neo4j (Graph + Vector)
 - **Ingestion sources** — file upload, git repos (GitHub/GitLab/Gitea), and web import (crawl4ai)
 - **Prompt-injection defense** — a query-time Prompt Guard classifier, pattern detection, and content fencing
 - **Metering** — optional unit-denominated monthly quota (`MAX_QUERIES_PER_MONTH`, counted in LLM completions)
+- **Monetization** — optional pay-per-query [x402](https://github.com/x402-foundation/x402) micropayments: monetized public keys charge agents per retrieval query in stablecoins, revenue flows to the operator's wallet
 
 ## Two Ways to Use Cortex
 
@@ -167,6 +168,7 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 - `cortexskills.org/git-integration/SKILL.md` — Connect GitHub/GitLab/Gitea repos; agent opens pull requests.
 - `cortexskills.org/web-import/SKILL.md` — Harvest web pages into clean markdown via crawl4ai (MDHarvest).
 - `cortexskills.org/tasks/SKILL.md` — Background task polling, cancellation, and cleanup.
+- `cortexskills.org/x402/SKILL.md` — Pay-per-query x402 micropayments: the 402 → EIP-3009 → receipt handshake for paying agents, and config/verification/earnings for operators monetizing an instance.
 
 ### Ecosystem
 

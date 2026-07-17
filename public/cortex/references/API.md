@@ -833,6 +833,45 @@ curl -X POST "{BASE_URL}/api/cleanup/orphaned-entities" \
 
 ---
 
+## x402 Micropayments (monetized keys)
+
+On instances with x402 enabled, a **monetized public key** (`cortex_pub_…`, carries `price_per_query`) pays per query on the retrieval endpoints (`/api/search`, `/api/ask`, `/api/ask/stream`, `/api/ask/stream/thinking` — everything else 403s for these keys). Unpaid requests return **402** with a base64 `PAYMENT-REQUIRED` header (x402 v2 requirements); retry with a `PAYMENT-SIGNATURE` header (base64 PaymentPayload with a signed EIP-3009 authorization) and the settlement receipt arrives in the `PAYMENT-RESPONSE` response header. Paying clients should use `POST /api/ask/stream` (no server deadline) rather than `/api/ask`. Full handshake, signing code, and failure modes: the **`x402` skill** (`cortexskills.org/x402/SKILL.md`).
+
+Admin (root `ADMIN_API_KEY`):
+
+### GET /api/admin/x402/config
+
+Current payment configuration + verification state (facilitator auth headers masked). `enabled` mirrors the instance's `X402_ENABLED` flag.
+
+### PUT /api/admin/x402/config
+
+Save the payment configuration (recipient wallet, facilitator URL, CAIP-2 network, asset). Any payment-relevant change — including `asset_name`, which is the token's EIP-712 domain name — resets `verified` until the verify suite passes again. 400 while `X402_ENABLED=false`.
+
+```bash
+curl -X PUT "{BASE_URL}/api/admin/x402/config" \
+  -H "X-API-Key: {ADMIN_API_KEY}" -H "Content-Type: application/json" \
+  -d '{
+    "pay_to": "0xYourWallet",
+    "facilitator_url": "https://facilitator.xpay.sh",
+    "network": "eip155:8453",
+    "asset_address": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+    "asset_name": "USD Coin",
+    "asset_decimals": 6
+  }'
+```
+
+### POST /api/admin/x402/verify
+
+Run the verification suite: recipient/asset address format (EIP-55 / base58), facilitator reachability (`GET /supported`), and scheme+network support. All four passing stamps the config verified — the precondition for creating priced keys and serving paid requests.
+
+### GET /api/admin/x402/earnings
+
+Settled-payment totals (human units), overall and per key, each payment recorded with its on-chain tx hash.
+
+Monetized keys are minted via the normal key endpoint with a price: `POST /api/admin/api-keys` with `{"name": "...", "permissions": ["read"], "price_per_query": "0.05"}` (422 if combined with `manage`; on update, `price_per_query: ""` clears the price).
+
+---
+
 ## Admin
 
 ### POST /api/admin/reset
