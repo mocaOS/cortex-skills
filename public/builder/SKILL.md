@@ -47,9 +47,11 @@ workflows).
 | Service | `service` | Own container beside the instance | Local ML, binaries, arbitrary server code |
 
 Default to `static`. Reach for `platform` capabilities only for the pieces
-that genuinely need a server. If your server logic can't be expressed with
-the platform's declarative capabilities, you're building a `service` app —
-still registry-listable, deployed via compose template instead of a zip.
+that genuinely need a server. Background/scheduled work is a declarative
+step-queue — DSL reference: `cortexskills.org/builder/app/tasks.md`. If your
+server logic can't be expressed with the platform's declarative
+capabilities, you're building a `service` app — still registry-listable,
+deployed via compose template instead of a zip.
 
 ## The ecosystem map
 

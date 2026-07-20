@@ -12,11 +12,11 @@ uploads it (Apps → Install) and it runs at `/apps/{slug}/`, sandboxed, with
 scoped access to the Cortex API. No hosting, no domain, no server setup for
 the user.
 
-> **Status note:** the dev loop below (template + `npm run dev` against any
-> live instance) works today. In-instance hosting (zip upload, sandboxed
-> serving, platform capabilities) ships with the Cortex app-hosting release —
-> check `GET /api/features` on the target instance or the template README for
-> current availability. Build against the contract; it is frozen.
+> **Status note:** the full loop is live — dev against any instance,
+> in-instance hosting (zip upload, sandboxed serving, share links), and the
+> platform capabilities `http`, config-read, `tasks`, `storage`, and `llm`.
+> Hosting requires `ENABLE_APPS=true` on the target instance (routes 404
+> when off). `features`/`branding` are specced but not yet shipped.
 
 ## What You Probably Got Wrong
 
@@ -183,24 +183,57 @@ by the instance — your app still ships zero server code.
   resolve from the app's config) and SSRF-guarded: self-hosted/LAN targets
   are fine, loopback/metadata are blocked. Redirects are not followed;
   responses cap at 20 MB. Optional envelope fields: `body` (string),
-  `content_type`.
+  `content_type`, `headers` (extra request headers — `Authorization`/`Host`/
+  framing names are stripped; config-injected auth always wins; `Cookie` IS
+  allowed, e.g. YouTube's EU consent bypass `SOCS=CAI`).
+
+  **Multiple hosts? Scope every credential.** Add
+  `"auth_host": "api.venice.ai"` (or `"${SERVICE_BASE_URL}"`) to each
+  auth_header var — without it the header is injected on calls to EVERY
+  declared host, leaking one service's key to another. `npm run validate`
+  warns about this.
 
 - **Config read (implicit, no declaration):** `GET ./api/platform/config`
   returns the app's NON-secret config values (`{"values": {...}}`) — e.g.
   read `SERVICE_BASE_URL` for display/backlinks. Secret-typed values never
   cross this boundary; they are only injected server-side by `http`.
 
+- `tasks` — **background work that survives a closed tab.** Your app submits
+  a declarative JSON step-queue (`http` / `cortex` / `llm` / `store` /
+  `template` steps; setup → fan-out items → finally) and the instance
+  executes it server-side, with per-item error isolation,
+  pause/resume/cancel/retry-failed, and resume-on-restart. Add
+  `"schedule": {"everyMinutes": 60}` and it re-runs headless forever — the
+  pattern that turns an integration app into a standing sync daemon (the
+  paperless-sync app syncs a whole archive this way; its task definition is
+  the worked example). The `llm` step has built-in chunking + output
+  validation (length-ratio / word-overlap, retry-once-else-keep-original)
+  for safe long-text rewriting. **Fetch
+  `cortexskills.org/builder/app/tasks.md` for the full DSL reference before
+  writing a task** — step vocabulary, refs/templates/conditions, caps, and a
+  complete real definition. Template client: `src/lib/platform.ts`
+  (`submitTask`, `getTask`, `taskAction`, …).
+
+- `storage` (declare `"storage": {}`) — the app's private, quota-capped
+  key/value store (JSON values, path-like keys), shared by task `store`
+  steps and your UI (`GET/PUT/DELETE ./api/platform/storage/{key}`, prefix
+  listing). Use it for cursors, dedup keys, results, and cross-device
+  preferences instead of localStorage. Task fan-outs dedup against it
+  directly via `skipIfStored`.
+
+- `llm` (declare `"llm": {}`) — completions via the instance's configured
+  model inside task steps, metered against the instance quota and capped per
+  run. (No standalone completion endpoint yet — use an `ask` cortex call for
+  interactive Q&A.)
+
 **Specced, not yet shipped** (declaring them fails install with a clear
 message — probe `GET /api/features` for availability):
 
-- `tasks` — background queue that survives closed tabs: submit items whose
-  `steps` are declarative (`http`, `llm`, `store`) with built-in retry and
-  response-validation policies; control via pause/resume/cancel/retry-failed.
-- `storage` — per-app KV/JSON store.
-- `llm` — completions via the instance's configured model (metered against
-  the instance's quota).
 - `features` / `branding` — instance feature flags and accent/logo/language,
   so your app degrades gracefully and inherits the tenant's look.
+
+Platform mutations (task control, storage writes) require an owner or editor
+token — share-link **viewers are read-only**.
 
 If your server logic doesn't fit these declarative shapes, your app is
 `type: "service"` — it ships as a container image + compose template instead
