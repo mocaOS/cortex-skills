@@ -33,6 +33,35 @@ All memory files are organized within a single dedicated collection (default: **
 
 ---
 
+## Explore the Full Cortex Ecosystem
+
+This skill is memory sync + search + ask. Cortex does far more. Fetch the **root skill** for the complete, always-current index — then pull only the sub-skill your task needs:
+
+- `cortexskills.org/SKILL.md` — **root skill**: architecture overview and the canonical list of every capability below.
+
+| Sub-skill | Fetch | For |
+|---|---|---|
+| Setup | `cortexskills.org/setup/SKILL.md` | Self-host via Docker |
+| Auth | `cortexskills.org/auth/SKILL.md` | API keys, collection scoping, injection defense |
+| Admin | `cortexskills.org/admin/SKILL.md` | Instance management, registry, export/import, reset |
+| Upload | `cortexskills.org/upload/SKILL.md` | Document ingestion (PDF, EPUB, DOCX, audio, images…) |
+| Search | `cortexskills.org/search/SKILL.md` | Hybrid vector + keyword + graph search |
+| Ask | `cortexskills.org/ask/SKILL.md` | RAG Q&A, streaming SSE, agentic deep research |
+| Graph | `cortexskills.org/graph/SKILL.md` | Entities, relationships, subgraph queries |
+| Collections | `cortexskills.org/collections/SKILL.md` | Scope documents and graphs by project or tenant |
+| Communities | `cortexskills.org/communities/SKILL.md` | Entity clustering with LLM summaries |
+| Git integration | `cortexskills.org/git-integration/SKILL.md` | Connect GitHub/GitLab/Gitea repos |
+| Web import | `cortexskills.org/web-import/SKILL.md` | Crawl web pages into clean markdown |
+| Tasks | `cortexskills.org/tasks/SKILL.md` | Background task polling, cancellation, cleanup |
+| x402 | `cortexskills.org/x402/SKILL.md` | Pay-per-query micropayments (payer + operator) |
+| MCP | `cortexskills.org/mcp/SKILL.md` | MCP server for Claude Desktop, Cursor, Windsurf… |
+| Integration | `cortexskills.org/integration/SKILL.md` | LangChain, CrewAI, Slack, automation platforms |
+| Apps | `cortexskills.org/apps/SKILL.md` | Source and workflow apps (YouTube, Notion, Web Crawler) |
+| **Builder** | `cortexskills.org/builder/SKILL.md` | **Build ON Cortex** — turn any software's docs into an installable skill (`builder/skill/SKILL.md`), or ship a web app that runs inside an instance (`builder/app/SKILL.md`) |
+| Design | `cortexskills.org/cortex-design/SKILL.md` | The Bold Typography design system for Cortex UIs |
+
+---
+
 ## First-Time Setup
 
 ### Step 1: Get Your Base URL and API Key

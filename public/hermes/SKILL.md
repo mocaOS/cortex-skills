@@ -362,6 +362,33 @@ Rule of thumb: plugin for your **personal** cortex (ambient), this skill for **n
 | [references/LTM.md](references/LTM.md) | The long-term-memory playbook: session-dump patterns, memory-file sync, collection strategy, heartbeat cadence, dedup, and troubleshooting |
 | [plugin/README.md](plugin/README.md) | The memory-provider plugin: Cortex as native ambient Hermes memory (prefetch + first-class tools), install and activation |
 
+## Beyond memory — the rest of Cortex
+
+This skill wires Cortex up as Hermes' long-term memory. The same instance is a full knowledge-graph platform with many more capabilities. Fetch the **root skill** for the complete, always-current index, then pull only what you need:
+
+- `cortexskills.org/SKILL.md` — **root skill**: architecture overview and the canonical list of every capability below.
+
+| Sub-skill | Fetch | For |
+|---|---|---|
+| Setup | `cortexskills.org/setup/SKILL.md` | Self-host via Docker |
+| Auth | `cortexskills.org/auth/SKILL.md` | API keys, collection scoping, injection defense |
+| Admin | `cortexskills.org/admin/SKILL.md` | Instance management, registry, export/import, reset |
+| Upload | `cortexskills.org/upload/SKILL.md` | Document ingestion (PDF, EPUB, DOCX, audio, images…) |
+| Search | `cortexskills.org/search/SKILL.md` | Hybrid vector + keyword + graph search |
+| Ask | `cortexskills.org/ask/SKILL.md` | RAG Q&A, streaming SSE, agentic deep research |
+| Graph | `cortexskills.org/graph/SKILL.md` | Entities, relationships, subgraph queries |
+| Collections | `cortexskills.org/collections/SKILL.md` | Scope documents and graphs by project or tenant |
+| Communities | `cortexskills.org/communities/SKILL.md` | Entity clustering with LLM summaries |
+| Git integration | `cortexskills.org/git-integration/SKILL.md` | Connect GitHub/GitLab/Gitea repos |
+| Web import | `cortexskills.org/web-import/SKILL.md` | Crawl web pages into clean markdown |
+| Tasks | `cortexskills.org/tasks/SKILL.md` | Background task polling, cancellation, cleanup |
+| x402 | `cortexskills.org/x402/SKILL.md` | Pay-per-query micropayments (payer + operator) |
+| MCP | `cortexskills.org/mcp/SKILL.md` | MCP server for Claude Desktop, Cursor, Windsurf… |
+| Integration | `cortexskills.org/integration/SKILL.md` | LangChain, CrewAI, Slack, automation platforms |
+| Apps | `cortexskills.org/apps/SKILL.md` | Source and workflow apps (YouTube, Notion, Web Crawler) |
+| **Builder** | `cortexskills.org/builder/SKILL.md` | **Build ON Cortex** — turn any software's docs into an installable skill (`builder/skill/SKILL.md`), or ship a web app that runs inside an instance (`builder/app/SKILL.md`) |
+| Design | `cortexskills.org/cortex-design/SKILL.md` | The Bold Typography design system for Cortex UIs |
+
 ## Troubleshooting
 
 | Symptom | Fix |
