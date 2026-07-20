@@ -58,6 +58,7 @@ For a complete index, point your agent to the root:
 * `/mcp` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP client. The server itself lives in this repo under [`mcp-server/`](mcp-server/).
 * `/integration` — LangChain, CrewAI, MCP, Slack, Webhooks.
 * `/apps` — Source and workflow apps (YouTube, Notion).
+* `/builder` — Build ON Cortex: turn any software's docs into an installable skill (`/builder/skill`), or build a web app that runs inside a Cortex instance (`/builder/app`, pairs with [cortex-app-template](https://github.com/mocaOS/cortex-app-template)).
 * `/cortex-design` — The generative design principles for building Cortex UIs.
 
 ## MCP Server

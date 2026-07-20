@@ -176,4 +176,5 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 - `cortexskills.org/mcp/SKILL.md` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
 - `cortexskills.org/integration/SKILL.md` — Connect Cortex to LangChain, CrewAI, MCP, Slack, automation platforms, and more.
 - `cortexskills.org/apps/SKILL.md` — Source and workflow apps (YouTube, Notion, Web Crawler).
+- `cortexskills.org/builder/SKILL.md` — **Build ON Cortex**: turn any software's docs into an installable skill (`builder/skill`), or build a web app that runs inside a Cortex instance (`builder/app`). Start here when the user wants a custom integration or interface.
 - `cortexskills.org/cortex-design/SKILL.md` — The Bold Typography design system for Cortex UIs.
