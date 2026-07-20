@@ -255,13 +255,43 @@ colors so instances can theme your app via the `branding` capability.
 **Private app** (never surfaces anywhere): `npm run package`, send the zip to
 the instance admin, done. Iterate by re-uploading — versions are semver.
 
-**Publish to the ecosystem**:
-1. Push your app repo to GitHub and attach the zip to a release.
-2. PR to `github.com/mocaOS/cortex-registry`: add
-   `apps/{your-id}/listing.json` (your manifest + artifact URL + sha256 +
-   screenshots). CI validates schema and checksum; a human reviews.
-3. Once merged, every Cortex instance can browse and install your app from
-   its admin panel.
+**Publish to the ecosystem** — the release flow, exactly:
+
+1. Commit + push everything. Releases are cut from a clean tree so the
+   artifact is reproducible from the tagged source.
+2. Build the artifact from that source and record its digest:
+
+   ```bash
+   npm run package                        # → {id}-{version}.zip (validates first)
+   sha256sum {id}-{version}.zip           # the digest goes in release notes + listing
+   ```
+
+3. Create a tagged GitHub release with the zip attached (tag `v{version}`,
+   matching `app.json`):
+
+   ```bash
+   gh release create v1.0.0 my-app-1.0.0.zip \
+     --title "My App v1.0.0" \
+     --notes "…what it does, install hint, and the sha256…"
+   ```
+
+4. Sanity-check the published artifact — the registry pins it by digest:
+
+   ```bash
+   curl -sL https://github.com/you/my-app/releases/download/v1.0.0/my-app-1.0.0.zip \
+     | sha256sum   # must equal step 2
+   ```
+
+5. PR to `github.com/mocaOS/cortex-registry`: add
+   `apps/{your-id}/listing.json` — your `app.json` verbatim plus the
+   artifact block `{url, sha256, size}` from steps 2-4 (see the registry
+   README for the template). CI re-downloads the artifact and re-verifies
+   the checksum; a human reviews.
+6. Once merged, every Cortex instance can browse and install your app from
+   its admin panel. New version = new release (steps 1-4) + a PR bumping
+   your listing's `app.version` + artifact block. Never re-upload a
+   different zip under an existing tag — the pinned digest is the trust
+   anchor.
 
 ## Pre-ship checklist
 
