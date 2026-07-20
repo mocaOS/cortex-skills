@@ -151,7 +151,7 @@ export const skills: Skill[] = [
     slug: "apps",
     name: "Apps",
     description:
-      "App ecosystem — YouTube Importer, Web Crawler, Notion Sync, Slack Archive Importer, Research Dashboard, API Playground, and custom builds.",
+      "Web apps that run INSIDE a Cortex instance — sha256-verified registry installs, the sandbox/proxy security model, platform capabilities (server-side http, storage, scheduled tasks, LLM), share links, and the first-party apps (Paperless Sync, YT Transcriber).",
     icon: "LayoutGrid",
     category: "ecosystem",
   },

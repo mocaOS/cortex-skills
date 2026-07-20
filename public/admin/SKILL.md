@@ -253,6 +253,23 @@ Monetized public keys (`cortex_pub_`) are minted via `POST /api/admin/api-keys` 
 
 ---
 
+## Apps (in-instance app hosting)
+
+When the instance sets `ENABLE_APPS=true`, sandboxed web apps can be installed and hosted by the instance itself (each gets a dedicated scoped key applied by a proxy — never exposed to the browser). All routes 404 while the flag is off. Building an app: fetch the [builder/app skill](../builder/app/SKILL.md); installing/operating:
+
+| Method | Endpoint | Purpose |
+|--------|----------|---------|
+| `GET` | `/api/admin/apps` | Installed apps with scope/endpoints/config status |
+| `POST` | `/api/admin/apps/install` | Install/upgrade from a package zip (multipart `file`; optional `collections` CSV for user-selected scoping). Upgrades keep key, config, share links, storage, and tasks |
+| `GET` | `/api/admin/apps/registry` | The public catalog (`APP_REGISTRY_URL`) joined with local install state (`?refresh=true` busts the cache) |
+| `POST` | `/api/admin/apps/registry/install` | `{slug}` — downloads the release artifact, **verifies its pinned sha256 before unpacking**, then installs |
+| `PATCH` / `DELETE` | `/api/admin/apps/{id}` | Enable/disable · uninstall (revokes the app's minted key, stops its tasks) |
+| `GET`/`PUT` | `/api/admin/apps/{id}/config` | Config wizard values (secrets masked/encrypted, skill-style) |
+| `GET`/`POST`/`DELETE` | `/api/admin/apps/{id}/grants[/{gid}]` | Share-link grants (revocation kills issued tokens) |
+| `GET`/`PATCH`/`DELETE` | `/api/admin/apps/{id}/tasks[/{tid}]` | Oversight of the app's background tasks (`{action: pause\|resume\|cancel\|retryFailed\|runNow}`) |
+
+---
+
 ## Skill Files
 
 | File | Description |

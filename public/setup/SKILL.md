@@ -407,6 +407,24 @@ CRAWL_CONCURRENCY=5
 CRAWL_MAX_URLS_PER_JOB=100
 ```
 
+### Apps — In-Instance App Hosting (Optional)
+
+Host self-contained web apps inside the instance — installed from a zip or from the public registry, sandboxed, with least-privilege API access. Building one? Fetch the [builder/app skill](../builder/app/SKILL.md).
+
+```bash
+ENABLE_APPS=true                  # Master switch (default false: all app routes 404)
+APPS_DIR=.agents/apps             # Bundles + per-app storage + task state (persist as a volume)
+APP_REGISTRY_URL=https://raw.githubusercontent.com/mocaOS/cortex-registry/main/index.json
+                                  # The Browse Registry catalog; fork it to curate, empty to hide
+APP_MAX_PACKAGE_MB=50
+APP_TOKEN_TTL_SECONDS=900
+APP_HTTP_TIMEOUT=30               # Platform apps' server-side external calls
+APP_STORAGE_MAX_MB=50             # Per-app KV quota (+ APP_STORAGE_MAX_VALUE_KB=1024)
+APP_TASKS_GLOBAL_CONCURRENCY=8    # Cross-app cap on background task items
+                                  # (more APP_TASK_* caps: items, per-task concurrency,
+                                  #  schedule floor, llm calls/run, step output size)
+```
+
 ### x402 Payments (Optional)
 
 Monetize the retrieval endpoints with pay-per-query micropayments. See the [x402 skill](../x402/SKILL.md).
