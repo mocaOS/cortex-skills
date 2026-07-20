@@ -50,7 +50,7 @@ Returns aggregate counts for all graph data.
 
 **There is no `POST /api/admin/login` or `POST /api/admin/logout` HTTP endpoint** — you cannot `curl` a login.
 
-Web-UI login is a **Next.js server action** (`frontend/src/lib/auth.ts`, `"use server"`), not an API route. It validates the submitted email/password against the `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars in the frontend layer, sets an HTTP-only session cookie (via the Next.js session layer, not the FastAPI backend), and returns the `ADMIN_API_KEY` value for the client to store. Logout clears the cookie through the same layer.
+Web-UI login is a **Next.js server action** (`frontend/src/lib/auth.ts`, `"use server"`), not an API route. It validates the submitted email/password against the `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars in the frontend layer, sets an HTTP-only session cookie (via the Next.js session layer, not the FastAPI backend), and returns the `ADMIN_API_KEY` value for the client to store. Logout clears the cookie through the same layer. If either env var is missing in the frontend container, login answers "Admin authentication not configured" (no silent `admin@example.com` fallback); over plain HTTP set `SESSION_COOKIE_SECURE=false` or browsers silently drop the session cookie.
 
 **For programmatic/API access, skip login** and pass the `ADMIN_API_KEY` value directly as the `X-API-Key` header.
 

@@ -291,8 +291,9 @@ Separate from API key auth. Used by the Next.js web UI for human users.
 
 **There is no `POST /api/auth/login` (or `/api/admin/login`) HTTP endpoint** — you cannot `curl` a login. Login is a **Next.js server action** (`frontend/src/lib/auth.ts`, `"use server"`), not an API route:
 
-- The action validates the submitted `email` / `password` against the `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars in the frontend layer.
+- The action validates the submitted `email` / `password` against the `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars in the frontend layer. If either is missing in the frontend container, login answers "Admin authentication not configured" — there is no silent `admin@example.com` fallback.
 - On success it sets an HTTP-only session cookie (set by the Next.js session layer, **not** the FastAPI backend) and returns the `ADMIN_API_KEY` value to the client for subsequent API calls.
+- The cookie carries the `Secure` flag by default in production builds; over plain HTTP browsers silently drop it (login bounces back to `/login` with no error). `SESSION_COOKIE_SECURE=false` (runtime env var) disables the flag for TLS-less setups.
 - Logout clears that cookie through the same server-action layer.
 
 **Session Details:**

@@ -177,6 +177,11 @@ The web UI uses session-based auth for human users, completely separate from API
 
 Login is a **Next.js server action** (`frontend/src/lib/auth.ts`, marked `"use server"`). It runs in the frontend layer: it validates the submitted email/password against the `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars, sets an HTTP-only session cookie (the Next.js session layer sets this, not the FastAPI backend), and returns the `ADMIN_API_KEY` value, which the client stores for subsequent API calls. Logout clears that cookie via the same server-action layer.
 
+Two failure modes worth knowing when diagnosing login:
+
+- **Missing `ADMIN_EMAIL`/`ADMIN_PASSWORD` in the frontend container** → login answers "Admin authentication not configured" and the startup log names the missing variable. There is no silent `admin@example.com` code fallback (removed — it used to mask env-file load failures as "Invalid email or password"); the compose files default `ADMIN_EMAIL` visibly at the env layer.
+- **Dashboard served over plain HTTP** → the session cookie's `Secure` flag (default on in production builds) makes browsers silently drop it, so login bounces straight back to `/login` with no error. `SESSION_COOKIE_SECURE=false` (runtime env var) disables the flag for TLS-less setups.
+
 ### Programmatic (non-browser) access
 
 You do not log in for API access. Use the `ADMIN_API_KEY` value directly as the header:

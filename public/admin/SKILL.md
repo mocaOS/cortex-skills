@@ -51,7 +51,7 @@ The web UI uses session-based auth, separate from API keys. **There is no `/api/
 
 ### Login / Logout (web UI)
 
-Login is a **Next.js server action** (`frontend/src/lib/auth.ts`, `"use server"`), not an API route. It validates the submitted email/password against the `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars in the frontend layer, sets an HTTP-only session cookie (via the Next.js session layer, not the FastAPI backend), and returns the `ADMIN_API_KEY` for the client to store. Logout clears the cookie through the same layer.
+Login is a **Next.js server action** (`frontend/src/lib/auth.ts`, `"use server"`), not an API route. It validates the submitted email/password against the `ADMIN_EMAIL` / `ADMIN_PASSWORD` env vars in the frontend layer, sets an HTTP-only session cookie (via the Next.js session layer, not the FastAPI backend), and returns the `ADMIN_API_KEY` for the client to store. Logout clears the cookie through the same layer. If either env var is missing in the frontend container, login answers "Admin authentication not configured" (no silent `admin@example.com` fallback); over plain HTTP set `SESSION_COOKIE_SECURE=false` or browsers silently drop the session cookie.
 
 ### Programmatic access
 

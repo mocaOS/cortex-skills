@@ -376,6 +376,10 @@ docker compose build --no-cache frontend && docker compose up -d --force-recreat
 
 (The hermes skill's `cortex.sh setup` does all of this for you when you pass `host=<lan-ip-or-domain>`.)
 
+3. Serving the dashboard over **plain HTTP** (no TLS termination in front)? The session cookie carries the `Secure` flag by default in production builds, and browsers silently drop `Secure` cookies over HTTP — login succeeds server-side but immediately bounces back to `/login` with no error. Set `SESSION_COOKIE_SECURE=false` in `.env` (read at container runtime — no rebuild) for the TLS-less interim, and remove it once HTTPS is in front.
+
+Related: if the frontend container starts **without** `ADMIN_EMAIL`/`ADMIN_PASSWORD` (wrong `--env-file` path, secrets not wired), login answers "Admin authentication not configured" and the server log names the missing variable at startup — there is no silent `admin@example.com` fallback in the code (the compose files supply that default visibly at the env layer).
+
 ### Git Integration (Optional)
 
 Connect GitHub/GitLab/Gitea repos as a knowledge source. See the [git-integration skill](../git-integration/SKILL.md).
@@ -515,6 +519,15 @@ lsof -i :3000   # Frontend
 lsof -i :8000   # Backend
 lsof -i :7687   # Neo4j
 ```
+
+### Login fails or silently bounces back
+
+Two distinct symptoms, two distinct causes:
+
+- **"Admin authentication not configured"** — the frontend container is missing `ADMIN_EMAIL` or `ADMIN_PASSWORD` (typical cause: `--env-file` pointing at the wrong path, or secrets not wired into a standalone deployment). Verify with `docker exec <frontend-container> printenv ADMIN_EMAIL`; the startup log also names the missing variable.
+- **Form empties and returns to `/login` with no error** — you are serving over plain HTTP and the browser is dropping the `Secure` session cookie. Set `SESSION_COOKIE_SECURE=false` (see [Self-host on a LAN/remote box](#self-host-on-a-lanremote-box)) or put TLS in front.
+
+A plain **"Invalid email or password"** with both of the above ruled out means exactly what it says — the submitted credentials don't match the container's `ADMIN_EMAIL`/`ADMIN_PASSWORD`.
 
 ### Neo4j connection failed
 

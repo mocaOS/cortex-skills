@@ -16,10 +16,11 @@ These must be set for Cortex to start.
 | `NEO4J_USER` | `string` | -- | Neo4j username. Typically `neo4j`. |
 | `NEO4J_PASSWORD` | `string` | -- | Neo4j password. Must be a strong, unique value in production. |
 | `OPENAI_API_KEY` | `string` | -- | API key for the primary LLM provider. Despite the name, any OpenAI-compatible endpoint works (Anthropic via LiteLLM, local Ollama, etc.). |
-| `ADMIN_EMAIL` | `string` | -- | Email address for the admin account used to log into the frontend web UI. |
+| `ADMIN_EMAIL` | `string` | -- | Email address for the admin account used to log into the frontend web UI. No silent code-level default: if unset in the frontend container, login answers "Admin authentication not configured" (the compose files supply `admin@example.com` as a visible env-level fallback). |
 | `ADMIN_PASSWORD` | `string` | -- | Password for the admin frontend login. Use a strong, unique value. |
 | `ADMIN_API_KEY` | `string` | -- | Root admin API key, created at startup. Must start with `cortex_admin_`. This is the only way to create the admin key -- it cannot be created through the API. |
 | `SESSION_SECRET` | `string` | -- | Secret used to sign JWT session tokens for frontend auth. Must be at least 32 characters. Generate with `openssl rand -base64 32`. |
+| `SESSION_COOKIE_SECURE` | `bool` | secure in production builds | `Secure` flag on the admin session cookie, read at container runtime (`true`/`false`). Set `false` only when serving the dashboard over plain HTTP (no TLS in front) — browsers silently drop `Secure` cookies on HTTP, making login appear to do nothing. |
 
 ---
 
