@@ -193,6 +193,19 @@ by the instance — your app still ships zero server code.
   declared host, leaking one service's key to another. `npm run validate`
   warns about this.
 
+  **Basic auth? Never make users hand-encode base64.** An auth_header
+  template may reference ANY config var by name and wrap parts in
+  `base64(...)`, evaluated server-side after substitution:
+
+  ```jsonc
+  { "name": "NC_APP_PASSWORD", "type": "secret",
+    "auth_header": "Authorization: Basic base64(NC_USER:NC_APP_PASSWORD)" }
+  ```
+
+  Users paste a plain login + app password; the header is assembled and
+  encoded inside the instance. (Field lesson: a manual "encode this
+  yourself" step produced corrupted credentials immediately.)
+
 - **Config read (implicit, no declaration):** `GET ./api/platform/config`
   returns the app's NON-secret config values (`{"values": {...}}`) — e.g.
   read `SERVICE_BASE_URL` for display/backlinks. Secret-typed values never

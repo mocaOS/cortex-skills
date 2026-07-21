@@ -25,6 +25,9 @@ steps). The template's `src/lib/platform.ts` wraps every endpoint below.
   // …OR a fan-out over a setup step's output:
   "items": {
     "from": "$setup.docs.items",             // must resolve to a list
+    // OR "fromEach": ["$f0.items", "$f1.items"],  // several listings (e.g.
+    //    one webdav step per selected folder), concatenated into one pool;
+    //    a "when"-skipped listing resolves to null and is just ignored
     "vars": { "id": "{item.id}" },           // templates over each element
     "limit": 500,                            // optional
     "skipIfStored": "synced/{item.id}"       // dedup: drop elements whose key exists in storage
@@ -68,6 +71,11 @@ resolves to null).
     "body": { "any": "json or $ref" },       // optional; string or JSON
     "contentType": "application/json",       // optional
     "responseType": "json",                  // "json" | "text" (default: by content-type)
+    "auth": { "bearer": "$tok.body.access_token" },  // optional: dynamic credential
+                                              // minted DURING the run (OAuth refresh) —
+                                              // overrides config auth for this request;
+                                              // also {"basic": <ref/template>}. Config
+                                              // secrets are untemplatable → can't leak.
     "paginate": {                             // optional: follow-the-next-link
       "items": "results",                    // path to the page's item list
       "next": "next",                        // path to the next-page URL (absolute)
@@ -83,6 +91,27 @@ With `paginate`: `{status, items: [...all pages...], pages, map?}` — `map`
 re-checked against the manifest host allowlist + SSRF guard; secrets are
 injected from config `auth_header` vars, never from your JSON.
 
+### `webdav` — PROPFIND folder listing (capability `http`)
+
+```jsonc
+{ "id": "listing", "webdav": {
+    "url": "{config.BASE_URL}/remote.php/dav/files/{config.USER}/{vars.path}",
+    "depth": 1,                               // 0 | 1 | "infinity" (default 1)
+    "filter": "files",                        // optional: "files" | "dirs"
+    "auth": { "basic": "…" }                  // optional, as http.auth; config
+                                              // auth_header vars inject as usual
+} }
+```
+
+Same gates as http steps (host allowlist, SSRF guard, config auth). The
+multistatus XML is parsed server-side — the DSL has no XML vocabulary —
+into `{status, items, count}` where each item is `{href, name, etag,
+lastModified (ISO), size, contentType, isDir, fileId?}` (`fileId` on
+Nextcloud/ownCloud). The requested folder's own entry is dropped. ETags
+come unquoted (`W/` stripped) — compare them directly against stored state.
+Interactive folder browsers use the same PROPFIND via the platform http
+envelope and parse the XML in the browser (DOMParser).
+
 ### `cortex` — instance API calls
 
 ```jsonc
@@ -95,12 +124,24 @@ injected from config `auth_header` vars, never from your JSON.
       "filename": "doc-{vars.id}.md",
       "field": "file",                        // default "file"
       "contentType": "text/markdown"          // default
+    },
+    // OR binary passthrough (capability `http`): fetch → upload, the bytes
+    // never enter step context (PDFs/images/docx survive intact):
+    "multipart": {
+      "fromUrl": "{config.BASE_URL}/remote.php/dav/files/{config.USER}{vars.href}",
+      "method": "GET",                        // GET (default) | POST
+      "headers": { "Dropbox-API-Arg": "…" },  // optional, denylist-filtered
+      "auth": { "bearer": "$tok.body.access_token" },  // optional, as http.auth
+      "filename": "{vars.name}",
+      "contentType": "application/pdf"        // default: upstream's content-type
     }
 } }
 ```
 
 Same allowlist as your browser calls — a task cannot reach endpoints the
-manifest didn't declare. Output: `{status, body}`.
+manifest didn't declare. Output: `{status, body}`. The fromUrl fetch passes
+the same http gates (host allowlist, SSRF guard, 20 MB cap) and fails the
+step on a non-2xx fetch.
 
 ### `llm` — instance-model completions (capability `llm`)
 
@@ -194,6 +235,7 @@ Escape literal braces as `{{` `}}`. Filters:
 |---|---|
 | `slug` | lowercase, non-alphanumerics → `-`, ≤60 chars (`untitled` fallback) |
 | `lower` / `upper` / `trim` | the obvious |
+| `ext` | lowercase file extension, no dot; `""` when none — type-filter listings without MIME types: `{"contains": [" pdf docx md ", " {vars.name\|ext} "]}` (space-padded exact match) |
 | `default:X` | X when the value is null/empty |
 | `urlencode` | percent-encode (use on cursor values in URLs) |
 | `json` | JSON-serialize |
@@ -274,8 +316,9 @@ conditional skip, name joins, markdown, upload, cursor write:
 ## When the DSL is not enough
 
 No loops beyond pagination/chunking/fan-out, no arbitrary code, no binary
-payloads (multipart builds from text — enough for markdown/JSON/CSV
-uploads). Orchestration you can't express declaratively runs client-side
+data in step context (binary flows only through `multipart.fromUrl`, which
+streams fetch → upload server-side). Orchestration you can't express
+declaratively runs client-side
 when composing the item list — the *execution* is what survives the closed
 tab. If your app's server logic genuinely can't fit these shapes, it's a
 `type: "service"` app (own container).
