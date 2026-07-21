@@ -218,6 +218,19 @@ by the instance — your app still ships zero server code.
     "auth_header": "Authorization: Bearer google_sa_token(GDRIVE_SA_KEY, https://www.googleapis.com/auth/drive.readonly)" }
   ```
 
+  **Microsoft 365 / SharePoint? App-only client credentials.** The
+  `ms_graph_token(TENANT_VAR, CLIENT_ID_VAR, SECRET_VAR)` transform mints
+  app-only Graph tokens server-side (client-credentials grant, endpoint
+  pinned to login.microsoftonline.com, cached). Pair with the Sites.Selected
+  application permission so the app sees only explicitly granted sites; add
+  `auth_host` so the token is injected only on Graph calls:
+
+  ```jsonc
+  { "name": "ENTRA_CLIENT_SECRET", "type": "secret",
+    "auth_header": "Authorization: Bearer ms_graph_token(ENTRA_TENANT_ID, ENTRA_CLIENT_ID, ENTRA_CLIENT_SECRET)",
+    "auth_host": "graph.microsoft.com" }
+  ```
+
 - **Config read (implicit, no declaration):** `GET ./api/platform/config`
   returns the app's NON-secret config values (`{"values": {...}}`) — e.g.
   read `SERVICE_BASE_URL` for display/backlinks. Secret-typed values never
