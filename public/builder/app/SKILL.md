@@ -206,6 +206,18 @@ by the instance — your app still ships zero server code.
   encoded inside the instance. (Field lesson: a manual "encode this
   yourself" step produced corrupted credentials immediately.)
 
+  **Google APIs? Use a service account — no OAuth flow at all.** An
+  auth_header may carry `google_sa_token(VAR, <scope> [scope…])`: the var
+  holds a service-account JSON key (secret), and the instance mints and
+  caches short-lived access tokens from it server-side (RS256 JWT +
+  exchange, token_uri pinned to Google). Users share Drive folders with the
+  service account's email; the task holds no credentials:
+
+  ```jsonc
+  { "name": "GDRIVE_SA_KEY", "type": "secret",
+    "auth_header": "Authorization: Bearer google_sa_token(GDRIVE_SA_KEY, https://www.googleapis.com/auth/drive.readonly)" }
+  ```
+
 - **Config read (implicit, no declaration):** `GET ./api/platform/config`
   returns the app's NON-secret config values (`{"values": {...}}`) — e.g.
   read `SERVICE_BASE_URL` for display/backlinks. Secret-typed values never

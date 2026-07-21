@@ -86,8 +86,10 @@ resolves to null).
 ```
 
 Output without `paginate`: `{status, body}` (non-2xx fails the step).
-With `paginate`: `{status, items: [...all pages...], pages, map?}` — `map`
-(from `keyBy`) enables name joins via dynamic lookups (below). Every page is
+With `paginate`: `{status, items: [...all pages...], pages, last, map?}` —
+`last` is the FINAL page's body (cursor-style APIs put the continuation
+token there: Graph delta's `@odata.deltaLink`), and `map` (from `keyBy`)
+enables name joins via dynamic lookups (below). Every page is
 re-checked against the manifest host allowlist + SSRF guard; secrets are
 injected from config `auth_header` vars, never from your JSON.
 
@@ -106,8 +108,9 @@ injected from config `auth_header` vars, never from your JSON.
 Same gates as http steps (host allowlist, SSRF guard, config auth). The
 multistatus XML is parsed server-side — the DSL has no XML vocabulary —
 into `{status, items, count}` where each item is `{href, name, etag,
-lastModified (ISO), size, contentType, isDir, fileId?}` (`fileId` on
-Nextcloud/ownCloud). The requested folder's own entry is dropped. ETags
+lastModified (ISO), size, contentType, isDir, fileId}` (`fileId` is the
+server's stable id on Nextcloud/ownCloud, or a deterministic href hash on
+generic WebDAV servers — always present, always storage-key-safe). The requested folder's own entry is dropped. ETags
 come unquoted (`W/` stripped) — compare them directly against stored state.
 Interactive folder browsers use the same PROPFIND via the platform http
 envelope and parse the XML in the browser (DOMParser).
@@ -132,6 +135,11 @@ envelope and parse the XML in the browser (DOMParser).
       "method": "GET",                        // GET (default) | POST
       "headers": { "Dropbox-API-Arg": "…" },  // optional, denylist-filtered
       "auth": { "bearer": "$tok.body.access_token" },  // optional, as http.auth
+      "followRedirect": true,                 // optional: follow ONE 302 — for APIs
+                                              // that hand out bytes via pre-authenticated
+                                              // URLs on variable hosts (Graph /content).
+                                              // https+public targets only; NO headers
+                                              // are forwarded to the redirect target
       "filename": "{vars.name}",
       "contentType": "application/pdf"        // default: upstream's content-type
     }
@@ -223,7 +231,10 @@ skippedCount`) · `config` (NON-secret config values only — secrets are never
 templatable) · `item` (fan-out element) · `chunk` (inside chunked llm
 prompts).
 
-**Refs** — `"$path.to.value"` resolves the raw value (any type):
+**Refs** — `"$path.to.value"` resolves the raw value (any type). Keys that
+themselves contain dots (OData's `@odata.nextLink`) match literally when the
+remaining path exists as one key at that level —
+`"$delta.last.@odata.deltaLink"` works. Same in `paginate` paths:
 `"$setup.docs.items"`, `"$full.body.content"`, array indexes as numeric
 segments (`"$setup.docs.items.0.added"`).
 
