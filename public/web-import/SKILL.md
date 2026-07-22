@@ -11,7 +11,7 @@ description: Use this skill when importing web pages into Cortex as clean markdo
 
 2. **The feature is hidden unless both the switch AND the service URL are set.** The Web Import option appears in the split **Upload** button dropdown on the **Documents** page only when `ENABLE_WEB_CRAWL=true` AND `CRAWL_SERVICE_URL` is set.
 
-3. **Imported pages become real documents.** Harvested markdown is chunked, embedded, and run through entity/relationship extraction like any uploaded file — it shows up in Search, Ask AI, the knowledge graph, and communities.
+3. **Imported pages become real documents — one per site, not one per URL.** All pages crawled from the same domain in a job are aggregated into a single markdown document (titled and filed by the domain, e.g. `example.com.md`), each page a `## section` with its own `> Source:` line. That whole document is chunked, embedded, and run through entity/relationship extraction like any uploaded file, so a site's subpages read as one related work in Search, Ask AI, the knowledge graph, and communities. A job spanning several domains yields one document per domain.
 
 4. **You printed a web page to PDF and uploaded that instead.** Don't. Web Import lands the page as clean markdown that ingests instantly; a print-to-PDF of the same page goes through per-page ML layout analysis (~1 s/page) and produces worse structure. If Web Import isn't enabled, save the page as HTML or Markdown and upload that — still no ML pipeline involved.
 
@@ -58,7 +58,7 @@ It uses a headless browser pool (~4 GB RAM). A single instance can serve many Co
 2. **Discover links** (optional) — enter a single page URL; Cortex returns same-site links with checkboxes so you can pick which to import.
 3. Choose a **content filter** (see below).
 4. Optionally select a collection.
-5. Start the import — a progress bar tracks crawl + processing and shows imported/failed counts.
+5. Start the import — a progress bar tracks the crawl. The import **completes as soon as the per-domain documents are staged** (it reports pages imported + documents created + any failures); extraction and graph-building then continue in the background on the Documents page as a normal processing task you can watch. It does not block on the full pipeline.
 
 ## Content Filters
 
@@ -70,18 +70,24 @@ It uses a headless browser pool (~4 GB RAM). A single instance can serve many Co
 
 ## Provenance Header
 
-Every imported page is prefixed with its source so citations stay traceable:
+Each per-domain document is titled by its domain and opens with a site header, then one section per page recording that page's source URL — so citations stay traceable:
 
 ```markdown
-# Page title
+# example.com
 
-> Source: https://example.com/the-page
-> Extracted: 2026-06-22
+> Source site: example.com
+> Pages: 3
+> Extracted: 2026-07-22
 
 ---
 
+## Page title
+> Source: https://example.com/the-page
+
 …clean markdown…
 ```
+
+A single-page import uses a simpler header (`# example.com` + `> Source: …`) but is still filed by the domain. **Contributor attribution:** `POST /api/web-import` accepts an optional `submitted_by` — when set, each document's `source` becomes `crawl:<domain> community:<id>` (otherwise just `crawl:<domain>`).
 
 ## Configuration
 
