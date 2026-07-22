@@ -173,6 +173,7 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 ### Ecosystem
 
 - `cortexskills.org/hermes/SKILL.md` — **Long-term memory for the Hermes agent** (nousresearch.com). Installs as `/cortex`; "dump your session into your cortex" to save, "check your cortex for X" to recall. Connect to a cloud instance or self-host on your existing OpenRouter/Venice keys.
+- `cortexskills.org/memory-hygiene/SKILL.md` — **Migrate a full local memory file into Cortex**: which entries stay local (routing facts) vs go to Cortex (episodic), synthesize → save → verify recall → shrink to pointers. For any agent with a MEMORY.md-style working memory.
 - `cortexskills.org/mcp/SKILL.md` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
 - `cortexskills.org/integration/SKILL.md` — Connect Cortex to LangChain, CrewAI, MCP, Slack, automation platforms, and more.
 - `cortexskills.org/apps/SKILL.md` — Source and workflow apps (YouTube, Notion, Web Crawler).

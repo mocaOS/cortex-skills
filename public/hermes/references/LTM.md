@@ -124,6 +124,34 @@ Tracked in `~/.hermes/skills/state/cortex/uploaded.json` by absolute path → SH
 
 ---
 
+## Memory hygiene — when working memory is full
+
+Sync (above) *copies* memory into your cortex. Hygiene is the other direction: **shrinking** `MEMORY.md` when it nears its ~800-token budget, or when the user says "free up memory" / "clean up your memory". The budget is tiny by design, so the steady state to aim for:
+
+> `MEMORY.md` holds the **router** — service endpoints, connected cortex sources, the "your cortex = …" routing entry, hard conventions — plus one-line pointers. Everything episodic lives in your cortex.
+
+This generalizes the routing-entry trick from the main skill: the native memory routes, the cortex remembers.
+
+**Decision rule per entry:** *will the next turn need this to route a tool call or pick a model?* Yes → it stays. No → it migrates.
+
+### The flow (order matters — nothing is deleted until recall is verified)
+
+1. **Cluster and synthesize.** Group migrating entries by topic and write one cohesive note per cluster to the outbox (conventions above). Don't copy entries verbatim — five pasted fragments recall as five partial answers; one synthesized doc recalls as one.
+2. **Pre-flight.** `cortex.sh status`, and don't start a migration into a backlogged instance (`GET /api/documents?status=pending` should be empty or draining).
+3. **Save** each note — `cortex.sh save <note>` — and keep the `document_id`s. Then `cortex.sh wait <doc_id>`: an upload that returned 200 can still fail extraction.
+4. **Verify recall before touching memory.** `check` a question each migrated fact should answer and confirm the new note comes back cited. If it doesn't, stop — leave `MEMORY.md` as is and say so.
+5. **Shrink.** Delete pure-archive entries; turn still-referenced ones into one-line pointers:
+
+   ```
+   → plugin bugs: see cortex doc `topic-plugin-bugs.md`. Recall: "check your cortex for plugin bugs".
+   ```
+
+6. **Report the ledger** — what landed where (filenames + doc ids), memory before/after, what survived locally, anything that failed verification and stayed.
+
+For the platform-generic version of this procedure (bigger memory files, anchor-based memory tools and their escaping traps), fetch the [memory-hygiene skill](https://cortexskills.org/memory-hygiene/SKILL.md).
+
+---
+
 ## Heartbeat cadence
 
 If your agent runs long-lived (gateway sessions, cron), sync on a heartbeat rather than constantly.

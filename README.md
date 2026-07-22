@@ -55,6 +55,7 @@ For a complete index, point your agent to the root:
 
 ### Ecosystem
 * `/hermes` — Long-term memory for the Hermes agent (nousresearch.com). Installs as `/cortex`; dump sessions and recall them via natural language.
+* `/memory-hygiene` — Migrate a full local MEMORY.md into a Cortex collection: stay/go heuristic, verify-before-delete procedure, outbox template. Pairs with `/cortex`.
 * `/mcp` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP client. The server itself lives in this repo under [`mcp-server/`](mcp-server/).
 * `/integration` — LangChain, CrewAI, MCP, Slack, Webhooks.
 * `/apps` — Source and workflow apps (YouTube, Notion).

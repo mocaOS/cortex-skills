@@ -25,6 +25,7 @@ Curated skill files that teach AI agents how to build on the Cortex intelligence
 
 ### Ecosystem
 - `cortexskills.org/hermes/SKILL.md` — Long-term memory for the Hermes agent: install as /cortex, "dump your session into your cortex" / "check your cortex for X". Cloud or self-host on existing OpenRouter/Venice keys. Ships a native memory-provider plugin (`hermes/plugin/`) for ambient recall + first-class tools.
+- `cortexskills.org/memory-hygiene/SKILL.md` — Migrate a full local MEMORY.md into a Cortex collection: stay/go heuristic, verify-before-delete, pointer entries. For any agent platform.
 - `cortexskills.org/mcp/SKILL.md` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP client.
 - `cortexskills.org/integration/SKILL.md` — LangChain, CrewAI, MCP, Slack, automation platforms.
 - `cortexskills.org/apps/SKILL.md` — Web apps that run INSIDE a Cortex instance: registry installs (sha256-verified), sandbox/proxy model, platform capabilities, share links, first-party apps.

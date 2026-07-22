@@ -7,9 +7,11 @@ description: >
   skill — it is a separate external store, NOT MEMORY.md and NOT the built-in memory
   tool — including "dump your session into
   your cortex", "check/ask/search your cortex for X", "what's in your cortex / what
-  have you saved" (exact doc list), "show me that note", "forget that note", and
-  "ask the community cortex about X". Built for the Hermes agent (nousresearch.com).
-version: 1.1.0
+  have you saved" (exact doc list), "show me that note", "forget that note",
+  "ask the community cortex about X", and "free up / clean up your memory"
+  (migrate MEMORY.md overflow into your cortex). Built for the Hermes agent
+  (nousresearch.com).
+version: 1.2.0
 license: MIT
 platforms: [macos, linux]
 metadata:
@@ -312,6 +314,7 @@ Your human doesn't see the API calls; they see what you say back. Cortex should 
 - **Cite by default, and be ready when they ask.** `check`/`ask` return a numbered `sources:` footer that lines up with the `[src_N]` markers in the answer. Surface it — even a compact "(source: `decision-notes.md`)" builds trust. When the human asks **"cite your sources"**, **"where's that from?"**, **"which doc?"**, or **"how do you know?"**, resolve each `[src_N]` to its filename/doc from the footer you already have — don't re-query. For the exact wording behind a claim, `search` that claim and quote the chunk; to hand over the whole document, reference its doc id. If an answer has *no* sources, say so plainly rather than implying confidence.
 - **Offer to save at natural boundaries.** When a task wraps, a decision lands, or something non-obvious is learned, ask: "Want me to dump this into your cortex so we don't lose it?" Don't make them remember to remember.
 - **Answer inventory questions from `list`, not from synthesis.** "What do you remember?" deserves the true count and the actual filenames — `check` will happily tell your human "that's the whole corpus" while missing half of it. Run `list`, then group/describe the docs yourself.
+- **A memory cleanup ends with a ledger, not a "done".** After migrating `MEMORY.md` entries into the cortex (see [references/LTM.md](references/LTM.md) → *Memory hygiene*), report what landed where (filenames + doc ids), memory usage before/after, and which entries stayed local — and never delete an entry before its content is verified recallable.
 - **"Forget that" deserves the same care as "remember this."** When they ask you to delete something, `list` to find the doc, confirm which one you mean (filename + date), `forget` it, and give the receipt the helper prints. If several docs could match, ask before deleting.
 - **Check before you answer from memory.** If they ask something that plausibly lives in past work or a connected community/company cortex, `check` it *first* and answer grounded + cited, instead of guessing. "Let me check your cortex" is a good opening move.
 - **"Catch me up."** When they return cold, combine tiers: `session_search` for recent verbatim context + `cortex check`/`search` for synthesized history + `MEMORY.md`/`USER.md` for standing facts — then give a short briefing (what we worked on, decided, and left open). Say what's *empty* too, so they know the gaps.
@@ -359,7 +362,7 @@ Rule of thumb: plugin for your **personal** cortex (ambient), this skill for **n
 | File | What's in it |
 |------|--------------|
 | [references/CONNECT.md](references/CONNECT.md) | Both connection paths in depth: cloud key, self-host Docker, and mapping your OpenRouter/Venice keys onto Cortex's LLM + embedding env vars |
-| [references/LTM.md](references/LTM.md) | The long-term-memory playbook: session-dump patterns, memory-file sync, collection strategy, heartbeat cadence, dedup, and troubleshooting |
+| [references/LTM.md](references/LTM.md) | The long-term-memory playbook: session-dump patterns, memory-file sync, memory hygiene (shrinking a full MEMORY.md into cortex pointers), collection strategy, heartbeat cadence, dedup, and troubleshooting |
 | [plugin/README.md](plugin/README.md) | The memory-provider plugin: Cortex as native ambient Hermes memory (prefetch + first-class tools), install and activation |
 
 ## Beyond memory — the rest of Cortex
