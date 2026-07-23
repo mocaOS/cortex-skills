@@ -38,6 +38,9 @@ metadata:
         scripts/cortex.sh with `sync` to push changed memory files and outbox
         notes to your personal cortex. Report only if something new was synced
         or the sync failed; stay silent otherwise.
+  openclaw:
+    requires:
+      bins: [jq, curl]
 ---
 
 # Cortex — Long-Term Memory for Hermes
@@ -53,6 +56,8 @@ metadata:
 > It installs as `/cortex`. Then set `CORTEX_BASE_URL` + `CORTEX_API_KEY` in `~/.hermes/.env` (see Connect).
 >
 > Why curl and not `hermes skills install mocaOS/cortex-skills/public/hermes`? Hermes' skill scanner hard-blocks third-party skills that send API keys over the network — which is this skill's entire job (`curl -H "X-API-Key: …"` against your own Cortex). The verdict is a false positive for any API-client skill, but it can't be overridden, so fetch the files directly and review them yourself — they're short.
+>
+> **Not running Hermes?** This skill follows the open SKILL.md standard and runs on other runtimes too — for **OpenClaw** (install path, env via `openclaw.json`, cron heartbeat, state-dir overrides) see [cortexskills.org/openclaw/SKILL.md](https://cortexskills.org/openclaw/SKILL.md). Hermes remains the deepest integration (native memory-provider plugin, secure env prompts, blueprint heartbeat).
 
 ## When to use
 

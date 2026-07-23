@@ -46,7 +46,11 @@
 #     "read_collection" field in sources.json (named sources).
 set -uo pipefail
 
-STATE="$HOME/.hermes/skills/state/cortex"
+# Runtime-agnostic: defaults assume Hermes, but nothing else here is
+# Hermes-specific. Other SKILL.md runtimes (e.g. OpenClaw) override:
+#   CORTEX_STATE_DIR   — where sources.json/upload-tracking live (absolute path)
+#   CORTEX_MEMORY_DIR  — the dir whose *.md files `sync` pushes
+STATE="${CORTEX_STATE_DIR:-$HOME/.hermes/skills/state/cortex}"
 SRCFILE="$STATE/sources.json"
 mkdir -p "$STATE"
 die(){ echo "cortex: $*" >&2; exit 1; }
@@ -530,6 +534,13 @@ EOF
       # named source instead of clobbering the existing connection.
       bash "$0" connect local "http://localhost:$BPORT" "$RWKEY" Hermes rw "self-hosted Cortex ($DIR)"
       echo "connected as named source 'local' (your env-configured personal cortex stays the default)."
+    elif [ ! -d "$HOME/.hermes" ]; then
+      # Non-Hermes runtime (e.g. OpenClaw) — don't create a stray ~/.hermes/.env.
+      # The named source carries the connection now; persisting CORTEX_* for
+      # future sessions is the runtime's job.
+      bash "$0" connect local "http://localhost:$BPORT" "$RWKEY" Hermes rw "your self-hosted long-term memory"
+      echo "connected as named source 'local' (key stored in $SRCFILE)."
+      echo "  persist for future sessions in your runtime's env config — OpenClaw: skills.entries.cortex.env in ~/.openclaw/openclaw.json (CORTEX_BASE_URL=http://localhost:$BPORT + the cortex_rw_ key from $SRCFILE)"
     else
       { echo ""; echo "# Cortex long-term memory (written by cortex.sh setup)"
         echo "CORTEX_BASE_URL=http://localhost:$BPORT"
@@ -559,8 +570,9 @@ EOF
     ;;
   sync)
     resolve; need_write; cid=$(collection_id)
+    MEMDIR="${CORTEX_MEMORY_DIR:-$HOME/.hermes/memories}"
     TRACK="$STATE/uploaded.json"; [ -f "$TRACK" ] || echo '{}' > "$TRACK"; shopt -s nullglob; n=0
-    for f in "$HOME/.hermes/memories/"*.md "$STATE/outbox/"*.md; do
+    for f in "$MEMDIR/"*.md "$STATE/outbox/"*.md; do
       [ -f "$f" ] || continue
       h=$(sha256sum "$f" | awk '{print $1}')
       [ "$h" = "$(jq -r --arg f "$f" '.[$f].sha256 // empty' "$TRACK")" ] && { echo "skip: $f"; continue; }
