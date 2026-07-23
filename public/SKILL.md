@@ -177,6 +177,6 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 - `cortexskills.org/memory-hygiene/SKILL.md` — **Migrate a full local memory file into Cortex**: which entries stay local (routing facts) vs go to Cortex (episodic), synthesize → save → verify recall → shrink to pointers. For any agent with a MEMORY.md-style working memory.
 - `cortexskills.org/mcp/SKILL.md` — MCP server for Claude Desktop, Cursor, Windsurf, and any MCP-compatible client.
 - `cortexskills.org/integration/SKILL.md` — Connect Cortex to LangChain, CrewAI, MCP, Slack, automation platforms, and more.
-- `cortexskills.org/apps/SKILL.md` — Source and workflow apps (YouTube, Notion, Web Crawler).
+- `cortexskills.org/apps/SKILL.md` — Web apps that run INSIDE a Cortex instance: registry installs (sha256-verified), sandbox/proxy model, platform capabilities, share links, and the first-party catalog (Paperless/Dropbox/Google Drive/OneDrive/SharePoint/Nextcloud/WebDAV sync, YT Transcriber).
 - `cortexskills.org/builder/SKILL.md` — **Build ON Cortex**: turn any software's docs into an installable skill (`builder/skill`), or build a web app that runs inside a Cortex instance (`builder/app`). Start here when the user wants a custom integration or interface.
 - `cortexskills.org/cortex-design/SKILL.md` — The Bold Typography design system for Cortex UIs.

@@ -48,8 +48,16 @@ declares and nothing more. Anyone can build one (see
 
 | App | What it does |
 |-----|--------------|
-| [**Paperless Sync**](https://github.com/mocaOS/cortex-app-paperless) | Syncs a paperless-ngx archive into the knowledge graph — on demand or on a schedule, fully server-side. Paperless already OCR'd everything; this ships the text as markdown, so documents become queryable knowledge in seconds instead of re-OCR minutes. |
-| [**YT Transcriber**](https://github.com/mocaOS/cortex-app-youtube-transcriber) | Turns YouTube videos and whole channels into clean transcripts inside the graph: Venice AI transcription → chunk-safe LLM cleanup with graph-entity name correction → markdown upload. Close the tab; the pipeline keeps running. |
+| [**Paperless Sync**](https://github.com/mocaOS/cortex-app-paperless) | Syncs a paperless-ngx archive into the knowledge graph — full original documents, on demand or on a schedule, fully server-side. Config: `PAPERLESS_BASE_URL` + `PAPERLESS_TOKEN`. |
+| [**Dropbox Sync**](https://github.com/mocaOS/cortex-app-dropbox) | Syncs selected Dropbox folders. OAuth PKCE against a scoped Dropbox app — `DROPBOX_APP_KEY` only, no app secret exists anywhere. |
+| [**Google Drive Sync**](https://github.com/mocaOS/cortex-app-gdrive) | Syncs Drive folders shared with a service account — no OAuth consent screens; short-lived tokens minted server-side. Config: `GDRIVE_SA_KEY` (full JSON key, encrypted) + `GDRIVE_SA_EMAIL` (the address users share folders with). |
+| [**OneDrive Sync**](https://github.com/mocaOS/cortex-app-onedrive) | Syncs OneDrive folders via Microsoft Graph **delta** — only new/changed files after the first run. Device-code sign-in; `ENTRA_CLIENT_ID` of a free public-client Entra registration, no secret. |
+| [**SharePoint Sync**](https://github.com/mocaOS/cortex-app-sharepoint) | Syncs SharePoint document libraries app-only via `Sites.Selected` — per-site admin grants, no user sign-in. Config: `ENTRA_TENANT_ID` + `ENTRA_CLIENT_ID` + `ENTRA_CLIENT_SECRET`. |
+| [**Nextcloud Sync**](https://github.com/mocaOS/cortex-app-nextcloud) | Syncs Nextcloud folders via WebDAV with an app password (`NEXTCLOUD_BASE_URL` + `NEXTCLOUD_USER` + `NEXTCLOUD_APP_PASSWORD`). |
+| [**WebDAV Sync**](https://github.com/mocaOS/cortex-app-webdav) | Syncs folders from **any** WebDAV server — Synology/QNAP NAS, Koofr, pCloud, GMX/WEB.DE, MagentaCLOUD, HiDrive, Seafile, Hetzner Storage Box, rclone-served, … Basic auth assembled server-side. |
+| [**YT Transcriber**](https://github.com/mocaOS/cortex-app-youtube-transcriber) | Turns YouTube videos and whole channels into clean transcripts inside the graph: Venice AI transcription (`VENICE_API_KEY`) → chunk-safe LLM cleanup with graph-entity name correction → markdown upload. Close the tab; the pipeline keeps running. |
+
+All eight are `platform` apps (`http` + `storage` + `tasks`; YT Transcriber also `llm`) with a `read_write` key — scope each to its own collection at install (e.g. `Paperless`), and the sync apps' storage-backed cursors/dedup make re-runs idempotent.
 
 Catalog data: `https://raw.githubusercontent.com/mocaOS/cortex-registry/main/index.json`
 (the same URL instances consume via `APP_REGISTRY_URL`).
