@@ -188,7 +188,7 @@ The judgment that matters more than the mapping:
 
 - **Formulate a self-contained question.** The cortex can't see the current conversation — resolve pronouns and context, and name entities (retrieval is graph/entity-aware) before querying.
 - **Escalate instead of giving up.** `check` empty → `search` 2–3 reformulations → `ask` (deep research). Broad or multi-part question → go straight to `ask`. Report "not found" only after the ladder — and after confirming you searched the right collection.
-- **Always scope to your collection** (`collection_id`) so recall stays about *this* agent's memory, not everything on a shared instance — but remember scope cuts both ways: a scoped miss says nothing about the rest of the instance.
+- **Writes are scoped, reads are not.** Saves always target your own collection (`collection_id`) so the graph stays about *this* agent's memory — but recall reads **all collections** in the instance by default, because a read scoped to your write collection silently misses sibling data (a document archive, another tool's ingest) and turns "it's in a sibling collection" into a confident "nothing was ever saved about X". If unscoped recall on a shared instance returns too much noise, narrow it deliberately (`CORTEX_COLLECTION_READ` / `read_collection`) — a narrowed miss then says nothing about the rest of the instance.
 
 Multi-turn recall: pass prior turns via `conversation_history` on `/api/ask`. Full request/response schemas are in the [ask skill](https://cortexskills.org/ask/SKILL.md) and [search skill](https://cortexskills.org/search/SKILL.md).
 
@@ -208,6 +208,10 @@ Everything this agent saves goes into one collection (default `Hermes`) so recal
 
 Collections are cheap. When in doubt, one collection per coherent body of knowledge.
 
+### Multi-collection instances (the common self-host case)
+
+Any instance fed by more than one tool holds multiple collections — your LTM plus a scanned-document archive, research notes, an email pipeline. The helper's defaults are built for this: **write scope** is your collection only (you never contaminate a sibling), **read scope** is the whole instance (recall sees everything your key can). "Check your cortex for the plumber's invoice" works even though the invoice lives in the archive collection, not your memory. To deliberately restrict recall to one collection, set `CORTEX_COLLECTION_READ=<name>` (env source) or a `read_collection` field on the source in `sources.json`; `status` always shows both scopes plus a per-collection document breakdown when reading all.
+
 ---
 
 ## Troubleshooting
@@ -217,6 +221,7 @@ Collections are cheap. When in doubt, one collection per coherent body of knowle
 | Sync runs, uploads nothing | Hashes match, or dirs empty | Expected if nothing changed; confirm files exist and aren't empty |
 | Saved but recall finds nothing | Processing is async | Wait; check `GET /api/documents?status=pending` |
 | `403 MANAGE access required` | Read-only key | Get a `cortex_rw_` key |
-| Recall returns unrelated hits | Not collection-scoped | Add `collection_id` (ask) / `filters.collection_id` (search) |
+| Recall returns unrelated hits | Reads span all collections by default | Narrow deliberately: `CORTEX_COLLECTION_READ=<name>` / `read_collection` in `sources.json` (raw API: `collection_id` on ask, `filters.collection_id` on search) |
+| Recall misses data you know exists | Read scope narrowed to one collection | `status` shows the read scope; clear `CORTEX_COLLECTION_READ` / `read_collection` (default reads all collections) |
 | Duplicate entities | Tracking file lost, or manual re-upload | Run entity dedup (graph skill) |
 | `429 Monthly usage limit reached` | Instance `MAX_QUERIES_PER_MONTH` quota | `Retry-After` = seconds to next UTC month; in-flight work still finishes |

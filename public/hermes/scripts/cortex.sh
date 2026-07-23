@@ -32,9 +32,18 @@
 # if set, else the source marked default in sources.json. The personal/env cortex
 # is also addressable explicitly as --source mine (aliases: me|self|own|personal|
 # default), which round-trips with the name the helper prints. Named sources live in
-# ~/.hermes/skills/state/cortex/sources.json. A source whose collection is empty
-# or "all" queries the whole instance (no collection scoping) — right for a
-# community/company cortex; a personal cortex scopes to its collection (e.g. "Hermes").
+# ~/.hermes/skills/state/cortex/sources.json.
+#
+# Every source has TWO scopes (the multi-memory model):
+#   write scope — the source's own collection (e.g. "Hermes"): save/forget/sync
+#     target it, so the agent never writes into a sibling collection. Empty or
+#     "all" = no scoping (the backend's default collection receives writes).
+#   read scope  — ALL collections in the instance by default: self-host instances
+#     routinely hold sibling collections (a document archive, another tool's
+#     ingest) and recall must see them — a read scoped to the write collection
+#     silently misses that data and the agent concludes "nothing saved about X".
+#     Restrict reads with CORTEX_COLLECTION_READ=<name> (env source) or a
+#     "read_collection" field in sources.json (named sources).
 set -uo pipefail
 
 STATE="$HOME/.hermes/skills/state/cortex"
@@ -46,11 +55,12 @@ die(){ echo "cortex: $*" >&2; exit 1; }
 SRC=""
 if [ "${1:-}" = "--source" ]; then SRC="${2:-}"; shift 2 || true; fi
 
-load_named(){ # $1 = name -> sets BASE_URL/API_KEY/COLLECTION/ACCESS/LABEL
+load_named(){ # $1 = name -> sets BASE_URL/API_KEY/COLLECTION/READ_COLLECTION/ACCESS/LABEL
   local row; row=$(jq -c --arg s "$1" '.sources[$s] // empty' "$SRCFILE" 2>/dev/null)
   [ -n "$row" ] || die "unknown cortex source '$1' — see: cortex.sh sources"
   BASE_URL=$(jq -r '.base_url' <<<"$row"); API_KEY=$(jq -r '.api_key' <<<"$row")
   COLLECTION=$(jq -r '.collection // ""' <<<"$row"); ACCESS=$(jq -r '.access // "rw"' <<<"$row")
+  READ_COLLECTION=$(jq -r '.read_collection // "all"' <<<"$row")
   LABEL=$(jq -r '.label // ""' <<<"$row"); SRCNAME="$1"
 }
 
@@ -63,7 +73,8 @@ is_personal(){ case "$1" in mine|me|self|own|personal|default) return 0;; *) ret
 use_env(){ # populate vars from env; return 1 if the personal cortex isn't configured
   [ -n "${CORTEX_BASE_URL:-}" ] && [ -n "${CORTEX_API_KEY:-}" ] || return 1
   BASE_URL="$CORTEX_BASE_URL"; API_KEY="$CORTEX_API_KEY"
-  COLLECTION="${CORTEX_COLLECTION:-Hermes}"; ACCESS="rw"; LABEL="your long-term memory"; SRCNAME="mine"; return 0
+  COLLECTION="${CORTEX_COLLECTION:-Hermes}"; READ_COLLECTION="${CORTEX_COLLECTION_READ:-all}"
+  ACCESS="rw"; LABEL="your long-term memory"; SRCNAME="mine"; return 0
 }
 
 resolve(){
@@ -95,6 +106,25 @@ collection_id(){
   [ -n "$id" ] && [ "$id" != null ] && echo "$id"
 }
 
+# Read-scope counterpart: resolves READ_COLLECTION for check/ask/search/list.
+# Empty/"all" (the default) => echo nothing = query EVERY collection in the
+# instance. Never creates a collection — reads must not mutate anything. A named
+# read collection that doesn't exist resolves to unscoped (over-reading is safe;
+# silently narrowing recall is the footgun this scope exists to prevent).
+read_collection_id(){
+  local rc="${READ_COLLECTION:-all}"
+  { [ -z "$rc" ] || [ "$rc" = all ]; } && return 0
+  local id
+  id=$(api "$BASE_URL/api/collections" | jq -r --arg n "$rc" '.collections[]?|select(.name==$n)|.id' | head -n1)
+  [ -n "$id" ] && [ "$id" != null ] && echo "$id"
+}
+
+# Human-readable read scope for hints and headers.
+read_scope(){
+  local rc="${READ_COLLECTION:-all}"
+  if [ -z "$rc" ] || [ "$rc" = all ]; then echo "all collections"; else echo "collection '$rc'"; fi
+}
+
 need_write(){ [ "$ACCESS" = rw ] || die "source '$SRCNAME' is read-only (recall only). To save, target a read/write cortex — omit --source (or use --source mine) to write to your personal cortex, or use a named source you hold a cortex_rw_ key for."; }
 
 # ask/search JSON with optional collection scoping
@@ -114,11 +144,13 @@ case "$cmd" in
     envset=""
     if [ -n "${CORTEX_BASE_URL:-}" ] && [ -n "${CORTEX_API_KEY:-}" ]; then
       envset=1
-      echo "* mine  [rw]  ${CORTEX_BASE_URL}  ${CORTEX_COLLECTION:-Hermes}  — your personal long-term memory (env); default for unnamed calls"
+      wc="${CORTEX_COLLECTION:-Hermes}"; rcv="${CORTEX_COLLECTION_READ:-all}"
+      rnote=""; [ "$rcv" != "$wc" ] && rnote=" (reads $rcv)"
+      echo "* mine  [rw]  ${CORTEX_BASE_URL}  ${wc}${rnote}  — your personal long-term memory (env); default for unnamed calls"
     fi
     if [ -f "$SRCFILE" ]; then
       def=$(jq -r '.default // ""' "$SRCFILE")
-      jq -r --arg d "$def" --arg e "$envset" '.sources | to_entries[] | "\(if ((.key==$d) and ($e=="")) then "* " else "  " end)\(.key)  [\(.value.access // "rw")]  \(.value.base_url)  \(.value.collection // "all")  — \(.value.label // "")"' "$SRCFILE"
+      jq -r --arg d "$def" --arg e "$envset" '.sources | to_entries[] | (.value.collection // "" | if . == "" then "all" else . end) as $w | (.value.read_collection // "all") as $r | "\(if ((.key==$d) and ($e=="")) then "* " else "  " end)\(.key)  [\(.value.access // "rw")]  \(.value.base_url)  \($w)\(if $r != $w then " (reads \($r))" else "" end)  — \(.value.label // "")"' "$SRCFILE"
     fi
     if [ -z "$envset" ] && [ ! -f "$SRCFILE" ]; then
       echo "no cortex connected yet. Set CORTEX_BASE_URL + CORTEX_API_KEY in ~/.hermes/.env, or: cortex.sh connect <name> <base_url> <key>"
@@ -160,7 +192,18 @@ case "$cmd" in
     resolve
     echo "source: $SRCNAME ($ACCESS)${LABEL:+ — $LABEL}"
     api "$BASE_URL/health"; echo
-    cid=$(collection_id); echo "collection: ${COLLECTION:-<whole instance>}${cid:+ -> $cid}"
+    wcid=$(collection_id); echo "write collection: ${COLLECTION:-<backend default>}${wcid:+ -> $wcid}"
+    rc="${READ_COLLECTION:-all}"
+    if [ -z "$rc" ] || [ "$rc" = all ]; then
+      # Reading everything — show the corpus composition so agent and human see
+      # what recall actually covers (matches the dashboard's total, not a slice).
+      breakdown=$(api "$BASE_URL/api/collections" | jq -r '[.collections[]? | (.document_count // .documents_count) as $n | if $n != null then "\(.name) \($n)" else .name end] | join(", ")' 2>/dev/null)
+      echo "read scope: all collections${breakdown:+ ($breakdown)}"
+    else
+      rcid=$(read_collection_id)
+      if [ -n "$rcid" ]; then echo "read scope: collection '$rc' -> $rcid"
+      else echo "read scope: collection '$rc' — NOT FOUND on this instance, so reads fall back to all collections"; fi
+    fi
     ;;
   save|dump)
     resolve; need_write
@@ -180,7 +223,7 @@ case "$cmd" in
     # Returns the answer AND a numbered "sources:" footer so [src_N] is resolvable.
     resolve
     q="${1:-}"; [ -n "$q" ] || die "usage: cortex.sh check \"<question>\""
-    cid=$(collection_id)
+    cid=$(read_collection_id)
     resp=$(api -X POST "$BASE_URL/api/ask" -H "Content-Type: application/json" -d "$(ask_body "$q" "$cid" false)")
     jq -r '.answer // .detail.message // "cortex: no answer in response"' <<<"$resp"
     # A busy/slow LLM backend trips the non-streaming endpoint's server deadline;
@@ -189,7 +232,7 @@ case "$cmd" in
     # Empty sources = retrieval matched nothing. Don't let the agent stop here:
     # reformulate, probe with raw search, or escalate to deep research.
     if jq -e '(.sources // [])|length==0' >/dev/null 2>&1 <<<"$resp" && ! grep -q "deadline" <<<"$resp"; then
-      echo "hint: retrieval matched nothing in collection '${COLLECTION:-<whole instance>}' — do NOT report 'not found' yet. Reformulate (entity names, synonyms): cortex.sh search \"<terms>\" — check the scope (cortex.sh status) — or run deep research: cortex.sh ask \"$q\""
+      echo "hint: retrieval matched nothing in $(read_scope) — do NOT report 'not found' yet. Reformulate (entity names, synonyms): cortex.sh search \"<terms>\" — check the scope (cortex.sh status) or another connected source (cortex.sh sources) — or run deep research: cortex.sh ask \"$q\""
     fi
     jq -r 'if (.sources|length)>0 then "\nsources (matches [src_N] in the answer):\n" + ([.sources|to_entries[]|"  [\(.key+1)] \(.value.metadata.filename // .value.document_title // .value.document_id) — score \((.value.score // .value.metadata.rerank_score // 0)|tostring|.[0:5]) — doc \(.value.document_id[0:8])"]|join("\n")) else empty end' <<<"$resp"
     ;;
@@ -199,7 +242,7 @@ case "$cmd" in
     # answer from SSE "content" events, and capture the "sources" event for the footer.
     resolve
     q="${1:-}"; [ -n "$q" ] || die "usage: cortex.sh ask \"<question>\""
-    cid=$(collection_id)
+    cid=$(read_collection_id)
     if [ -n "$cid" ]; then body=$(jq -n --arg q "$q" --arg c "$cid" '{question:$q,collection_id:$c,use_agentic:true}')
     else body=$(jq -n --arg q "$q" '{question:$q,use_agentic:true}'); fi
     SRCF=$(mktemp)
@@ -218,13 +261,13 @@ case "$cmd" in
     resolve
     q="${1:-}"; [ -n "$q" ] || die "usage: cortex.sh search \"<query>\" [top_k]"
     k="${2:-8}"; case "$k" in ''|*[!0-9]*) die "top_k must be a number (1-50)";; esac
-    cid=$(collection_id)
+    cid=$(read_collection_id)
     # Search results carry no document_title (always null) — the human-readable
     # label lives in metadata.filename. Fall back to a short doc id if absent.
     out=$(api -X POST "$BASE_URL/api/search" -H "Content-Type: application/json" -d "$(search_body "$q" "$cid" "$k")" \
       | jq -r '(.results // [])[] | "• \(.metadata.filename // .document_title // (.document_id[0:8]))  (score \((.score // 0)|tostring|.[0:5]))\n  \(.content[0:240] | gsub("[[:space:]]+";" "))"')
     if [ -n "$out" ]; then printf '%s\n' "$out"
-    else echo "no matches for \"$q\" in collection '${COLLECTION:-<whole instance>}' — do NOT report 'not found' after one query. Retry with reformulations (entity names, synonyms, expected filenames), check the scope (cortex.sh status; CORTEX_COLLECTION=all searches the whole instance), or run deep research: cortex.sh ask \"<self-contained question>\""
+    else echo "no matches for \"$q\" in $(read_scope) — do NOT report 'not found' after one query. Retry with reformulations (entity names, synonyms, expected filenames), check the scope (cortex.sh status) or another connected source (cortex.sh sources), or run deep research: cortex.sh ask \"<self-contained question>\""
     fi
     ;;
   list|recent)
@@ -233,13 +276,18 @@ case "$cmd" in
     # check/ask) for "what's in your cortex": synthesis is not inventory.
     resolve
     n="${1:-10}"; case "$n" in ''|*[!0-9]*) die "usage: cortex.sh list [n]";; esac
-    cid=$(collection_id)
+    cid=$(read_collection_id)
     resp=$(api "$BASE_URL/api/documents")
     jq -e '.documents' >/dev/null 2>&1 <<<"$resp" || die "list failed: $(jq -r '.detail // .' 2>/dev/null <<<"$resp" | head -c 200)"
     total=$(jq -r --arg c "$cid" '[.documents[]|select(($c=="") or (.collection_id==$c))]|length' <<<"$resp")
-    echo "$total doc(s) in '$SRCNAME'${cid:+ (collection $COLLECTION)} — newest first:"
-    jq -r --arg c "$cid" --argjson n "$n" \
-      '[.documents[]|select(($c=="") or (.collection_id==$c))]|sort_by(.upload_date)|reverse|.[0:$n][]|"• \(.filename)  \(.upload_date[0:16])  [\(.processing_status)]  \(.id)"' <<<"$resp"
+    echo "$total doc(s) in '$SRCNAME' ($(read_scope)) — newest first:"
+    # Unscoped inventory labels each row with its collection so the agent can
+    # tell its own memory from sibling archives it can read but must not write.
+    names='{}'
+    [ -z "$cid" ] && names=$(api "$BASE_URL/api/collections" | jq -c '[.collections[]?|{key:.id,value:.name}]|from_entries' 2>/dev/null)
+    [ -n "$names" ] || names='{}'
+    jq -r --arg c "$cid" --argjson names "$names" --argjson n "$n" \
+      '[.documents[]|select(($c=="") or (.collection_id==$c))]|sort_by(.upload_date)|reverse|.[0:$n][]|"• \(.filename)  \(.upload_date[0:16])  [\(.processing_status)]\(if $c=="" then "  (\($names[.collection_id] // "?"))" else "" end)  \(.id)"' <<<"$resp"
     [ "$total" -gt "$n" ] && echo "(showing $n of $total — cortex.sh list $total for all)"
     exit 0
     ;;

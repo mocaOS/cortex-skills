@@ -55,6 +55,8 @@ class CortexMemoryProvider(MemoryProvider):
         self._api_key = ""
         self._collection = "Hermes"
         self._collection_id: Optional[str] = None
+        self._read_collection = "all"
+        self._read_collection_id: Optional[str] = None
         self._access = "ro"
         self._session_id = ""
         self._hermes_home = ""
@@ -71,7 +73,7 @@ class CortexMemoryProvider(MemoryProvider):
 
     def is_available(self) -> bool:
         """Configured = base URL + API key resolvable. No network calls."""
-        base, key, _ = self._resolve_config()
+        base, key, _, _ = self._resolve_config()
         return bool(base and key)
 
     def _config_path(self, hermes_home: str = "") -> Path:
@@ -83,13 +85,17 @@ class CortexMemoryProvider(MemoryProvider):
         base = os.environ.get("CORTEX_BASE_URL", "").strip().rstrip("/")
         key = os.environ.get("CORTEX_API_KEY", "").strip()
         collection = os.environ.get("CORTEX_COLLECTION", "").strip()
+        read_collection = os.environ.get("CORTEX_COLLECTION_READ", "").strip()
         try:
             cfg = json.loads(self._config_path().read_text())
         except (OSError, ValueError):
             cfg = {}
         base = base or str(cfg.get("base_url", "")).strip().rstrip("/")
         collection = collection or str(cfg.get("collection", "")).strip() or "Hermes"
-        return base, key, collection
+        # Read scope defaults to "all": recall must see sibling collections
+        # (document archives, other ingest pipelines) on the same instance.
+        read_collection = read_collection or str(cfg.get("read_collection", "")).strip() or "all"
+        return base, key, collection, read_collection
 
     # -- Lifecycle ------------------------------------------------------------
 
@@ -97,11 +103,11 @@ class CortexMemoryProvider(MemoryProvider):
         self._session_id = session_id
         self._hermes_home = str(kwargs.get("hermes_home", "")) or os.path.expanduser("~/.hermes")
         self._agent_context = str(kwargs.get("agent_context", "primary"))
-        self._base_url, self._api_key, self._collection = self._resolve_config()
+        self._base_url, self._api_key, self._collection, self._read_collection = self._resolve_config()
         self._access = "ro" if self._api_key.startswith("cortex_ro_") else "rw"
         logger.info(
-            "cortex memory provider: %s (%s, collection %s)",
-            self._base_url, self._access, self._collection,
+            "cortex memory provider: %s (%s, writes to %s, reads %s)",
+            self._base_url, self._access, self._collection, self._read_collection,
         )
 
     def on_session_switch(self, new_session_id: str, **kwargs) -> None:
@@ -173,6 +179,33 @@ class CortexMemoryProvider(MemoryProvider):
             logger.warning("cortex collection resolve failed: %s", e)
         return self._collection_id
 
+    def _read_collection_filter_id(self) -> Optional[str]:
+        """Read-scope counterpart: empty/'all' (the default) = whole instance.
+        Never creates a collection — reads must not mutate; an unresolvable
+        name degrades to unscoped (over-reading is safe, silent narrowing isn't)."""
+        rc = self._read_collection
+        if not rc or rc.lower() == "all":
+            return None
+        if self._read_collection_id:
+            return self._read_collection_id
+        try:
+            resp = self._request("GET", "/api/collections", timeout=10)
+            for col in resp.get("collections", []):
+                if col.get("name") == rc:
+                    self._read_collection_id = col.get("id")
+                    break
+        except RuntimeError as e:
+            logger.warning("cortex read-collection resolve failed: %s", e)
+        return self._read_collection_id
+
+    def _collection_names(self) -> Dict[str, str]:
+        """id -> name map for labeling unscoped inventory rows."""
+        try:
+            resp = self._request("GET", "/api/collections", timeout=10)
+            return {c.get("id"): c.get("name") for c in resp.get("collections", []) if c.get("id")}
+        except RuntimeError:
+            return {}
+
     # -- System prompt / prefetch ----------------------------------------------
 
     def system_prompt_block(self) -> str:
@@ -186,7 +219,8 @@ class CortexMemoryProvider(MemoryProvider):
         )
         return (
             f"Cortex long-term memory is active: {self._base_url} "
-            f"(collection: {self._collection or 'whole instance'}, {self._access}). "
+            f"(writes to collection {self._collection or 'default'}, "
+            f"reads {self._read_collection or 'all'} collection(s), {self._access}). "
             "Recall with cortex_search (verbatim chunks) or cortex_ask "
             "(synthesized, cited); inventory with cortex_list — it is the ground "
             "truth for \"what do you remember\"." + save_hint
@@ -239,7 +273,7 @@ class CortexMemoryProvider(MemoryProvider):
         """Resolve access from config each call — schema collection may run before initialize()."""
         if self._api_key:
             return self._access
-        _, key, _ = self._resolve_config()
+        _, key, _, _ = self._resolve_config()
         return "ro" if key.startswith("cortex_ro_") else "rw"
 
     def get_tool_schemas(self) -> List[Dict[str, Any]]:
@@ -359,7 +393,7 @@ class CortexMemoryProvider(MemoryProvider):
 
     def _search(self, query: str, top_k: int, timeout: float = TOOL_TIMEOUT_S) -> Dict[str, Any]:
         body: Dict[str, Any] = {"query": query, "top_k": top_k}
-        cid = self._collection_filter_id()
+        cid = self._read_collection_filter_id()
         if cid:
             body["filters"] = {"collection_id": cid}
         return self._request("POST", "/api/search", body=body, timeout=timeout)
@@ -388,7 +422,7 @@ class CortexMemoryProvider(MemoryProvider):
         if not question:
             return {"success": False, "error": "question is required"}
         body: Dict[str, Any] = {"question": question, "use_agentic": False}
-        cid = self._collection_filter_id()
+        cid = self._read_collection_filter_id()
         if cid:
             body["collection_id"] = cid
         resp = self._request("POST", "/api/ask", body=body, timeout=ASK_TIMEOUT_S)
@@ -412,16 +446,20 @@ class CortexMemoryProvider(MemoryProvider):
         limit = int(args.get("limit") or 10)
         resp = self._request("GET", "/api/documents", timeout=TOOL_TIMEOUT_S)
         docs = resp.get("documents", [])
-        cid = self._collection_filter_id()
+        cid = self._read_collection_filter_id()
         if cid:
             docs = [d for d in docs if d.get("collection_id") == cid]
         docs.sort(key=lambda d: str(d.get("created_at") or ""), reverse=True)
+        # Unscoped inventory labels each doc with its collection so the agent can
+        # tell its own memory from sibling archives it reads but never writes to.
+        names = {} if cid else self._collection_names()
         out = [
             {
                 "filename": d.get("filename") or d.get("title"),
                 "document_id": d.get("id"),
                 "created_at": d.get("created_at"),
                 "status": d.get("processing_status") or d.get("status"),
+                **({"collection": names.get(d.get("collection_id"), "?")} if names else {}),
             }
             for d in docs[:limit]
         ]

@@ -104,6 +104,8 @@ Speak to a cortex in plain language — these phrases are the interface:
 
 A **source** is one connection: a base URL + an API key (+ an optional collection). Your **default** source is your personal long-term memory; add more by name.
 
+Every source has **two scopes** (the multi-memory model): **writes** go to the source's own collection (e.g. `Hermes`), so you never write into a sibling collection; **reads** span *every* collection in that instance by default. Self-host instances routinely hold sibling collections — a document archive, another tool's ingest pipeline — and "check your cortex for X" means *all of it*, not just your own notes. `status` shows both scopes.
+
 ### Hook into an existing cortex — the one-turn flow
 
 The most common first contact: your human hands you a base URL + API key in one message ("hook into the cortex at X — key Y, call it Z"). Do the whole thing in that turn, no follow-up questions needed:
@@ -112,7 +114,7 @@ The most common first contact: your human hands you a base URL + API key in one 
 2. **Register** it as a named source — a `cortex_ro_` key, or any community/company cortex, belongs in sources, *not* in env:
    `bash ${HERMES_SKILL_DIR}/scripts/cortex.sh connect <name> <base_url> <key> "" ro "<label>"`
    Only a `cortex_rw_` key that is meant to be *your personal memory* goes into `~/.hermes/.env` instead (next section).
-3. **Validate**: `cortex.sh --source <name> status` → expect `healthy` + a collection line.
+3. **Validate**: `cortex.sh --source <name> status` → expect `healthy` + the write/read scope lines.
 4. **Prove recall**: `cortex.sh --source <name> check "<something the human would ask it>"` and present the answer cited.
 5. **Seed the routing memory** (Validate, below) — include the source name and its access.
 6. **Receipt**: tell your human the source name, access level, and how to query it ("ask the <name> cortex about …"). Never echo the key.
@@ -127,7 +129,8 @@ Store it the Hermes-native way — env vars in `~/.hermes/.env` (same convention
 # ~/.hermes/.env
 CORTEX_BASE_URL=https://cortex.example.com
 CORTEX_API_KEY=cortex_rw_your_key_here      # cortex_ro_ = recall only
-CORTEX_COLLECTION=Hermes                     # your private collection; defaults to "Hermes"
+CORTEX_COLLECTION=Hermes                     # WRITE scope: your private collection; defaults to "Hermes"
+# CORTEX_COLLECTION_READ=Hermes              # optional READ scope; default "all" = recall spans every collection
 ```
 
 No instance yet? Either connect to one you're given, or **set up a new one from scratch** (below). Provider-key mapping details and the embeddings caveat are in [references/CONNECT.md](references/CONNECT.md).
@@ -173,7 +176,7 @@ bash "$S" use team         # change which one is the default
 
 The `ro|rw` argument is optional — when omitted, access is inferred from the key prefix, and a `cortex_ro_` key is always recorded read-only (the server would refuse its writes anyway). When you confirm a new connection to your human, name the source and its access — **don't echo the API key back**; they just gave it to you.
 
-An empty collection (`""`) or `all` means "query the whole instance" — right for a community/company cortex. A personal cortex scopes to its own collection so recall stays about *your* memory.
+The `collection` argument is the **write scope** only — an empty collection (`""`) or `all` means writes land in the backend's default collection. **Reads always span every collection in the source** unless a `read_collection` field is set on that source in `sources.json` — so recall against a community/company cortex covers everything it has made visible to your key, and recall against your personal instance also sees sibling collections other tools ingest into.
 
 ### Validate
 
@@ -181,7 +184,7 @@ An empty collection (`""`) or `all` means "query the whole instance" — right f
 bash ${HERMES_SKILL_DIR}/scripts/cortex.sh status
 ```
 
-Prints the resolved source, health, and collection. A `503 degraded` means a self-hosted Neo4j is still warming up (30–60s) — wait and retry.
+Prints the resolved source, health, and both scopes — the write collection, and the read scope with a per-collection document breakdown when reading all (so you can see the real corpus composition, not just your own slice). A `503 degraded` means a self-hosted Neo4j is still warming up (30–60s) — wait and retry.
 
 Once connected, store a one-line **native** memory (with your built-in memory tool) so every future session routes correctly. Adapt it to what's actually connected:
 
@@ -287,13 +290,13 @@ bash ${HERMES_SKILL_DIR}/scripts/cortex.sh search "SSE reconnect backoff" 15
 **Escalate — never report "nothing found" after one query.**
 
 1. `check` answered fully → done; present it cited.
-2. `check` thin or empty → `search` 2–3 **reformulations** (synonyms, entity names, the filename you'd expect). Chunks found → `ask` a sharper question built from those terms. Still nothing → **check your scope**: a personal cortex only sees its own collection (`status` shows which); the answer may live in another collection or another connected source — route there before concluding it's absent.
+2. `check` thin or empty → `search` 2–3 **reformulations** (synonyms, entity names, the filename you'd expect). Chunks found → `ask` a sharper question built from those terms. Still nothing → **check your scope**: reads span all collections by default, but a `read_collection` override narrows them (`status` shows the scope); the answer may also live in another connected source — route there before concluding it's absent.
 3. Multi-part / broad / comparative question → skip `check`, go **straight to `ask`**; that's exactly what deep research is for. For "what do we know about X" at full breadth, pair `ask` with `list` to see which docs even exist.
 4. Only after the ladder is exhausted, say plainly what you searched for and where, so the human can redirect you.
 
 A human saying "search your cortex for X" almost never wants raw chunks — they want the answer, found by searching. Run the ladder; give them the answer with the receipts underneath.
 
-**Inventory is not recall.** When the human asks *"what's in your cortex?"*, *"what have you saved?"*, or *"how many notes do you have?"*, run `cortex.sh list` — it returns the exact set of saved docs (filename, date, status, doc id), newest first. Don't answer inventory questions with `check`: synthesis summarizes what retrieval surfaced, and will confidently under-count what's actually stored. `list` also gives you the doc ids that `show <doc_id>` (print a note's full content) and `forget <doc_id>` (delete a note) take.
+**Inventory is not recall.** When the human asks *"what's in your cortex?"*, *"what have you saved?"*, or *"how many notes do you have?"*, run `cortex.sh list` — it returns the exact set of docs (filename, date, status, doc id), newest first, across **all collections** in the source (each row labeled with its collection), so the count matches what the dashboard shows — not just your own slice. Don't answer inventory questions with `check`: synthesis summarizes what retrieval surfaced, and will confidently under-count what's actually stored. `list` also gives you the doc ids that `show <doc_id>` (print a note's full content) and `forget <doc_id>` (delete a note) take.
 
 **Citations come back with the answer.** `check` and `ask` print a numbered `sources:` footer (filename + doc id) *below* the answer; the numbers line up with the `[src_N]` markers Cortex embeds in the text. So when a human asks **"cite your sources"**, **"where did that come from?"**, or **"which document?"**, you already have it — map each `[src_N]` to the footer's `[N]` filename; don't re-query. For the *exact passage* behind a claim, run `search` on that claim and quote the chunk. To hand over the whole source doc, use its doc id (`GET /api/documents/{id}`).
 

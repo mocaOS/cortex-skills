@@ -17,7 +17,8 @@ Hermes routes secrets to `~/.hermes/.env` and non-secrets to `~/.hermes/config.y
 # ~/.hermes/.env
 CORTEX_BASE_URL=https://cortex.example.com   # or http://localhost:8000 if self-hosted
 CORTEX_API_KEY=cortex_rw_...                  # cortex_ro_ = recall only
-CORTEX_COLLECTION=Hermes                       # optional; default "Hermes"
+CORTEX_COLLECTION=Hermes                       # optional WRITE scope; default "Hermes"
+# CORTEX_COLLECTION_READ=Hermes                # optional READ scope; default "all" = recall spans every collection
 ```
 
 If your skill frontmatter declares `required_environment_variables: [CORTEX_API_KEY, CORTEX_BASE_URL]`, Hermes prompts for them on first load and writes them here automatically. `cortex.collection` is a non-secret `metadata.hermes.config` value, so it lands in `config.yaml`.

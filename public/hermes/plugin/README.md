@@ -36,11 +36,13 @@ memory:
   provider: cortex
 ```
 
-Non-secret config (collection name) lives in `$HERMES_HOME/cortex.json`; env vars always win.
+Non-secret config (collection names) lives in `$HERMES_HOME/cortex.json`; env vars always win.
+
+**Scoping (the multi-memory model)**: saves go to your own collection (`CORTEX_COLLECTION` / `collection`, default `Hermes`); recall reads **every collection** in the instance by default, so sibling data (a document archive, another tool's ingest) is found too. Restrict reads with `CORTEX_COLLECTION_READ` / `read_collection` if you deliberately want one collection only.
 
 ## What it does
 
-- **System prompt**: one status line (instance, collection, access) so the agent knows memory is live.
+- **System prompt**: one status line (instance, write collection, read scope, access) so the agent knows memory is live.
 - **Prefetch**: before each turn, a fast hybrid search over your cortex injects up to 3 relevant snippets as context (skipped for short messages, subagents, and cron).
 - **Tools**: `cortex_search` (verbatim chunks), `cortex_ask` (synthesized + cited), `cortex_list` (ground-truth inventory), `cortex_save` (curated notes; hidden on read-only keys).
 - **Deliberate memory**: turn transcripts are *not* auto-ingested — Cortex holds curated notes, decisions, and session dumps, not a firehose. Built-in MEMORY.md/USER.md keep working unchanged alongside.
