@@ -38,7 +38,7 @@ For a complete index, point your agent to the root:
 
 ### Core
 * `/cortex` — Use a running instance: sync agent memory, hybrid search, agentic Q&A.
-* `/setup` — Self-hosting Cortex via Docker, environment variables.
+* `/setup` — Self-hosting Cortex via Docker: the pinned v1.0.0 release stack or a source build, environment variables, backups/restore.
 * `/auth` — API keys (read/manage + admin key), collection scoping, prompt security.
 * `/admin` — Instance management, AgentSkills, export/import, system reset.
 

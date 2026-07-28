@@ -21,7 +21,7 @@ export const skills: Skill[] = [
     slug: "setup",
     name: "Setup",
     description:
-      "Self-host a full Cortex instance via Docker or Coolify. All 160+ environment variables, first steps, and health checks.",
+      "Self-host a full Cortex instance — the pinned v1.0.0 release stack of prebuilt images, or build from source via Docker or Coolify. All 160+ environment variables, first steps, health checks, and the backup/restore runbook.",
     icon: "Settings",
     category: "core",
   },

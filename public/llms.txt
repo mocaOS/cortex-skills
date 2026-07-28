@@ -8,7 +8,7 @@ Curated skill files that teach AI agents how to build on the Cortex intelligence
 
 ### Core
 - `cortexskills.org/cortex/SKILL.md` — Use a running instance: sync memory, search, ask (agentic deep research).
-- `cortexskills.org/setup/SKILL.md` — Self-host Cortex via Docker, environment variables.
+- `cortexskills.org/setup/SKILL.md` — Self-host Cortex via Docker: pinned v1.0.0 release stack (prebuilt GHCR images, no build step) or build from source, environment variables, backups/restore.
 - `cortexskills.org/auth/SKILL.md` — API keys (read/manage + admin key), collection scoping, prompt security.
 - `cortexskills.org/admin/SKILL.md` — Instance management, AgentSkills, export/import, system reset.
 

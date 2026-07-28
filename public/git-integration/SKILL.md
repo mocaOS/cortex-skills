@@ -19,6 +19,8 @@ description: Use this skill when connecting GitHub, GitLab, or Gitea repositorie
 
 6. **The token is stored server-side and never exposed to the agent.** It is masked in the UI (`••••abcd`), injected automatically into git and API calls, never written to logs or `.git/config`.
 
+7. **Questions about a connected repo are answered from the graph, not by reading files.** Once synced, the repo's contents *are* knowledge-base documents — search returns them with citations. The `git_repo` tool exists to *change* the repository, which is why (post-v1.0.0) a read-only connection isn't given it at all — see `RESEARCHER_GIT_TOOL` below. Don't expect the agent to browse a repo; it has no way to list paths.
+
 ## Enabling
 
 ```bash
@@ -86,11 +88,23 @@ Each ingested document carries git provenance fields: `git_connection_id`, `git_
 
 On a **read/write** connection, the research agent gains a `git_repo` tool with three actions:
 
-- **read_file** — fetch a file's current contents.
+- **read_file** — fetch one file's exact current contents, by known path (typically right before editing it).
 - **propose_change** — open a pull request with edits.
 - **comment** — comment on an existing pull request.
 
 Every write creates a new `cortex/agent-…` branch and opens a PR/MR for human review — the agent never pushes to your default branch.
+
+**This is a write tool, not a retrieval path — and a read-only connection deliberately gets none of it.** The connector has already ingested the repo, so `knowledge_search` returns the same file contents *as citable sources*; `git_repo` output lands in the researcher's own context and can never appear as a citation. It also has no list or search action, so any path the agent hasn't read somewhere is a guess. Through v1.0.0 the tool was offered on **every** connection, and read-only instances saw the agent burn research iterations guessing filenames in the connected repo during questions that had nothing to do with the repository.
+
+`RESEARCHER_GIT_TOOL` (post-v1.0.0 — on `main`, not in the `1.0.0` images) controls this:
+
+| Value | Behaviour |
+|---|---|
+| `auto` (default) | Offered only when a **read/write** connection exists — where proposing changes, the tool's reason to exist, is actually possible. |
+| `always` | Offered whenever any connection exists (the v1.0.0 behaviour). |
+| `off` | Never offered. |
+
+Ingestion is unaffected by all three values. When the tool *is* offered, the agent's prompt names the connected repository, states that its files are already indexed, and restricts the tool to proposing a change or re-reading one already-known path.
 
 ## Editing & Removing Connections
 
@@ -101,6 +115,7 @@ Expand a connection to **Edit** — change access level, branch, auto-sync inter
 | Variable | Default | Description |
 |---|---|---|
 | `ENABLE_GIT_INTEGRATION` | `false` | Master switch for the connector, endpoints, scheduler, and the agent `git_repo` tool |
+| `RESEARCHER_GIT_TOOL` | `auto` | Post-v1.0.0. When the agent gets `git_repo`: `auto` (read/write connections only), `always`, or `off`. Ingestion is unaffected. |
 | `GIT_WORK_DIR` | `./git_repos` | Where clone working copies are cached (mount a volume in production) |
 | `GIT_CLONE_DEPTH` | `1` | Shallow-clone depth |
 | `GIT_MAX_REPO_SIZE_MB` | `500` | Abort a sync above this repo size (0 = unlimited) |

@@ -44,7 +44,7 @@ Documents / Memory → Cortex Backend (FastAPI) → Neo4j (Graph + Vector)
 ## Two Ways to Use Cortex
 
 1. **Connect to a running instance** (you have a base URL + API key). Start with the **`cortex`** skill (memory sync, search, ask) and the feature skills (`upload`, `search`, `ask`, `graph`, …). This is the fastest path — no infrastructure to run.
-2. **Self-host your own instance** (on your machine or VM). Start with the **`setup`** skill: clone the repo, set a handful of env vars, `docker compose up -d`. Then use it exactly like case 1 against `http://localhost:8000`.
+2. **Self-host your own instance** (on your machine or VM). Start with the **`setup`** skill. Since **v1.0.0** the quickest path is the pinned release stack — prebuilt GHCR images plus a static Compose stack configured entirely through `.env`, no build step; cloning and building from `main` still works. Either way: set a handful of env vars, `docker compose up -d`, then use it exactly like case 1 against `http://localhost:8000`.
 
 ## What You Probably Got Wrong
 

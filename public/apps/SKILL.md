@@ -19,9 +19,12 @@ declares and nothing more. Anyone can build one (see
    somewhere. (Apps that genuinely need their own container are
    `type: "service"` and ship compose templates instead.)
 
-2. **Nothing works until `ENABLE_APPS=true`.** The subsystem is off by
-   default: every app route 404s and the admin section hides itself. Env
-   reference: the [setup skill](../setup/SKILL.md).
+2. **Nothing works until `ENABLE_APPS=true`.** The backend default is off:
+   every app route 404s and the admin section hides itself. **Exception —
+   the v1.0.0 `selfhost/` Compose stack flips it to `true`**, so a fresh
+   self-host install ships with Apps working; set `ENABLE_APPS=false` in
+   `.env` if you want the smaller attack surface. Env reference: the
+   [setup skill](../setup/SKILL.md).
 
 3. **No API key ever reaches the browser.** Install mints a dedicated scoped
    key that lives server-side; a proxy attaches it and enforces the

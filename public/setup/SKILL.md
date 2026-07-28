@@ -17,7 +17,7 @@ description: Use this skill when deploying or configuring Cortex, including self
 
 5. **Neo4j takes 30-60 seconds to initialize.** If the backend fails to connect on first boot, wait and restart the backend container.
 
-6. **The dashboard breaks from any browser that isn't on the host itself** unless you override `NEXT_PUBLIC_API_URL`. The shipped `docker-compose.yml` hardcodes `http://localhost:8000` in the frontend's `environment:` block, which beats your `.env` — browsers on other machines then call *their own* localhost and get "session expired" / `ERR_CONNECTION_REFUSED`. See [Self-host on a LAN/remote box](#self-host-on-a-lanremote-box).
+6. **The dashboard breaks from any browser that isn't on the host itself** unless you override `NEXT_PUBLIC_API_URL`. The shipped `docker-compose.yml` hardcodes `http://localhost:8000` in the frontend's `environment:` block, which beats your `.env` — browsers on other machines then call *their own* localhost and get "session expired" / `ERR_CONNECTION_REFUSED`. See [Self-host on a LAN/remote box](#self-host-on-a-lanremote-box). The v1.0.0 [release stack](#release-install) doesn't have this trap: pick a `COMPOSE_FILE` mode and the URLs and cookie flags are already correct.
 
 7. **`docker restart` does NOT reload `.env`.** Containers keep the env snapshot from `create`. After any `.env` change run `docker compose up -d --force-recreate` (add `--no-deps <service>` to scope it).
 
@@ -80,6 +80,44 @@ grep '^ADMIN_API_KEY=' .env
 ```
 
 > `.env.recommended` already carries the recommended model stack (Venice API base, Gemma4 26B A4B primary, Qwen3.6 27B extraction + vision) and leaves every other knob on production-tuned code defaults; only the secrets above are required to boot. Using a different provider? Also append `OPENAI_API_BASE=` (and `OPENAI_MODEL=` / `OPENAI_MAX_CONTEXT=` for a different primary). After it's healthy, drive the instance with the `cortex` + feature skills against `http://localhost:8000`.
+
+### Release install — prebuilt images, no build step (v1.0.0+) {#release-install}
+
+The clone-and-build path above compiles the frontend and a torch-bearing backend locally (slow on a small VM, and it moves whenever `main` moves). Since **v1.0.0** there is a pinned release track: multi-arch images on GHCR plus a static Compose stack under `selfhost/` that you configure entirely through `.env` and never edit.
+
+`stack.json` on the GitHub release is the version manifest — it names the stack version and the component versions tested together:
+
+```bash
+curl -fsSL https://github.com/mocaOS/cortex-app/releases/latest/download/stack.json -o stack.json
+# {"stack":"1.0.0","components":{"backend":"1.0.0","frontend":"1.0.0","chat":"1.0.0",
+#  "neo4j":"5.26-community","caddy":"2-alpine"},"minInstaller":"1.0.0", ...}
+
+git clone --depth 1 --branch "v$(jq -r .stack stack.json)" \
+  https://github.com/mocaOS/cortex-app.git /tmp/cortex-src
+
+mkdir -p cortex && cd cortex
+cp -r /tmp/cortex-src/selfhost/. .
+cp -r /tmp/cortex-src/ops ./ops
+cp Caddyfile.template Caddyfile
+cp .env.example .env && chmod 600 .env
+# fill the secrets block + LLM block in .env, then:
+docker compose up -d
+```
+
+Needs `git`, `jq`, and `openssl` on the host (a minimal server image has none of them), Docker Engine 24+ with the Compose **v2 plugin**, ~20 GB disk and ~8 GB RAM. Images are `ghcr.io/mocaos/cortex-backend`, `-frontend`, `-chat`, pinned by the three `CORTEX_*_IMAGE` lines in `.env`. This stack ships **Cortex Chat** alongside Cortex; both share one identity (`ADMIN_EMAIL`/`ADMIN_PASSWORD`), and Chat mints its own scoped backend keys using `ADMIN_API_KEY`.
+
+`COMPOSE_FILE` picks the topology — and this is where the `NEXT_PUBLIC_API_URL` and cookie traps listed below are already solved for you:
+
+| Mode | `COMPOSE_FILE` | Notes |
+|---|---|---|
+| Localhost (default) | `docker-compose.yml:docker-compose.ports.yml` | Ports bound to `BIND_ADDR` (`127.0.0.1`). The overlay sets `SESSION_COOKIE_SECURE=false`, so admin login works over plain HTTP. |
+| Public domain | `docker-compose.yml:docker-compose.caddy.yml` | Caddy terminates TLS automatically. Set `APP_DOMAIN`, `CHAT_DOMAIN`, `ACME_EMAIL`, `CHAT_BASE_URL`, `CORS_ALLOWED_ORIGINS`; point both A records at the host **before** first boot or ACME issuance fails. Only Caddy publishes ports — the API and Neo4j browser stay on the Compose network. |
+
+Rules that bite if ignored: put local changes in `docker-compose.override.yml` (Compose merges it, updates never touch it), and **never rename the `backend` service** — the published frontend image bakes `API_URL=http://backend:8000` into its rewrite manifest at build time. Cortex Chat has no `SESSION_COOKIE_SECURE` equivalent, so its cookie is always `Secure`: it works at `http://localhost:3001` (browsers trust `localhost`) but silently fails to log in if you point `BIND_ADDR` at a LAN IP over plain HTTP — use domain mode for remote access.
+
+To update: re-fetch `stack.json`, bump the three `CORTEX_*_IMAGE` lines, back up, then `docker compose pull && docker compose up -d`.
+
+An interactive installer (`npx @mocaos/cortex`) is planned; `selfhost/README.md` in the repo is the authoritative manual runbook it will automate.
 
 ## Service URLs
 
@@ -341,16 +379,30 @@ ENABLE_AGENT_CHAT=true                        # Agent pipeline for standard Chat
 RESEARCHER_MAX_ITERATIONS_SPEED=3             # Chat mode iterations
 RESEARCHER_MAX_ITERATIONS_QUALITY=8           # Deep Research iterations
 WRITER_MAX_TOKENS_SPEED=1200                  # Chat answer max tokens
-WRITER_MAX_TOKENS_QUALITY=4000                # Deep Research answer max tokens
+WRITER_MAX_TOKENS_QUALITY=8000                # Deep Research answer max tokens (4000 in v1.0.0 — see below)
+
+# Deep Research quality + latency guards — POST-v1.0.0 (on main, not in the 1.0.0 images).
+# All default on; 0 disables the numeric ones.
+RESEARCHER_FORCE_REFLECTION=true              # Force a reasoning step after a search round the model didn't reflect on
+RESEARCHER_NOVELTY_MIN_NEW_RATIO=0.35         # Search round below this share of previously-unseen sources counts as stale
+RESEARCHER_NOVELTY_STALE_ROUNDS=2             # Consecutive stale rounds before the writer takes over
+RESEARCHER_WALL_CLOCK_SECONDS=120             # Research time budget (0 = unlimited); default was 0 in v1.0.0
+RESEARCHER_GIT_TOOL=auto                      # git_repo tool: auto = read/write connections only | always | off
 ```
+
+> On a **v1.0.0** install, `WRITER_MAX_TOKENS_QUALITY` is `4000`, `RESEARCHER_WALL_CLOCK_SECONDS` defaults to `0` (unlimited), and the reflection/novelty/git-tool flags do not exist — setting them changes nothing. They ship in the next release; the `ask` and `git-integration` skills describe what each one does.
+
+> Post-v1.0.0, `RESEARCHER_WALL_CLOCK_SECONDS` defaults to **120**, not unlimited. Healthy gathering finishes in 30–60s, so the budget normally only fires on provider queue spikes — but slow self-hosted inference can trip it legitimately and cut research short. Raise it (or set `0`) on a GPU box that takes minutes per completion.
 
 ### Frontend Configuration
 
 ```bash
 NEXT_PUBLIC_API_URL=http://localhost:8000
-NEXT_PUBLIC_LOGO_URL=https://example.com/logo.png    # Custom logo
+LOGO_URL=https://example.com/logo.png                 # Custom logo (server-side, read at runtime — no rebuild needed)
 ACCENT_COLOR=#3b82f6                                  # Custom accent color (server-side, read at runtime — no rebuild needed)
 ```
+
+> Use **`LOGO_URL`**, not `NEXT_PUBLIC_LOGO_URL`, on prebuilt images. The header is a Client Component, so a `NEXT_PUBLIC_*` value is inlined at build time and can never be re-branded in a published image. `LOGO_URL` is read server-side in the root layout (same pattern as `ACCENT_COLOR`) and applies on restart. `NEXT_PUBLIC_LOGO_URL` still works as a fallback for deploys that build their own frontend.
 
 ### Self-host on a LAN/remote box {#self-host-on-a-lanremote-box}
 
@@ -412,7 +464,8 @@ CRAWL_MAX_URLS_PER_JOB=100
 Host self-contained web apps inside the instance — installed from a zip or from the public registry, sandboxed, with least-privilege API access. Building one? Fetch the [builder/app skill](../builder/app/SKILL.md).
 
 ```bash
-ENABLE_APPS=true                  # Master switch (default false: all app routes 404)
+ENABLE_APPS=true                  # Master switch (backend default false: all app routes 404 —
+                                  # but the selfhost/ release stack defaults it to true)
 APPS_DIR=.agents/apps             # Bundles + per-app storage + task state (persist as a volume)
 APP_REGISTRY_URL=https://raw.githubusercontent.com/mocaOS/cortex-registry/main/index.json
                                   # The Browse Registry catalog; fork it to curate, empty to hide
@@ -464,7 +517,9 @@ ENABLE_AUDIT_LOG=false            # Append-only JSONL audit log (metadata only; 
 
 > ⚠️ **Never put `NEO4J_*` tunables in project-wide env.** On PaaS deployments (Dokploy, Coolify) that inject env vars project-wide, a bare `NEO4J_*` var also lands on the neo4j container — which interprets **every** `NEO4J_*` env as server configuration and can fail to boot. Scope `NEO4J_MAX_POOL_SIZE` / `NEO4J_CONNECTION_TIMEOUT` / `NEO4J_CONNECTION_ACQUISITION_TIMEOUT` to the backend service's `environment:` block only, and use the `CORTEX_NEO4J_*` passthroughs (like `CORTEX_NEO4J_TX_TIMEOUT`) where available.
 
-> **Slim image:** build with `--build-arg INSTALL_LOCAL_ML=false` for a torch-free backend (~1.2 GB) when reranking + conversion are offloaded to cortex-helper. Requires OpenAI embeddings; pair with `HELPER_STRICT_REMOTE=true`.
+> **Slim image:** build with `--build-arg INSTALL_LOCAL_ML=false` for a torch-free backend (~1.2 GB) when reranking + conversion are offloaded to cortex-helper. Requires OpenAI embeddings; pair with `HELPER_STRICT_REMOTE=true`. The published release image already builds with `TORCH_VARIANT=cpu` (no CUDA wheels — containerized deploys run Docling's CPU path regardless), so there is nothing for a self-hoster to set there.
+
+> **Error tracking is off on the self-host stack.** The dev/prod/Coolify/Dokploy compose files default `SENTRY_DSN_BACKEND`/`SENTRY_DSN_FRONTEND` to the project's own GlitchTip, but `selfhost/docker-compose.yml` deliberately inverts that to empty — a self-hoster's stack traces never leave their box unless they opt in with their own DSN. Set the vars to enable it; leave them unset to stay silent.
 
 ### Efficiency Flags (v-next, default off)
 
@@ -525,7 +580,12 @@ Key production considerations:
 - Block direct access to Neo4j ports (7474, 7687) from public internet
 - Set `PROMPT_SECURITY=true`; interactive API docs auto-disable in production (`EXPOSE_API_DOCS`)
 
-**Backups:** the prod overlay, Coolify, and Dokploy stacks include a nightly backup sidecar with a verified server-side graph export (`graph.cypher.gz` + `SHA256SUMS`, stamped `.complete`/`LAST_SUCCESS` only after row counts check out), retention that never deletes the newest complete backup, a compose healthcheck that goes unhealthy when the newest verified backup is older than 2× the interval, and a tested `/restore.sh <timestamp>` runbook.
+**Backups:** the self-host, prod overlay, Coolify, and Dokploy stacks include a nightly backup sidecar with a verified server-side graph export (`graph.cypher.gz` + `SHA256SUMS`, stamped `.complete`/`LAST_SUCCESS` only after row counts check out), retention that never deletes the newest complete backup, a compose healthcheck that goes unhealthy when the newest verified backup is older than 2× the interval, and a tested `/restore.sh <timestamp>` runbook.
+
+The file tarball covers **uploads, custom inputs, chat data, installed skills, and installed apps** — the last two were silently excluded before v1.0.0, and user-installed AgentSkills and apps have no other copy, so verify a backup taken on an older stack actually contains them. Two things to internalize:
+
+- **Restoring is six steps, not one command.** `/restore.sh <timestamp>` replays only the graph (and requires `RESTORE_WIPE=yes`, which `DETACH DELETE`s everything first). The file volumes must be untarred separately — the sidecar mounts them read-only, so that step runs in a throwaway container. Then start the backend (boot recreates constraints/indexes, including the vector indexes the logical export doesn't carry) and verify counts on `GET /api/stats`. The authoritative runbook is the header comment in `ops/backup/restore.sh`.
+- **A backups volume on the same disk is not disaster recovery.** Ship them off-host.
 
 ## Troubleshooting
 
