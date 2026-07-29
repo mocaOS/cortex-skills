@@ -50,7 +50,7 @@ A key's `permissions` is an array of any combination of these two values:
 | **read** | Ask AI, search, list documents, stats, view graph, list collections |
 | **manage** | Everything in read, plus upload, edit, move, reprocess, and delete documents & collections |
 
-Full-instance operations — API-key CRUD, system reset, config changes, skill management — are **not** a permission value. They require the root **admin API key** (the `ADMIN_API_KEY` env value), which is a distinct credential, not a tier you can grant to a user key.
+Full-instance operations — API-key CRUD, system reset, config changes, skill management — are **not** a permission value. They require the root **admin API key** (the `ADMIN_API_KEY` env value), which is a distinct credential, not a tier you can grant to a user key. The admin key also exclusively gates `POST /api/llm/completions` — a raw completion on the instance's primary model that bypasses retrieval *and* prompt security, which is exactly why no user key can ever reach it.
 
 Keys are additionally scoped by `collection_scope` (`all` or `restricted` + `allowed_collections`) — see below.
 

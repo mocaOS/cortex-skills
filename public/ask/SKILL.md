@@ -25,6 +25,8 @@ description: Use this skill when building RAG-powered Q&A features on Cortex. Co
 
 9. **A 402 means your key is monetized, not broken.** Keys with the `cortex_pub_` prefix pay per query via x402 micropayments: decode the `PAYMENT-REQUIRED` header, sign the EIP-3009 authorization, retry with `PAYMENT-SIGNATURE`. Note that `use_agentic: true` bills at the key's **deep-research rate** (`price × research_multiplier`, default 10×) — the challenge's `amount` already reflects the mode you requested, so always read it rather than assuming the flat price. When paying, always use `/api/ask/stream` — the non-streaming `/api/ask` has a ~28s deadline that can expire *after* your payment settled. Full handshake: the [x402 skill](../x402/SKILL.md).
 
+10. **Don't use `/api/ask` as a raw LLM.** It always retrieves, always answers in RAG voice, and the injection defenses will deflect instruction-shaped meta-prompts ("You are a…", output contracts) with a canned response. For plain completions on the instance's configured model there is `POST /api/llm/completions` — **admin-key-only** (it bypasses prompt security, so user keys can never reach it), OpenAI-style chunks over SSE terminated by `data: [DONE]`, body `{messages, temperature?, max_tokens?, stream}`, metered against the monthly quota like every other completion. Built for trusted first-party services (Cortex Chat's personality generator is the reference consumer).
+
 ## Endpoints
 
 ### Non-Streaming: POST /api/ask

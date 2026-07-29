@@ -45,6 +45,31 @@ The response also carries the monthly unit quota meter — `monthly_usage_used`,
 
 ---
 
+## Raw LLM Completions
+
+`POST /api/llm/completions` runs a plain chat completion on the instance's **primary model** — no retrieval, no prompt security, the caller owns the full prompt. Admin key only: it exists for trusted first-party services (Cortex Chat's personality generator is the reference consumer) so operators keep one model configuration, and it is gated at admin tier precisely *because* prompt security is bypassed.
+
+```bash
+curl -N -X POST "{BASE_URL}/api/llm/completions" \
+  -H "X-API-Key: {ADMIN_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "messages": [
+      {"role": "system", "content": "You are a terse assistant."},
+      {"role": "user", "content": "Say OK."}
+    ],
+    "temperature": 0.85,
+    "max_tokens": 4000,
+    "stream": true
+  }'
+```
+
+- **Streaming (default)**: OpenAI-compatible chat chunks as SSE `data:` frames, terminated by `data: [DONE]`, with `: ping` heartbeat comments and a terminal `event: shutdown` on rolling restarts. Errors stream as sanitized `data: {"error": "..."}` frames.
+- **Non-streaming** (`"stream": false`): `{"content": "...", "model": "..."}`.
+- Limits: 1–50 messages, roles `system|user|assistant`, `max_tokens` ≤ 16000. Completions draw from `MAX_QUERIES_PER_MONTH` (429 + `Retry-After` when exhausted), count as usage category `llm`, and are Langfuse-traced when tracing is on.
+
+---
+
 ## Admin Session Authentication
 
 The web UI uses session-based auth, separate from API keys. **There is no `/api/admin/login` or `/api/admin/logout` HTTP endpoint** — you cannot `curl` a login.

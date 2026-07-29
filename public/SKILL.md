@@ -98,6 +98,7 @@ curl -X POST "{BASE_URL}/api/ask" \
 | `POST` | `/api/collections` | manage | Create collection |
 | `GET` | `/api/graph/communities` | read | List communities |
 | `POST` | `/api/admin/api-keys` | admin key | Create API key (root `ADMIN_API_KEY`) |
+| `POST` | `/api/llm/completions` | admin key | Raw chat completion on the instance's primary model — no retrieval, no prompt security. For trusted first-party services |
 
 ## Agent Memory Sync
 

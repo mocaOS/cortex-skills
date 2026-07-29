@@ -177,7 +177,7 @@ cp .env.example .env && chmod 600 .env
 docker compose up -d
 ```
 
-Needs `git`, `jq`, and `openssl` on the host (a minimal server image has none of them), Docker Engine 24+ with the Compose **v2 plugin**, ~20 GB disk and ~8 GB RAM. Images are `ghcr.io/mocaos/cortex-backend`, `-frontend`, `-chat`, pinned by the three `CORTEX_*_IMAGE` lines in `.env`. This stack ships **Cortex Chat** alongside Cortex; both share one identity (`ADMIN_EMAIL`/`ADMIN_PASSWORD`), and Chat mints its own scoped backend keys using `ADMIN_API_KEY`.
+Needs `git`, `jq`, and `openssl` on the host (a minimal server image has none of them), Docker Engine 24+ with the Compose **v2 plugin**, ~20 GB disk and ~8 GB RAM. Images are `ghcr.io/mocaos/cortex-backend`, `-frontend`, `-chat`, pinned by the three `CORTEX_*_IMAGE` lines in `.env`. This stack ships **Cortex Chat** alongside Cortex; both share one identity (`ADMIN_EMAIL`/`ADMIN_PASSWORD`), and Chat mints its own scoped backend keys using `ADMIN_API_KEY` — which also powers its personality generator via the backend's `POST /api/llm/completions`. Chat is a full team workspace (AI personalities as portable SOUL.md files, shared projects with realtime multi-user conversations, voice dictation/read-aloud, per-user history); the feature tour lives at [docs.cortex.eco/features/cortex-chat](https://docs.cortex.eco/features/cortex-chat).
 
 `COMPOSE_FILE` picks the topology — and this is where the `NEXT_PUBLIC_API_URL` and cookie traps listed below are already solved for you:
 
