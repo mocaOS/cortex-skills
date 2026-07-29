@@ -134,7 +134,7 @@ If `api_key` or `base_url` is missing or null, abort and ask the user to configu
 curl -s "$API_BASE/health" -H "X-API-Key: $API_KEY"
 ```
 
-Expected: `{"status": "healthy", "neo4j_connected": true, "version": "1.0.0"}`
+Expected: `{"status": "healthy", "neo4j_connected": true, "version": "1.0.0"}` — key off `status` and the HTTP code, not `version` (it is hardcoded `1.0.0` on every release through v1.0.1).
 
 ### Step 3: Ensure Collection Exists
 

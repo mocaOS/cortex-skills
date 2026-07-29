@@ -58,6 +58,8 @@ bash ${HERMES_SKILL_DIR}/scripts/cortex.sh setup dir=~/cortex-app provider=venic
 bash ${HERMES_SKILL_DIR}/scripts/cortex.sh setup-status dir=~/cortex-app   # repeat until connected
 ```
 
+> **Why not `npx @mocaos/cortex`?** Cortex's own one-command installer exists and is the right tool for a standalone instance (it runs from prebuilt images, so nothing is built locally — see `cortexskills.org/setup/SKILL.md`). The helper below is still the path for *this* flow, because it also mints the API key, writes `~/.hermes/.env`, and registers the instance as a source — none of which the generic installer knows about. If you install with `npx` instead, you get a running instance and then connect it as **Path A** using the admin key it prints.
+
 Providers: `provider=ollama|venice|openai|openrouter|custom` — `ollama` is the fully-local zero-cloud-key path (needs ollama running with the chat + `nomic-embed-text` models pulled; the container reaches the host via `172.17.0.1`); openrouter additionally needs `emb_key=` (see the embeddings caveat below); custom needs `base=` `model=` `emb_model=`. Occupied ports? `offset=1` shifts all ports and container names. Humans browsing the dashboard from another machine? Pass `host=<lan-ip-or-domain>` — the frontend bakes its backend URL at build time, so a localhost build shows "session expired" from every other box. `tuning=fast` (auto for ollama/custom) writes local-model-friendly extraction/reasoning/concurrency knobs; `send_dims=false` handles fixed-dimension embedding models (auto-detected for the known ones — wrong setting = HTTP 500 on first ask). For deep tuning (~160 env vars, model matrix, hardening), fetch `https://cortexskills.org/setup/SKILL.md` after boot — the instance's `.env` lives in the setup dir.
 
 Below is the part worth understanding either way: **mapping the keys you already have.**
@@ -97,6 +99,7 @@ Cortex needs **two** model capabilities: a **chat/LLM** model (Q&A, entity extra
 | OpenAI | ✅ | ✅ | Simplest — one key does everything. `text-embedding-3-small` / 1536 is the **recommended** embedding setup |
 | Venice | ✅ | ✅ | Serves `text-embedding-3-small` / 1536 (**recommended**); `text-embedding-qwen3-8b` / 4096 as higher-dim alternative |
 | OpenRouter | ✅ | ⚠️ | Chat only in practice — **set a separate embedding provider** |
+| Groq | ✅ | ❌ | No embedding endpoint at all — **a separate embedding provider is mandatory** |
 
 If you self-host on OpenRouter, give the embedding model its own credentials (OpenAI or Venice) via Cortex's `EMBEDDING_API_KEY` / `EMBEDDING_API_BASE` / `EMBEDDING_MODEL`:
 
@@ -112,6 +115,8 @@ EMBEDDING_MODEL=text-embedding-3-small
 EMBEDDING_DIMENSION=1536
 EMBEDDING_MAX_INPUT_TOKENS=5400   # providers validate with their own tokenizer — 5400 stays under every 8192-cap provider
 ```
+
+Set `EMBEDDING_API_KEY` and `EMBEDDING_API_BASE` **together**. A base URL on its own inherits `OPENAI_API_KEY`, which sends your OpenRouter key to OpenAI's endpoint and fails on every embedding call.
 
 The setup skill's "Recommended Minimal Stack" covers the full model matrix, context budgets, and the `EMBEDDING_DIMENSION` ceiling (Neo4j 5.26 supports up to 4096-dim indexes).
 

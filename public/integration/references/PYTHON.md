@@ -51,6 +51,8 @@ Check if the Cortex server is running. Does NOT require authentication.
 }
 ```
 
+`version` is a hardcoded `"1.0.0"` on every release through v1.0.1 and only reports the real release after that — branch on `status`, never on `version`.
+
 **Example:**
 ```python
 status = client.health()

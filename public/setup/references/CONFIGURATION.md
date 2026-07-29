@@ -4,6 +4,8 @@ Complete environment variable reference for Cortex. Every variable, its type, de
 
 This file complements the main `setup/SKILL.md` which covers installation, service URLs, health checks, and troubleshooting. Refer here for the exhaustive variable list with full detail on each.
 
+> On an instance installed with `npx @mocaos/cortex`, the required block and the LLM block are already written (`.env`, mode `0600`) and `npx @mocaos/cortex config` edits them. You still need this reference for everything the wizard doesn't ask about — concurrency, budgets, feature flags — which you set in that same `.env` and apply with `docker compose up -d --force-recreate` from the install directory — a plain restart keeps the env snapshot the container was created with.
+
 ---
 
 ## Required Variables
@@ -49,6 +51,10 @@ These must be set for Cortex to start.
 | `USE_OPENAI_EMBEDDINGS` | `boolean` | `true` | Use the OpenAI-compatible embedding endpoint. |
 | `EMBEDDING_API_BASE` | `string` | value of `OPENAI_API_BASE` | API base URL for the embedding provider, if different from the primary LLM. |
 | `EMBEDDING_API_KEY` | `string` | value of `OPENAI_API_KEY` | API key for the embedding provider, if different from the primary LLM. |
+
+> **Set `EMBEDDING_API_BASE` and `EMBEDDING_API_KEY` as a pair, or neither.** A base URL alone still inherits `OPENAI_API_KEY`, which sends the chat provider's credential to a different vendor's endpoint. This is a common configuration rather than an edge case: many OpenAI-compatible providers serve `/v1/chat/completions` but no `/v1/embeddings` (Groq has none), so chat and embeddings routinely come from two places. `npx @mocaos/cortex` asks about it explicitly and rejects a half-set pair.
+>
+> `EMBEDDING_DIMENSION` must match whatever endpoint ends up serving embeddings. It is baked into the Neo4j vector index the first time one is created, so changing it later requires re-embedding the entire corpus — confirm it against the provider (or let the installer measure it with a live probe) rather than assuming `1536`.
 
 ---
 
@@ -448,6 +454,8 @@ VISION_MODEL_API_KEY  ->  OPENAI_API_KEY
 ```
 
 This means you can run the entire system with just `OPENAI_API_KEY`, `OPENAI_API_BASE`, and `OPENAI_MODEL` set, and every subsystem will inherit those values. Override individual variables only when you want a subsystem to use a different model or endpoint.
+
+The embedding pair is the one place where inheritance is often *wrong* rather than merely suboptimal: a provider that serves chat but no `/v1/embeddings` needs `EMBEDDING_API_BASE` **and** `EMBEDDING_API_KEY` set together, since overriding only the base URL inherits the chat provider's key and sends it to a different vendor.
 
 ---
 

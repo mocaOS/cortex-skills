@@ -7,7 +7,7 @@ description: Use this skill when deploying or configuring Cortex, including self
 
 ## What You Probably Got Wrong
 
-1. **Cortex is self-hosted, not a hosted SaaS.** You deploy it yourself via Docker Compose. There is no cloud-hosted API to call without deploying first.
+1. **Cortex is self-hosted, not a hosted SaaS.** You deploy it yourself. There is no cloud-hosted API to call without deploying first. The whole thing is now one command — `npx @mocaos/cortex`, published on npm, which installs *and then manages* the instance ([Install with the installer](#installer)). The Compose paths below are for building from source or driving the stack with your own tooling.
 
 2. **Neo4j is required — it is the database for everything.** Chunks, entities, relationships, embeddings, and API keys all live in Neo4j. There is no Postgres or SQLite option.
 
@@ -17,7 +17,7 @@ description: Use this skill when deploying or configuring Cortex, including self
 
 5. **Neo4j takes 30-60 seconds to initialize.** If the backend fails to connect on first boot, wait and restart the backend container.
 
-6. **The dashboard breaks from any browser that isn't on the host itself** unless you override `NEXT_PUBLIC_API_URL`. The shipped `docker-compose.yml` hardcodes `http://localhost:8000` in the frontend's `environment:` block, which beats your `.env` — browsers on other machines then call *their own* localhost and get "session expired" / `ERR_CONNECTION_REFUSED`. See [Self-host on a LAN/remote box](#self-host-on-a-lanremote-box). The v1.0.0 [release stack](#release-install) doesn't have this trap: pick a `COMPOSE_FILE` mode and the URLs and cookie flags are already correct.
+6. **The dashboard breaks from any browser that isn't on the host itself** unless you override `NEXT_PUBLIC_API_URL`. The shipped `docker-compose.yml` hardcodes `http://localhost:8000` in the frontend's `environment:` block, which beats your `.env` — browsers on other machines then call *their own* localhost and get "session expired" / `ERR_CONNECTION_REFUSED`. See [Self-host on a LAN/remote box](#self-host-on-a-lanremote-box). The [release stack](#release-install) doesn't have this trap — pick a `COMPOSE_FILE` mode and the URLs and cookie flags are already correct — and the [installer](#installer) picks the mode for you.
 
 7. **`docker restart` does NOT reload `.env`.** Containers keep the env snapshot from `create`. After any `.env` change run `docker compose up -d --force-recreate` (add `--no-deps <service>` to scope it).
 
@@ -25,11 +25,80 @@ description: Use this skill when deploying or configuring Cortex, including self
 
 ## Prerequisites
 
-- [Docker](https://docs.docker.com/get-docker/) and Docker Compose
-- [Git](https://git-scm.com/)
-- An OpenAI API key (or Anthropic/local LLM)
+- **[Docker](https://docs.docker.com/get-docker/) with the Compose v2 plugin** — verify with `docker compose version`. On Linux, `apt install docker.io` does **not** include Compose v2; install Docker's official packages or Docker Desktop.
+- `curl` and `tar` for the installer path — `git`, `jq`, and `openssl` too for the manual paths, and a minimal server image ships none of them.
+- **~20 GB free disk, ~8 GB RAM**, `linux/amd64` or `linux/arm64`. Images pull ~1.7 GB total (backend ~1.2 GB, Neo4j ~340 MB, frontend and chat ~70–75 MB each, Caddy ~23 MB in domain mode).
+- **An OpenAI-compatible API key.** Chat needs `/v1/chat/completions` and embeddings need `/v1/embeddings` — but **not necessarily from the same provider**. Groq serves chat and has no embedding endpoint at all; Ollama users routinely embed elsewhere. See [Embedding Configuration](#embedding-configuration).
+- Only relevant to the installer: `npx` brings its own Node, but if one is already on your `PATH` it must be **20.12 or newer** (the floor comes from the installer's prompt library; 18 is rejected by its first check).
 
-## Quick Installation
+## Install with the installer — `npx @mocaos/cortex` (recommended) {#installer}
+
+```bash
+npx @mocaos/cortex
+```
+
+One command brings up the whole stack — Cortex, Cortex Chat, Neo4j, a nightly backup sidecar, and Caddy for automatic HTTPS in domain mode — from prebuilt, version-pinned images. Nothing to clone, nothing to build, no Compose file to edit. It runs in this order and stops at the first thing that would waste your time:
+
+1. **Environment preflight** — Docker daemon, Compose v2, architecture, free disk, RAM, and the ports it is about to bind.
+2. **Live credential validation** — a real chat completion *and* a real embedding call. Nothing is written to disk and no image is pulled until both succeed, so a wrong key costs seconds instead of a 1.7 GB pull. This holds on every path, interactive or `--yes`.
+3. **Interactive configuration** — localhost or a public domain (it resolves both hostnames and warns if DNS doesn't point here yet, since Let's Encrypt validates over HTTP), project name, setup depth (Quick or Advanced — Advanced overrides the graph-extraction and vision models separately and can configure SMTP for chat password resets), provider and models, admin identity, and secrets.
+4. **Pull, start, verify** — writes `.env` at mode `0600`, fetches that release's Compose files, pulls the pinned images, and waits for every service to report healthy before printing your login.
+
+**The embedding dimension is measured from a live probe, never assumed** — it gets baked into the Neo4j vector index on first use, and changing it later means re-embedding the whole corpus.
+
+It manages the instance afterwards too, so you rarely touch Compose directly:
+
+```bash
+npx @mocaos/cortex status     # service state, health, URLs
+npx @mocaos/cortex doctor     # one pasteable diagnostic block
+npx @mocaos/cortex backup     # verified backup now
+npx @mocaos/cortex update     # move to the latest tested stack
+npx @mocaos/cortex logs       # follow logs
+```
+
+`start`, `stop`, `restart`, `config`, `restore` and `uninstall` complete the set (twelve verbs). Data lives in Docker volumes, so `stop` and `uninstall` never touch it — removing volumes takes a confirmation *and* a typed phrase.
+
+`update` is the one worth understanding before you run it: it fetches the latest release manifest, diffs every component that would move (backend, frontend, chat, Neo4j, Caddy), offers a backup first, re-fetches that release's Compose files *and* `ops/` directory so stack-level changes come along, and rewrites **only the image and version pin lines in `.env`** — comments, custom additions and every secret are preserved byte for byte. If the post-update health check times out it prints the exact five pin lines to restore for a rollback (also recorded as `previous` in `cortex.json`), followed by `start`.
+
+**It never adopts data it didn't create.** The default project name is `cortex`; if Docker already holds `cortex_*` volumes from an earlier install, the wizard stops and offers **rename** (recommended), **reuse** (only if you know that data is yours), or **abort**. This matters because Neo4j applies `NEO4J_AUTH` only when its data volume is *first* created — silently reusing a project name would write a freshly generated password Neo4j never adopts, and the backend would then retry the wrong credentials until Neo4j rate-limits it.
+
+### Two `npx` failures that aren't what they look like {#npx-failures}
+
+Both happen before the installer gets to run, and neither message points at its real cause:
+
+- **`could not determine executable to run`** — there is no `install` subcommand. `npx` already means "fetch and run", so `npx install @mocaos/cortex` asks npm to run a package literally named `install`. The command is just `npx @mocaos/cortex`.
+- **`ENOVERSIONS — No versions available for @mocaos/cortex`** — the package is public and fine; npm is hiding it. An `.npmrc` with `min-release-age` set (a publish cooldown, increasingly common after the npm supply-chain compromises of recent months, and worth keeping) filters out every version published inside that window, so a release that is hours old has none left. Confirm with `npm config get min-release-age`, then override it for the one command rather than disabling the policy:
+
+```bash
+npx --min-release-age=0 @mocaos/cortex
+```
+
+The flag works on any verb (`npx --min-release-age=0 @mocaos/cortex status`). npm has no way to exempt a single package, so it is the flag or the wait.
+
+### Non-interactive install (`--yes`) {#yes-install}
+
+`--yes` runs the identical sequence — same probes, same collision check — sourced from environment variables instead of prompts:
+
+```bash
+CORTEX_ADMIN_EMAIL=you@example.com \
+CORTEX_OPENAI_API_KEY=sk-... \
+CORTEX_OPENAI_API_BASE=https://api.venice.ai/api/v1 \
+CORTEX_OPENAI_MODEL=google-gemma-4-26b-a4b-it \
+CORTEX_EMBEDDING_MODEL=text-embedding-3-small \
+CORTEX_EMBEDDING_DIMENSION=1536 \
+npx @mocaos/cortex --yes
+```
+
+Note the `CORTEX_` prefix on every one — these configure the *installer*, which then renders the instance's `.env` with the unprefixed names (`OPENAI_API_KEY`, …) documented in the rest of this skill. `CORTEX_OPENAI_API_BASE` is optional and defaults to OpenAI's endpoint.
+
+- **Embeddings default to the chat provider.** To point them elsewhere set `CORTEX_EMBEDDING_API_BASE` *and* `CORTEX_EMBEDDING_API_KEY` together — **both or neither**. A base URL on its own is rejected rather than paired with the chat key, which would send one vendor's credential to another vendor's endpoint. The wizard asks the same question interactively.
+- Add `CORTEX_MODE=domain` with `CORTEX_APP_DOMAIN`, `CORTEX_CHAT_DOMAIN`, and `CORTEX_ACME_EMAIL` for a public deployment.
+- All five secrets are generated unless you supply `CORTEX_ADMIN_PASSWORD`, `CORTEX_NEO4J_PASSWORD`, `CORTEX_ADMIN_API_KEY`, `CORTEX_SESSION_SECRET`, or `CORTEX_CHAT_ENCRYPTION_KEY`. No secret is ever written to the installer's own state file.
+- A project-name collision under a name you did *not* set explicitly is a hard failure here (`--yes` can't prompt); setting `CORTEX_PROJECT_NAME` yourself is treated as deliberate reuse.
+
+> **`update` needs a recent-enough installer.** Each release's `stack.json` carries `minInstaller`, and the v1.0.1 stack requires **1.0.2** — the corrected `ops/backup/restore.sh` reaches the backup sidecar only on an installer that passes `--build` to `compose up`, because that sidecar is built locally and Compose will not rebuild an existing image just because its build context changed. On an older installer the fix lands on disk and never runs.
+
+## Build from source
 
 ```bash
 # Clone the repository
@@ -50,7 +119,9 @@ docker compose up -d
 
 ### Autonomous install (for an agent self-hosting on its own VM)
 
-No interactive editor needed — write `.env` directly, bring the stack up, then poll health until Neo4j finishes initializing (30–60s):
+**Prefer `npx @mocaos/cortex --yes`** ([Non-interactive install](#yes-install) above) — it needs no editor, no clone and no build, validates the credentials before spending a 1.7 GB pull, and won't adopt somebody else's volumes. Use the source build below only when you specifically need to run modified code or track `main`.
+
+No interactive editor needed there either — write `.env` directly, bring the stack up, then poll health until Neo4j finishes initializing (30–60s):
 
 ```bash
 git clone https://github.com/mocaOS/cortex-app.git && cd cortex-app
@@ -81,16 +152,18 @@ grep '^ADMIN_API_KEY=' .env
 
 > `.env.recommended` already carries the recommended model stack (Venice API base, Gemma4 26B A4B primary, Qwen3.6 27B extraction + vision) and leaves every other knob on production-tuned code defaults; only the secrets above are required to boot. Using a different provider? Also append `OPENAI_API_BASE=` (and `OPENAI_MODEL=` / `OPENAI_MAX_CONTEXT=` for a different primary). After it's healthy, drive the instance with the `cortex` + feature skills against `http://localhost:8000`.
 
-### Release install — prebuilt images, no build step (v1.0.0+) {#release-install}
+### Release install by hand — prebuilt images, no build step (v1.0.0+) {#release-install}
+
+Everything the [installer](#installer) does, done manually. Use this when you want to see each step, script it yourself, or manage the stack with existing tooling — the two are kept in sync, so this also describes the files the installer writes.
 
 The clone-and-build path above compiles the frontend and a torch-bearing backend locally (slow on a small VM, and it moves whenever `main` moves). Since **v1.0.0** there is a pinned release track: multi-arch images on GHCR plus a static Compose stack under `selfhost/` that you configure entirely through `.env` and never edit.
 
-`stack.json` on the GitHub release is the version manifest — it names the stack version and the component versions tested together:
+`stack.json` on the GitHub release is the version manifest — it names the stack version, the component versions tested together, and the minimum installer those versions need:
 
 ```bash
 curl -fsSL https://github.com/mocaOS/cortex-app/releases/latest/download/stack.json -o stack.json
-# {"stack":"1.0.0","components":{"backend":"1.0.0","frontend":"1.0.0","chat":"1.0.0",
-#  "neo4j":"5.26-community","caddy":"2-alpine"},"minInstaller":"1.0.0", ...}
+# {"stack":"1.0.1","components":{"backend":"1.0.1","frontend":"1.0.1","chat":"1.0.0",
+#  "neo4j":"5.26-community","caddy":"2-alpine"},"minInstaller":"1.0.2", ...}
 
 git clone --depth 1 --branch "v$(jq -r .stack stack.json)" \
   https://github.com/mocaOS/cortex-app.git /tmp/cortex-src
@@ -115,9 +188,11 @@ Needs `git`, `jq`, and `openssl` on the host (a minimal server image has none of
 
 Rules that bite if ignored: put local changes in `docker-compose.override.yml` (Compose merges it, updates never touch it), and **never rename the `backend` service** — the published frontend image bakes `API_URL=http://backend:8000` into its rewrite manifest at build time. Cortex Chat has no `SESSION_COOKIE_SECURE` equivalent, so its cookie is always `Secure`: it works at `http://localhost:3001` (browsers trust `localhost`) but silently fails to log in if you point `BIND_ADDR` at a LAN IP over plain HTTP — use domain mode for remote access.
 
-To update: re-fetch `stack.json`, bump the three `CORTEX_*_IMAGE` lines, back up, then `docker compose pull && docker compose up -d`.
+To update: re-fetch `stack.json`, bump the three `CORTEX_*_IMAGE` lines, back up, then `docker compose pull && docker compose up -d --build`. **Pass `--build`** — the backup sidecar is built locally from the release's `ops/backup` directory, and Compose does not rebuild an existing image just because its build context changed, so without it a release that ships corrected backup or restore scripts writes them to disk and keeps running the old ones. (`npx @mocaos/cortex update` does this for you; that is why the v1.0.1 stack requires installer ≥ 1.0.2.)
 
-An interactive installer (`npx @mocaos/cortex`) is planned; `selfhost/README.md` in the repo is the authoritative manual runbook it will automate.
+Note that the component versions move independently: `chat` is pinned in `stack.json` rather than derived from this repo's version, so a chat-only patch ships without a new backend image — read the manifest rather than assuming all three tags match.
+
+`selfhost/README.md` in the repo is the authoritative manual runbook, kept in sync with the installer.
 
 ## Service URLs
 
@@ -140,6 +215,8 @@ Expected response:
 ```
 
 A degraded instance (Neo4j unreachable or schema not yet confirmed) answers **HTTP 503** with `"status": "degraded"` — healthchecks and deploy gates key off the status code, and `schema_initialized` stays `false` until constraints/indexes are confirmed.
+
+> **`version` says `1.0.0` on every release so far — including 1.0.1.** It was a hardcoded string, verified against a live stack whose backend was `ghcr.io/mocaos/cortex-backend:1.0.1` and which still answered `1.0.0`. It becomes the real release version in the **first release after v1.0.1** (a `CORTEX_VERSION` constant, held in step with the published version by a release-time guard), so the example above is what a current instance returns, not a statement about which release it is. To confirm what is actually running, read the image tags — `docker compose images`, or the `CORTEX_*_IMAGE` lines in `.env`. Unrelated: the FastAPI schema's own `version: "2.0.0"` is the API contract's version, not the product's.
 
 ## Required Environment Variables
 
@@ -203,7 +280,7 @@ OPENAI_MAX_OUTPUT_TOKENS=8000         # Floor of the output-token budget chain
 OPENAI_MAX_CONTEXT=256000             # Floor of the input-context budget chain (code default; set to your primary model's window)
 ```
 
-### Embedding Configuration
+### Embedding Configuration {#embedding-configuration}
 
 ```bash
 EMBEDDING_MODEL=text-embedding-3-small
@@ -214,6 +291,8 @@ USE_OPENAI_EMBEDDINGS=true
 # EMBEDDING_API_BASE=                 # defaults to OPENAI_API_BASE
 # EMBEDDING_API_KEY=                  # defaults to OPENAI_API_KEY
 ```
+
+> **Embeddings may come from a different provider than chat — and often must.** Plenty of OpenAI-compatible endpoints serve `/v1/chat/completions` but no `/v1/embeddings` (Groq has none at all), so `EMBEDDING_API_BASE` + `EMBEDDING_API_KEY` are not an exotic override: they are the normal shape for those providers. Set **both or neither** — a base URL on its own inherits the chat provider's key and sends one vendor's credential to another vendor's endpoint. The installer asks this as a question and rejects a half-set pair outright (`CORTEX_EMBEDDING_API_BASE` / `CORTEX_EMBEDDING_API_KEY` under `--yes`), and it probes whichever endpoint ends up serving embeddings to *measure* `EMBEDDING_DIMENSION` rather than assume it — that dimension is baked into the Neo4j vector index on first use, and changing it later means re-embedding the corpus.
 
 ### Chunking Configuration
 
@@ -381,7 +460,7 @@ RESEARCHER_MAX_ITERATIONS_QUALITY=8           # Deep Research iterations
 WRITER_MAX_TOKENS_SPEED=1200                  # Chat answer max tokens
 WRITER_MAX_TOKENS_QUALITY=8000                # Deep Research answer max tokens (4000 in v1.0.0 — see below)
 
-# Deep Research quality + latency guards — POST-v1.0.0 (on main, not in the 1.0.0 images).
+# Deep Research quality + latency guards — shipped in v1.0.1; absent in the 1.0.0 images.
 # All default on; 0 disables the numeric ones.
 RESEARCHER_FORCE_REFLECTION=true              # Force a reasoning step after a search round the model didn't reflect on
 RESEARCHER_NOVELTY_MIN_NEW_RATIO=0.35         # Search round below this share of previously-unseen sources counts as stale
@@ -390,9 +469,9 @@ RESEARCHER_WALL_CLOCK_SECONDS=120             # Research time budget (0 = unlimi
 RESEARCHER_GIT_TOOL=auto                      # git_repo tool: auto = read/write connections only | always | off
 ```
 
-> On a **v1.0.0** install, `WRITER_MAX_TOKENS_QUALITY` is `4000`, `RESEARCHER_WALL_CLOCK_SECONDS` defaults to `0` (unlimited), and the reflection/novelty/git-tool flags do not exist — setting them changes nothing. They ship in the next release; the `ask` and `git-integration` skills describe what each one does.
+> The block above describes **v1.0.1 and later**. On a **v1.0.0** install, `WRITER_MAX_TOKENS_QUALITY` is `4000`, `RESEARCHER_WALL_CLOCK_SECONDS` defaults to `0` (unlimited), and the reflection/novelty/git-tool flags do not exist — setting them changes nothing. Update to get them; the `ask` and `git-integration` skills describe what each one does.
 
-> Post-v1.0.0, `RESEARCHER_WALL_CLOCK_SECONDS` defaults to **120**, not unlimited. Healthy gathering finishes in 30–60s, so the budget normally only fires on provider queue spikes — but slow self-hosted inference can trip it legitimately and cut research short. Raise it (or set `0`) on a GPU box that takes minutes per completion.
+> In v1.0.1, `RESEARCHER_WALL_CLOCK_SECONDS` defaults to **120**, not unlimited. Healthy gathering finishes in 30–60s, so the budget normally only fires on provider queue spikes — but slow self-hosted inference can trip it legitimately and cut research short. Raise it (or set `0`) on a GPU box that takes minutes per completion.
 
 ### Frontend Configuration
 
@@ -565,7 +644,9 @@ rm -rf frontend/.next && docker compose build --no-cache frontend && docker comp
 
 ## Production Deployment
 
-For production, use `docker-compose.prod.yml` or the Coolify template:
+The shortest production path is the installer in **domain mode** — `npx @mocaos/cortex` with a public domain gets you Caddy terminating TLS with automatic certificates, correct cookie flags and CORS, and only Caddy publishing ports (the API and the Neo4j browser stay on the Compose network). Most of the checklist below is already applied there.
+
+To build and run it yourself, use `docker-compose.prod.yml` or the Coolify template:
 
 ```bash
 # Production build
@@ -584,10 +665,20 @@ Key production considerations:
 
 The file tarball covers **uploads, custom inputs, chat data, installed skills, and installed apps** — the last two were silently excluded before v1.0.0, and user-installed AgentSkills and apps have no other copy, so verify a backup taken on an older stack actually contains them. Two things to internalize:
 
-- **Restoring is six steps, not one command.** `/restore.sh <timestamp>` replays only the graph (and requires `RESTORE_WIPE=yes`, which `DETACH DELETE`s everything first). The file volumes must be untarred separately — the sidecar mounts them read-only, so that step runs in a throwaway container. Then start the backend (boot recreates constraints/indexes, including the vector indexes the logical export doesn't carry) and verify counts on `GET /api/stats`. The authoritative runbook is the header comment in `ops/backup/restore.sh`.
+- **Restoring is six steps, not one command.** `/restore.sh <timestamp>` replays only the graph (and requires `RESTORE_WIPE=yes`, which wipes first — see below). The file volumes must be untarred separately — the sidecar mounts them read-only, so that step runs in a throwaway container. Then start the backend (boot recreates the vector indexes the logical export doesn't carry) and verify counts on `GET /api/stats`. The authoritative runbook is the header comment in `ops/backup/restore.sh`. `npx @mocaos/cortex restore` handles only the first two steps (picking the timestamp, and a typed confirmation) and then **prints** the remaining commands instead of running them — steps 3–5 need host-level `docker` access to volumes the sidecar can only read, and wrapping some but not all of them would leave a half-restored instance with no signal about it.
 - **A backups volume on the same disk is not disaster recovery.** Ship them off-host.
 
+> ⚠️ **Graph restore was destructive on v1.0.0 — fixed in v1.0.1.** `RESTORE_WIPE=yes` ran its `DETACH DELETE`, then the replay aborted, leaving an **empty database**. The cause: `apoc.export.cypher.all({ifNotExists: true})` emits `IF NOT EXISTS` for constraints and plain indexes but **not** for fulltext ones, so the export contains a bare `CREATE FULLTEXT INDEX chunk_content …`; the backend creates that schema at startup, so the replay hit "An equivalent index already exists" and rolled back its whole transaction — after the wipe. Restore therefore only ever worked against a schema-less database, which is never the situation anyone restores in. **Do not run a restore on a 1.0.0 stack; update first.** Nothing is wrong with the backups themselves — they stayed checksum-verified throughout and replay correctly under the fixed script, so none need re-taking.
+>
+> On **v1.0.1+** the wipe drops constraints and indexes as well, making the replay authoritative for the schema it carries. **Vector indexes are deliberately left alone**: the logical export never carried them, the backend rebuilds them at startup, and dropping them would force a full re-embed of every chunk. A failed replay now states where you stand — that it wiped, that the graph is empty, that the backup is intact and verified, and that re-running the same command finishes the job — instead of surfacing as a bare shell error.
+>
+> Getting the fix onto an existing install needs `--build` on `compose up` (or installer ≥ 1.0.2): the sidecar is a locally built image, so an update without it writes the corrected script to disk and keeps running the old one.
+
 ## Troubleshooting
+
+On an installer-managed instance, start with `npx @mocaos/cortex doctor` — one pasteable diagnostic block covering the environment preflight plus service state and health, and it still reports on a half-broken stack rather than dying on the first failed check.
+
+> `FAIL Disk: could not determine free disk space` on a healthy macOS or Windows machine is an old-installer bug, not your disk: `docker info` reports `DockerRootDir=/var/lib/docker`, a path that only exists inside the Docker Desktop VM, so `df` failed on every non-Linux host. Fixed — it now measures the first path it can actually resolve, preferring Docker's own root dir (on Linux that is often a separate, smaller partition, which is the right thing to measure).
 
 ### Container won't start
 

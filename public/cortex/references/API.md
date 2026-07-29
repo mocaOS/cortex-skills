@@ -46,6 +46,8 @@ curl "{BASE_URL}/health"
 
 A degraded instance — Neo4j unreachable, or the schema (constraints/indexes) not yet confirmed at startup — answers **HTTP 503** with `"status": "degraded"`, not 200 with a degraded body, so healthchecks and health-aware proxies can key off the status code.
 
+`version` is meant to be the product release, but it is a hardcoded `"1.0.0"` on every release so far — a verified `cortex-backend:1.0.1` image still answers `1.0.0`. It starts reflecting the running release in the first release after v1.0.1, where a release-time guard holds it in step with the published version. **Never use it for feature detection**; read the image tag instead. It is also unrelated to the `2.0.0` in the OpenAPI schema, which versions the API contract rather than the product.
+
 ### GET /api/stats
 
 Get knowledge base statistics. Requires `read` permission.

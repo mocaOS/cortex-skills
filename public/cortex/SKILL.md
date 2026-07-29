@@ -104,6 +104,8 @@ Expected: `{"status": "healthy", "neo4j_connected": true, "schema_initialized": 
 
 A degraded instance (Neo4j unreachable, or the schema not yet confirmed at startup) answers **HTTP 503** with `"status": "degraded"` — check the status code, not just the body.
 
+> Don't branch on `version`. It is a hardcoded `"1.0.0"` on every release so far, 1.0.1 included, and only becomes the real release version in the first release after that. Treat a healthy `200` as the signal, not the version string.
+
 ### Step 4: Find or Create Collection
 
 ```bash

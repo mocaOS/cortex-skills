@@ -21,9 +21,10 @@ declares and nothing more. Anyone can build one (see
 
 2. **Nothing works until `ENABLE_APPS=true`.** The backend default is off:
    every app route 404s and the admin section hides itself. **Exception —
-   the v1.0.0 `selfhost/` Compose stack flips it to `true`**, so a fresh
-   self-host install ships with Apps working; set `ENABLE_APPS=false` in
-   `.env` if you want the smaller attack surface. Env reference: the
+   the release `selfhost/` Compose stack flips it to `true`** (v1.0.0
+   onwards, so also anything installed with `npx @mocaos/cortex`), so a
+   fresh self-host install ships with Apps working; set `ENABLE_APPS=false`
+   in `.env` if you want the smaller attack surface. Env reference: the
    [setup skill](../setup/SKILL.md).
 
 3. **No API key ever reaches the browser.** Install mints a dedicated scoped

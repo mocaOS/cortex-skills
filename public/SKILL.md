@@ -44,7 +44,7 @@ Documents / Memory → Cortex Backend (FastAPI) → Neo4j (Graph + Vector)
 ## Two Ways to Use Cortex
 
 1. **Connect to a running instance** (you have a base URL + API key). Start with the **`cortex`** skill (memory sync, search, ask) and the feature skills (`upload`, `search`, `ask`, `graph`, …). This is the fastest path — no infrastructure to run.
-2. **Self-host your own instance** (on your machine or VM). Start with the **`setup`** skill. Since **v1.0.0** the quickest path is the pinned release stack — prebuilt GHCR images plus a static Compose stack configured entirely through `.env`, no build step; cloning and building from `main` still works. Either way: set a handful of env vars, `docker compose up -d`, then use it exactly like case 1 against `http://localhost:8000`.
+2. **Self-host your own instance** (on your machine or VM). Start with the **`setup`** skill. The quickest path is one command — `npx @mocaos/cortex` — an interactive installer that validates your LLM credentials with live calls *before* pulling anything, brings up the pinned release stack (Cortex, Cortex Chat, Neo4j, nightly backups, and Caddy for HTTPS in domain mode) from prebuilt GHCR images, and then manages the instance (`status`, `doctor`, `backup`, `update`, …). Docker with Compose v2 is the only prerequisite. Driving Compose yourself and building from `main` both still work. Either way you end up with an instance you use exactly like case 1, against `http://localhost:8000`.
 
 ## What You Probably Got Wrong
 
@@ -153,7 +153,7 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 ### Core
 
 - `cortexskills.org/cortex/SKILL.md` — **Use a running instance**: sync agent memory, search, and ask with agentic deep research. The primary skill for connecting to an existing Cortex.
-- `cortexskills.org/setup/SKILL.md` — **Self-host**: deploy Cortex via Docker and configure its 160+ environment variables.
+- `cortexskills.org/setup/SKILL.md` — **Self-host**: install in one command with `npx @mocaos/cortex` (or by hand from the pinned release stack / from source), and configure the 160+ environment variables. Also the backup/restore runbook.
 - `cortexskills.org/auth/SKILL.md` — API keys (`read`/`manage` + admin key), collection scoping, prompt-injection protection.
 - `cortexskills.org/admin/SKILL.md` — Instance management, AgentSkills registry, export/import, system reset.
 

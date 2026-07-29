@@ -215,7 +215,7 @@ When `use_agentic: true`, the system uses a **researcher/writer agent architectu
    - `reasoning` — plan the next step (streamed as `thinking` events)
    - `done` — signal completion with a summary
    - `http_request` — call an active skill's API (only when skills are enabled)
-   - `git_repo` — act on a connected repository. Post-v1.0.0 it is offered only when a repo is connected **read/write** (`RESEARCHER_GIT_TOOL=auto`, the default): a read-only connection's files are already ingested, so `knowledge_search` is the read path. On v1.0.0 it is offered for any connection. See the `git-integration` skill.
+   - `git_repo` — act on a connected repository. Since v1.0.1 it is offered only when a repo is connected **read/write** (`RESEARCHER_GIT_TOOL=auto`, the default): a read-only connection's files are already ingested, so `knowledge_search` is the read path. On v1.0.0 it is offered for any connection. See the `git-integration` skill.
 2. A **Writer LLM** synthesizes the gathered context into a streamed answer
 
 The researcher decides dynamically how many searches to perform and when to stop (up to `RESEARCHER_MAX_ITERATIONS_QUALITY` iterations, default 8). This is fundamentally different from legacy fixed-step reasoning. Deep Research requires `ENABLE_AGENTIC_RAG=true` AND `ENABLE_AGENT_RESEARCH=true`.
@@ -224,7 +224,7 @@ Best for complex, multi-part questions that span multiple documents or require c
 
 #### The loop enforces reflection and convergence
 
-> **Version:** the guards in this section and the writer-budget change below landed **after v1.0.0** — they are on `main` but *not* in the `1.0.0` release images. On v1.0.0 the vars below don't exist, `WRITER_MAX_TOKENS_QUALITY` is `4000`, and `RESEARCHER_WALL_CLOCK_SECONDS` defaults to `0` (unlimited).
+> **Version:** the guards in this section and the writer-budget change below shipped in **v1.0.1**. They are absent from the `1.0.0` images: there the vars below don't exist, `WRITER_MAX_TOKENS_QUALITY` is `4000`, and `RESEARCHER_WALL_CLOCK_SECONDS` defaults to `0` (unlimited).
 
 Research quality depends on the model reasoning *between* search rounds — summarizing what it found and naming the gap the next queries target. Models that skip that step degrade into rephrased-query volleys that burn every iteration and dilute the writer's context. The loop now enforces the rhythm structurally rather than trusting the model:
 
@@ -232,13 +232,13 @@ Research quality depends on the model reasoning *between* search rounds — summ
 |---|---|---|
 | Forced reflection | `RESEARCHER_FORCE_REFLECTION` (`true`) | A search round that arrives with no reflection — neither a `reasoning` call nor prose alongside the tool calls — is followed by one micro-call pinned to the `reasoning` tool. Models that reflect on their own never trigger it; providers that reject a named `tool_choice` disarm it for the run. |
 | Convergence stop | `RESEARCHER_NOVELTY_MIN_NEW_RATIO` (`0.35`), `RESEARCHER_NOVELTY_STALE_ROUNDS` (`2`) | Tracks previously-unseen sources per round; consecutive stale rounds end research early instead of re-fetching covered ground. Each round the agent is also *told* its last round's novelty, so a well-behaved model calls `done` first. `0` disables. |
-| Time budget | `RESEARCHER_WALL_CLOCK_SECONDS` (`120`, was `0` in v1.0.0) | On expiry the loop stops gathering and the writer synthesizes from what it has — so an answer always arrives even when the provider is queueing. `0` = unlimited; raise it on slow self-hosted inference. |
+| Time budget | `RESEARCHER_WALL_CLOCK_SECONDS` (`120` since v1.0.1, was `0` in v1.0.0) | On expiry the loop stops gathering and the writer synthesizes from what it has — so an answer always arrives even when the provider is queueing. `0` = unlimited; raise it on slow self-hosted inference. |
 
 Two consequences for clients: prose reflections (models that think in text alongside their tool calls, instead of calling `reasoning`) now surface as `thinking` events too, and a `Planning the next research step` status event precedes each researcher LLM call — so a slow provider call no longer shows a stale "Searching the knowledge base" from the previous round.
 
 #### Answers are not silently truncated
 
-The writer runs with reasoning **suppressed** in Deep Research as well as chat. On thinking models the hidden trace bills against the same output budget as the visible answer, which used to cut long reports off mid-word — or return nothing at all when the trace consumed the whole allowance. The writer only composes prose from context the researcher already gathered, so nothing is lost. `WRITER_MAX_TOKENS_QUALITY` also moved `4000` → **`8000`**. (Both post-v1.0.0 — on a v1.0.0 install, raise `WRITER_MAX_TOKENS_QUALITY` yourself if long reports come back clipped.)
+The writer runs with reasoning **suppressed** in Deep Research as well as chat. On thinking models the hidden trace bills against the same output budget as the visible answer, which used to cut long reports off mid-word — or return nothing at all when the trace consumed the whole allowance. The writer only composes prose from context the researcher already gathered, so nothing is lost. `WRITER_MAX_TOKENS_QUALITY` also moved `4000` → **`8000`**. (Both shipped in v1.0.1 — on a v1.0.0 install, raise `WRITER_MAX_TOKENS_QUALITY` yourself if long reports come back clipped.)
 
 If an answer does hit the cap, the stream now ends with a visible note saying it was cut short (ordinary answer content — no new event type) and the backend logs which mode, cap, and env var to raise. Don't treat a completed stream as proof of a complete answer on older versions.
 
@@ -249,7 +249,7 @@ There are two operational modes that affect iteration depth and output length:
 | Mode | Trigger | Max Iterations | Max Output Tokens | Use Case |
 |------|---------|----------------|-------------------|----------|
 | **Chat (Speed)** | `use_agentic: false` or standard chat | 3 (5 when skills active) | 1,200 | Quick answers, conversational Q&A |
-| **Deep Research (Quality)** | `use_agentic: true` | 8, capped by `RESEARCHER_WALL_CLOCK_SECONDS` (120s post-v1.0.0; unlimited on v1.0.0) | 8,000 (4,000 on v1.0.0) | Comprehensive analysis, cross-document comparison |
+| **Deep Research (Quality)** | `use_agentic: true` | 8, capped by `RESEARCHER_WALL_CLOCK_SECONDS` (120s since v1.0.1; unlimited on v1.0.0) | 8,000 (4,000 on v1.0.0) | Comprehensive analysis, cross-document comparison |
 
 The `POST /api/ask/stream/thinking` endpoint streams the researcher's reasoning steps as `thinking` events, giving visibility into the research process. Use this when building UIs that surface the "thought process."
 
