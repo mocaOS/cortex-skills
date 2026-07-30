@@ -557,6 +557,23 @@ APP_TASKS_GLOBAL_CONCURRENCY=8    # Cross-app cap on background task items
                                   #  schedule floor, llm calls/run, step output size)
 ```
 
+### Cortex Chat SSO — OIDC (Optional)
+
+Single Sign-On for the Cortex Chat component (the stack's multi-tenant chat frontend, enabled with `COMPOSE_PROFILES=chat`). Works with ANY OpenID Connect IdP with discovery — Entra ID, ADFS 2016+, Okta, Auth0, Google Workspace, Keycloak, Authentik, Zitadel. Set in the stack `.env` (the selfhost compose passes these through to the chat container); register the client at the IdP with redirect URI `{CHAT_BASE_URL}/api/auth/oidc/callback`.
+
+```bash
+OIDC_ISSUER_URL=https://id.example.com/realms/myrealm   # presence enables SSO; unset = feature invisible
+OIDC_CLIENT_ID=cortex-chat
+OIDC_CLIENT_SECRET=...
+# Optional:
+OIDC_SCOPES="openid profile email"        # default
+OIDC_BUTTON_LABEL="Sign in with Entra ID" # default: localized "Single Sign-On"
+OIDC_DEFAULT_GROUP=                       # chat group JIT-created users join; unset = group-less until an admin assigns
+OIDC_ONLY=false                           # true = password login + self-registration off; superadmin break-glass at /login?password=1
+```
+
+Rules that bite: `CHAT_BASE_URL` is REQUIRED when the issuer is set (it builds the redirect URI — chat refuses to boot without it); the issuer must be `https://` (plain http only for localhost dev); existing password accounts are auto-linked on first SSO login ONLY when the IdP marks the email verified (Entra ID never emits `email_verified`, so pre-existing password accounts won't auto-link there — provision via SSO from the start); the chat superadmin (`ADMIN_EMAIL`) is excluded from SSO entirely and always keeps password login. LDAP/SAML-only stacks: bridge with Authentik or Dex in front and point `OIDC_ISSUER_URL` at the bridge.
+
 ### x402 Payments (Optional)
 
 Monetize the retrieval endpoints with pay-per-query micropayments. See the [x402 skill](../x402/SKILL.md).
