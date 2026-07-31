@@ -17,7 +17,10 @@ declares and nothing more. Anyone can build one (see
 1. **Apps run INSIDE the instance.** They are static bundles installed from a
    zip and hosted by Cortex itself — not external services you deploy
    somewhere. (Apps that genuinely need their own container are
-   `type: "service"` and ship compose templates instead.)
+   `type: "service"` and ship compose templates instead.) Full applications
+   that run *outside* the instance and connect over the REST API are
+   **standalone apps** — Cortex Chat, and Cortex Trainings (see
+   [trainings](../trainings/SKILL.md)) — a different class entirely.
 
 2. **Nothing works until `ENABLE_APPS=true`.** The backend default is off:
    every app route 404s and the admin section hides itself. **Exception —

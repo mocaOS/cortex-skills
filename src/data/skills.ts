@@ -156,6 +156,14 @@ export const skills: Skill[] = [
     category: "ecosystem",
   },
   {
+    slug: "trainings",
+    name: "Trainings",
+    description:
+      "Cortex Trainings — the standalone app that turns a knowledge base into interactive courses: a researched, cited curriculum you approve as a document, then generated video, voiceover, locally rendered animations and quizzes assembled into one offline HTML file. Read-only key, required agentic-RAG flags, and where the cost actually is.",
+    icon: "GraduationCap",
+    category: "ecosystem",
+  },
+  {
     slug: "cortex-design",
     name: "Cortex Design",
     description:

@@ -31,6 +31,7 @@ Curated skill files that teach AI agents how to build on the Cortex intelligence
 - `cortexskills.org/integration/SKILL.md` — LangChain, CrewAI, MCP, Slack, automation platforms.
 - `cortexskills.org/apps/SKILL.md` — Web apps that run INSIDE a Cortex instance: registry installs (sha256-verified), sandbox/proxy model, platform capabilities, share links, first-party apps.
 - `cortexskills.org/builder/SKILL.md` — Build ON Cortex: docs → installable skill (builder/skill), idea → in-instance web app (builder/app). Task-DSL reference for background/scheduled app work: builder/app/tasks.md.
+- `cortexskills.org/trainings/SKILL.md` — Cortex Trainings: standalone app turning a knowledge base into interactive courses. Researched cited curriculum → human approval → video/voiceover/animations → one offline HTML file. Read-only key; ENABLE_AGENTIC_RAG + ENABLE_AGENT_RESEARCH required.
 
 ### Design
 - `cortexskills.org/cortex-design/SKILL.md` — The Bold Typography design system for Cortex UIs.
