@@ -62,7 +62,10 @@ offline on double-click.
 
 **Part 1 — Curriculum (cents).** Four inputs the app refuses to guess: topic
 and learning objectives, audience and prior knowledge, content language,
-duration (which sets the level count: 3–4 / 5–6 / 7–8). The agent fans out
+duration (which sets the level count: 3–4 / 5–6 / 7–8). Optional: existing
+material to build on, a collection to scope research to, and up to three
+character plus three style **reference images** (see *A Training Unit*), which
+are analyzed on upload and shape every prompt from the curriculum onward. The agent fans out
 deep-research queries across the instance *before* writing, then fills gaps as
 it drafts, and produces a document with a fact sheet, learning objectives, a
 level table, per-level teaching text, voiceover scripts, a media plan, fully
@@ -71,10 +74,17 @@ dates**, and a production estimate. Revisions are free and versioned.
 
 **Part 2 — Production (dollars).** A resumable pipeline: extract a structured
 plan → generate the guide-character reference image (**a human picks one of
-two candidates**) → synthesize the voiceover → quote and generate film shots
-(**a human confirms the cost**) → render animations locally → generate
-interaction images → assemble the HTML file. Completed steps are skipped on
-resume and artefacts are cached, so a failure never re-pays for finished work.
+two candidates**; generated *from* the uploads when a character was supplied)
+→ synthesize the voiceover → quote and generate film shots (**a human confirms
+the cost**) → render animations locally → generate interaction images →
+assemble the HTML file → click through the result in a headless browser, which
+fails the run if an interaction cannot be completed. Completed steps are skipped
+on resume and artefacts are cached, so a failure never re-pays for finished work.
+
+Film shots are also **de-padded** before assembly: video models compose to their
+own taste and pad to the requested ratio, and left alone those bars reach the
+learner looking like a rendering bug. Do not "fix" that by fitting the clip into
+the frame — that just re-letterboxes it in another colour.
 
 ## Endpoints It Consumes
 
@@ -102,11 +112,32 @@ sliders, and a shuffled final check — because repetition is what makes
 e-learning a chore. XP with reduced points on a retry, level badges, a
 progress bar, `localStorage` resume, and a printable cheat sheet.
 
-A **guide character** carries the visual identity across all media. It is
-always an abstract object (orb, crystal, cube) and never a human, because
-abstract objects stay visually consistent across image generations while a
-person drifts between shots. Its colour is the deployment's configured accent,
-and the whole training carries exactly one chromatic colour.
+A **guide character** anchors the visual identity. By default it is an abstract
+object (orb, crystal, cube) and never a human, because abstract objects stay
+visually consistent across image generations while a person drifts between
+shots. Its colour is then the deployment's configured accent, and the training
+carries exactly one chromatic colour.
+
+A project can instead **bring its own character**: up to three reference images,
+analyzed once into an English description and used to generate the anchor image
+itself, so the actual design survives rather than a paraphrase of it. Such a
+character keeps *its own* colours — the accent still rules the UI, animations
+and highlights, but nothing is recoloured to it. The consistency warning above
+still applies: a detailed human drifts more between shots than a stylized or
+abstract character does.
+
+**Style references** work the same way — up to three images analyzed into one
+shared aesthetic that replaces the preset visual style in every film and image
+prompt. With both uploaded, the character is rendered into the world the script
+describes, in the aesthetic the references define.
+
+**The guide is not in every shot, and should not be.** The storyboard decides
+per shot: roughly half a film's shots — establishing shots, object details,
+concept imagery — are deliberately character-free, and the opening shot almost
+always is. A guide in every shot reads as a mascot parade and buries the
+subject, and because the anchor image is a hero portrait, conditioning every
+shot on it makes every film open on that same portrait. Character-free shots
+still carry the shared style, so they stay in the same visual world.
 
 ## Operating Notes
 
