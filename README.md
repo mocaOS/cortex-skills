@@ -61,6 +61,7 @@ For a complete index, point your agent to the root:
 * `/apps` — Source and workflow apps (YouTube, Notion).
 * `/builder` — Build ON Cortex: turn any software's docs into an installable skill (`/builder/skill`), or build a web app that runs inside a Cortex instance (`/builder/app`, pairs with [cortex-app-template](https://github.com/mocaOS/cortex-app-template)).
 * `/trainings` — [Cortex Trainings](https://github.com/mocaOS/cortex-trainings): generate interactive courses from a knowledge base — curriculum first and approved as a document, then media into a single offline HTML file.
+* `/videogen` — [Cortex Videogen](https://github.com/mocaOS/cortex-videogen): generate marketing videos (16:9/9:16) from a knowledge base — storyboard and cost gates before anything is spent.
 * `/cortex-design` — The generative design principles for building Cortex UIs.
 
 ## MCP Server

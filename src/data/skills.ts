@@ -162,6 +162,18 @@ export const skills: Skill[] = [
       "Cortex Trainings — the standalone app that turns a knowledge base into interactive courses: a researched, cited curriculum you approve as a document, then generated video, voiceover, locally rendered animations and quizzes assembled into one offline HTML file. Read-only key, required agentic-RAG flags, and where the cost actually is.",
     icon: "GraduationCap",
     category: "ecosystem",
+    agentPrompt:
+      "Set up Cortex Trainings for me: install the skill from https://cortexskills.org/trainings/SKILL.md, then clone and configure the app against my cortex at <BASE_URL> — read-scoped API key: <KEY>. Verify the dev server starts and the instance is reachable.",
+  },
+  {
+    slug: "videogen",
+    name: "Videogen",
+    description:
+      "Set up and operate Cortex Videogen — marketing videos (16:9/9:16 MP4) generated from a Cortex instance. Storyboard and cost gates, two-channel grounding, reference images, model/resolution cost levers, and artefact-cache regeneration.",
+    icon: "Clapperboard",
+    category: "ecosystem",
+    agentPrompt:
+      "Set up Cortex Videogen for me: install the skill from https://cortexskills.org/videogen/SKILL.md, then clone and configure the app against my cortex at <BASE_URL> — read-scoped API key: <KEY>. Verify the dev server starts and the instance is reachable.",
   },
   {
     slug: "cortex-design",
