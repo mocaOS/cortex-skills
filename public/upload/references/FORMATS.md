@@ -6,21 +6,35 @@ Exhaustive list of supported file formats, processing behavior, size limits, and
 
 ## Performance Profile — Choose the Source Format
 
-Conversion cost is bimodal. Only two format families run the expensive per-page
-ML pipeline (layout analysis + table structure); everything else parses
-declaratively from its markup:
+Since August 2026, conversion runs through two engines: **anydoc** (in-process,
+no ML — office formats and text-based PDFs in milliseconds regardless of page
+count) with automatic fallback to **Docling** (per-page ML layout analysis +
+OCR) for everything the fast path can't do justice: scanned PDFs, image-rich
+PDFs when a vision model is active, standalone images, audio, HTML, LaTeX.
 
 | Cost tier | Formats | Cost |
 |-----------|---------|------|
 | Instant (no conversion) | `.md`, `.txt`, code files | Ingested as-is |
-| Fast (native parsing) | `.epub`, `.docx`, `.pptx`, `.xlsx`, `.html`, `.tex` | Seconds per document, independent of page count |
-| Expensive (per-page ML) | `.pdf` | ~1 s/page on CPU; a 400-page book ≈ several minutes and may hit the conversion timeout |
-| Most expensive | Scanned PDFs, standalone images | OCR (~tens of s/page) or per-image vision-model calls |
+| Fast (anydoc) | `.epub`, `.docx`, `.pptx`, `.xlsx`, text-based `.pdf` | Milliseconds per document, independent of page count — a 462-page book ≈ 0.5 s |
+| Fast (native parsing) | `.html`, `.tex` | Seconds per document |
+| Expensive (per-page ML) | Scanned or image-rich `.pdf` | Docling layout analysis ~1 s/page on CPU, plus OCR for scans |
+| Most expensive | Standalone images | Per-image vision-model calls |
 
-**Agent rule: upload the source format, not a rendering of it.** Books → EPUB
-(convert `.mobi`/`.azw` with `ebook-convert`); Office content → the office file,
-not an "Export as PDF"; web pages → Web Import or HTML/Markdown, not
-print-to-PDF. Reserve PDF for content that only exists as PDF.
+A PDF is routed to the expensive tier automatically when it has no usable text
+layer (scan), when its text yield is suspiciously low (hybrid scan), or — with
+a vision model active — when it carries more embedded images per page than
+`ANYDOC_PDF_MAX_IMAGES_PER_PAGE` (default 0.5), so its figures still reach
+vision analysis. On instances older than August 2026, ALL PDFs run per-page ML
+(~1 s/page; a 400-page book can hit the conversion timeout).
+
+**Agent rule: upload the source format, not a rendering of it.** Text PDFs are
+fast now, but source formats still win on fidelity: native markup preserves
+real structure (headings, lists, tables), and office-format embedded images
+flow into vision analysis on the fast path while text-PDF images do not
+(anydoc cannot extract images from PDFs). Books → EPUB (convert
+`.mobi`/`.azw` with `ebook-convert`); Office content → the office file, not an
+"Export as PDF"; web pages → Web Import or HTML/Markdown, not print-to-PDF.
+Reserve PDF for content that only exists as PDF.
 
 ---
 
@@ -28,11 +42,11 @@ print-to-PDF. Reserve PDF for content that only exists as PDF.
 
 | Category      | Format      | Extensions                        | Extraction Method                          | Vision Analysis          |
 |---------------|-------------|-----------------------------------|--------------------------------------------|--------------------------|
-| Documents     | PDF         | `.pdf`                            | Docling with layout preservation; PyPdfium backend fallback for large/memory-constrained files (page count via pypdf) | Yes: embedded images, charts, diagrams |
-| Documents     | EPUB        | `.epub`                           | Docling native XHTML parsing — no per-page layout ML; converts a full book in under a second. **Preferred over PDF for books.** | Yes: embedded images     |
-| Documents     | Word        | `.docx`, `.doc`                   | Docling XML extraction                     | Yes: embedded images     |
-| Documents     | PowerPoint  | `.pptx`, `.ppt`                   | Docling extraction                         | Yes: charts, diagrams, images |
-| Documents     | Excel       | `.xlsx`, `.xls`                   | Docling extraction                         | Yes: embedded images     |
+| Documents     | PDF         | `.pdf`                            | anydoc text extraction (milliseconds) for text-based PDFs; Docling with layout preservation + OCR for scanned/image-rich PDFs (automatic routing; PyPdfium backend fallback for large files) | Docling path only: embedded images, charts, diagrams. Text PDFs on the fast path yield no images |
+| Documents     | EPUB        | `.epub`                           | anydoc native parsing — milliseconds for a full book. **Preferred over PDF for books** (cleaner structure, images preserved). | Yes: embedded images     |
+| Documents     | Word        | `.docx`, `.doc`                   | anydoc extraction (milliseconds)           | Yes: embedded images     |
+| Documents     | PowerPoint  | `.pptx`, `.ppt`                   | anydoc extraction (milliseconds)           | Yes: charts, diagrams, images |
+| Documents     | Excel       | `.xlsx`, `.xls`                   | anydoc extraction (milliseconds)           | Yes: embedded images     |
 | Documents     | Plain Text  | `.txt`                            | Direct text ingestion                      | N/A                      |
 | Documents     | Markdown    | `.md`, `.mdx`, `.markdown`        | Direct ingestion; preserves headers, code blocks, formatting | N/A                      |
 | Documents     | reStructuredText | `.rst`                       | Text extraction                            | N/A                      |
@@ -62,40 +76,52 @@ print-to-PDF. Reserve PDF for content that only exists as PDF.
 
 ### PDF
 
-- Primary converter: Docling with layout preservation
-- Large PDF handling: chunked processing via `PAGE_CHUNK_SIZE` and `MAX_PAGES_PER_CHUNK` environment variables
-- Lightweight page counting via pypdf before conversion
-- Fallback to PyPdfium for large files when Docling encounters memory constraints
-- Embedded images extracted and analyzed when vision model is configured
-- Without vision model: Docling's built-in picture-description model generates basic image descriptions (`do_picture_description=True`)
-- OCR via Tesseract for scanned documents
-- System dependencies required: X11 libraries, Tesseract OCR (included in Docker image)
+- **Text-based PDFs**: anydoc fast path — text-layer extraction with structure
+  inference (headings from font metrics, reading order, tables), milliseconds
+  regardless of page count. No images are extracted on this path (anydoc has
+  no document model for PDFs).
+- **Scanned / hybrid / image-rich PDFs**: automatically routed to Docling —
+  layout preservation, table structure, and figure extraction. A PDF lands
+  here on a typed "OCR required" refusal, low text yield per page, or (vision
+  model active) embedded-image density above `ANYDOC_PDF_MAX_IMAGES_PER_PAGE`.
+- **Scanned PDFs on vision-enabled instances**: if the Docling pass returns
+  neither text nor images, the conversion retries once with OCR forced on
+  (EasyOCR, English + German) — scans yield their text instead of failing as
+  "No content extracted".
+- Large PDF handling on the Docling path: chunked processing via
+  `PAGE_CHUNK_SIZE` / `MAX_PAGES_PER_CHUNK`; PyPdfium backend fallback for
+  large files; page counting via pypdf.
+- If a specific PDF converted badly on the fast path (or its incidental images
+  matter), force a full Docling run: `POST /api/documents/{id}/reprocess?engine=docling`.
 
 ### EPUB (E-books)
 
-- Parsed natively by docling from the EPUB's XHTML — no layout model, no OCR, no page images
-- A 400+ page book converts in under a second, vs several minutes (and possible conversion timeout) for the same book as PDF
+- Parsed natively by anydoc — no layout model, no OCR; a full book converts in
+  milliseconds, embedded images preserved for vision analysis
 - Cleaner output than PDF: real chapter headings and structure from the markup, not reconstructed layout
-- **Agent guidance: when a human wants to import a book, ask for (or fetch) the EPUB rather than the PDF. If only a Kindle file (`.mobi`, `.azw`, `.azw3`) is available, convert it to EPUB first (`ebook-convert book.mobi book.epub`, from Calibre) — Kindle formats are rejected with HTTP 400.**
+- **Agent guidance: when a human wants to import a book, prefer the EPUB over
+  the PDF (better structure and image handling — though text PDFs also convert
+  in under a second now). If only a Kindle file (`.mobi`, `.azw`, `.azw3`) is
+  available, convert it to EPUB first (`ebook-convert book.mobi book.epub`,
+  from Calibre) — Kindle formats are rejected with HTTP 400.**
 
 ### DOCX (Word)
 
-- XML-based text extraction via Docling
-- Basic formatting preserved
+- anydoc extraction (milliseconds), structure preserved
 - Embedded images extracted and analyzed via vision pipeline
 - Tables and structured content preserved during extraction
 
 ### PPTX (PowerPoint)
 
-- Slide-by-slide extraction via Docling
+- Slide-by-slide extraction via anydoc (milliseconds)
 - Charts, diagrams, and images analyzed via vision pipeline
 - Speaker notes included in extraction
 
 ### XLSX (Excel)
 
-- Cell content extracted via Docling
+- Cell content extracted via anydoc (milliseconds)
 - Embedded images extracted and analyzed via vision pipeline
-- Tabular structure preserved
+- Tabular structure preserved (merged cells, header rows)
 
 ### TXT (Plain Text)
 
@@ -126,7 +152,7 @@ print-to-PDF. Reserve PDF for content that only exists as PDF.
 
 - When `VISION_MODEL` is configured: full vision model analysis (object identification, OCR, chart interpretation, context understanding)
 - When `VISION_MODEL` is not set: Docling's built-in picture-description model, or basic OCR via EasyOCR/Tesseract
-- Image chunks stored with `chunk_index` starting at 1000 and `type: image_analysis`
+- Image chunks stored with `type: image_analysis` and id `{document_id}_image_{index}`; `chunk_index` starts at 1,000,000 (documents processed before August 2026 used 1000+ — identify image chunks by id/type, never by index)
 
 ### Audio
 

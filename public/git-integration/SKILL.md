@@ -61,7 +61,7 @@ By default, new connections ingest **`.pdf` and `.md` files only**. Uncheck the 
 - Include: `src/**, docs/**`
 - Exclude: `**/node_modules/**, *.lock`
 
-Supported types are text/code (`.py`, `.ts`, `.go`, `.md`, …) and documents (`.pdf`, `.docx`, `.pptx`, …). Code and markdown ingest through a fast path that skips Docling; PDFs and Office files route through Docling. **Images and audio are not ingested from repos.**
+Supported types are text/code (`.py`, `.ts`, `.go`, `.md`, …) and documents (`.pdf`, `.docx`, `.pptx`, …). Code and markdown ingest as-is with no conversion; Office files and text-based PDFs convert in milliseconds via the anydoc fast path; scanned/image-rich PDFs route through Docling (automatic). **Images and audio are not ingested from repos.**
 
 ## Incremental Sync
 

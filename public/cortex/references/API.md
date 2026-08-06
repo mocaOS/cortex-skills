@@ -184,7 +184,7 @@ curl "{BASE_URL}/api/documents/{doc_id}/file" \
 
 ### POST /api/documents/{doc_id}/reprocess
 
-Reprocess a document (useful after changing extraction settings).
+Reprocess a document (useful after changing extraction settings). Optional `engine=docling` (instances from August 2026 on) forces the Docling conversion engine for this run — the recourse when the anydoc fast path converted a document badly or a text-PDF's images should be extracted for vision; it also bypasses the "content unchanged" skip.
 
 ```bash
 curl -X POST "{BASE_URL}/api/documents/{doc_id}/reprocess" \

@@ -89,7 +89,17 @@ These must be set for Cortex to start.
 | `AUTO_RESUME_PENDING_ON_STARTUP` | `boolean` | `true` | Automatically resume documents stranded mid-processing by a restart/redeploy (quota-guarded). Bulk uploads parked deliberately with `start_processing=false` stay parked. Set `false` to require a manual trigger after every redeploy. |
 | `AUTO_RESUME_IMAGE_ANALYSIS` | `boolean` | `true` | Automatically resume image analysis killed by a restart. A restart leaves completed documents with frozen image counters (`current < total`) that would otherwise stick forever; on boot Cortex re-extracts their images via local Docling re-conversion (CPU only, no LLM cost) and analyzes **only** the images whose chunk isn't stored yet — already-paid vision/extraction work is never redone. Quota-guarded. Set `false` to require a manual reprocess. |
 
-### Large PDF Processing
+### Document Conversion (anydoc fast path, since August 2026)
+
+Text-based PDFs and office formats (Word, Excel, PowerPoint, EPUB) convert through the in-process anydoc engine in milliseconds; Docling handles scans, image-rich PDFs, images, and audio. Files anydoc declines fall through to Docling automatically.
+
+| Variable | Type | Default | Description |
+|----------|------|---------|-------------|
+| `ENABLE_ANYDOC` | `boolean` | `true` | Master switch for the fast path. `false` = every conversion uses the Docling paths as before. |
+| `ANYDOC_PDF_MIN_CHARS_PER_PAGE` | `integer` | `200` | PDFs averaging fewer converted characters per page are treated as (hybrid) scans and routed to Docling OCR. `0` disables. |
+| `ANYDOC_PDF_MAX_IMAGES_PER_PAGE` | `float` | `0.5` | Only with a vision model active: PDFs with more embedded images per page keep the Docling path so figures still reach image analysis. Negative disables. |
+
+### Large PDF Processing (Docling path)
 
 | Variable | Type | Default | Description |
 |----------|------|---------|-------------|

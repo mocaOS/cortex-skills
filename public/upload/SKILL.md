@@ -21,11 +21,11 @@ Most integration issues with the upload system come from the same handful of mis
 
 6. **You expected image analysis without configuring `VISION_MODEL`.** Vision-based analysis of images and image-heavy documents only activates when the `VISION_MODEL` environment variable is set. Without it, images are either skipped or processed with basic OCR only.
 
-7. **You uploaded a PDF rendering when a native source format existed.** Only PDFs and standalone images go through per-page ML layout analysis (~1 s/page on CPU) — every other format (EPUB, DOCX, PPTX, XLSX, HTML, Markdown, LaTeX) parses natively from its markup in seconds, regardless of length, with cleaner structure. A 400-page book as PDF takes several minutes and can hit the conversion timeout (`failed` or truncated); the same book as `.epub` converts in under a second. **Rule: upload the source format, not a rendering of it.**
-   - Books → EPUB, never the PDF version. Kindle formats (`.mobi`, `.azw`, `.azw3`) are rejected with a 400 — convert them first (`ebook-convert book.mobi book.epub`, from Calibre).
-   - Office documents → the `.docx`/`.pptx`/`.xlsx` itself, never an "Export as PDF" of it.
+7. **You uploaded a PDF rendering when a native source format existed.** Text-based PDFs and office formats convert in milliseconds via the anydoc fast path (since August 2026), but source formats still win on *fidelity*: native markup preserves real structure (headings, lists, tables), and embedded images in office formats/EPUB flow into vision analysis while **text-PDF images are not extracted at all** on the fast path. Scanned and image-rich PDFs still run per-page ML layout analysis (~1 s/page on CPU) + OCR. **Rule: upload the source format, not a rendering of it.**
+   - Books → EPUB preferred over the PDF version (cleaner chapter structure, images preserved). Kindle formats (`.mobi`, `.azw`, `.azw3`) are rejected with a 400 — convert them first (`ebook-convert book.mobi book.epub`, from Calibre).
+   - Office documents → the `.docx`/`.pptx`/`.xlsx` itself, never an "Export as PDF" of it (the export loses semantic structure and can demote images).
    - Web content → the Web Import endpoint (URL) or saved HTML/Markdown, never print-to-PDF.
-   - Reserve PDF for content that only exists as PDF (papers, invoices, scans). Budget ~1 s/page; scanned PDFs are much slower (OCR).
+   - PDF is fine for content that only exists as PDF. Text PDFs are milliseconds; budget ~1 s/page only for scanned or image-rich PDFs (Docling + OCR). On instances older than August 2026, ALL PDFs cost ~1 s/page and long books can hit the conversion timeout.
 
 ---
 
@@ -34,14 +34,14 @@ Most integration issues with the upload system come from the same handful of mis
 | Category               | Extensions                                                        |
 |------------------------|-------------------------------------------------------------------|
 | PDF                    | `.pdf`                                                            |
-| E-books                | `.epub` — preferred over PDF for books (native parsing, no per-page ML; see mistake #7) |
+| E-books                | `.epub` — preferred over PDF for books (cleaner structure, images preserved; see mistake #7) |
 | Office                 | `.docx`, `.doc`, `.xlsx`, `.xls`, `.pptx`, `.ppt`                |
 | Web / markup           | `.html`, `.htm`, `.xml`                                          |
 | Text                   | `.txt`, `.md`, `.mdx`, `.markdown`, `.rst`, `.tex`, `.latex`     |
 | Images (OCR / vision)  | `.png`, `.jpg`, `.jpeg`, `.tiff`, `.tif`, `.bmp`                |
 | Audio (transcription)  | `.wav`, `.mp3`, `.webvtt`, `.vtt`                               |
 
-All formats go through the same processing pipeline after text extraction, but the extraction cost differs sharply: **only PDF and images run per-page ML layout analysis (~1 s/page CPU)** — everything else parses natively in seconds regardless of length, and Markdown/plain text/code skip conversion entirely. When both a native format and a PDF rendering exist, upload the native format (see mistake #7).
+All formats go through the same processing pipeline after text extraction. Extraction itself is two-engine (since August 2026): office formats, EPUBs, and text-based PDFs convert in **milliseconds** via the in-process anydoc fast path; **scanned/image-rich PDFs and standalone images run per-page ML layout analysis (~1 s/page CPU) + OCR** via Docling, routed automatically. Markdown/plain text/code skip conversion entirely. When both a native format and a PDF rendering exist, upload the native format — structure fidelity and image extraction, not just speed (see mistake #7).
 
 ---
 

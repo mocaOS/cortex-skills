@@ -586,7 +586,7 @@ X402_ENABLED=true   # The ONLY x402 env var — wallet, facilitator, network,
 
 ### Shared Model Services (cortex-helper)
 
-Offload the cross-encoder reranker and Docling converter to a per-machine service so many tenant stacks don't each load their own copy. Falls back to local automatically when unset.
+Offload the cross-encoder reranker and Docling converter to a per-machine service so many tenant stacks don't each load their own copy. Falls back to local automatically when unset. Since August 2026 only the Docling lane (scans, image-rich PDFs, images, audio) reaches the helper — office formats and text-based PDFs convert in-process via the anydoc fast path (`ENABLE_ANYDOC`, default true; see the CONFIGURATION reference).
 
 ```bash
 RERANKER_SERVICE_URL=http://cortex-helper:3030
@@ -613,7 +613,7 @@ ENABLE_AUDIT_LOG=false            # Append-only JSONL audit log (metadata only; 
 
 > ⚠️ **Never put `NEO4J_*` tunables in project-wide env.** On PaaS deployments (Dokploy, Coolify) that inject env vars project-wide, a bare `NEO4J_*` var also lands on the neo4j container — which interprets **every** `NEO4J_*` env as server configuration and can fail to boot. Scope `NEO4J_MAX_POOL_SIZE` / `NEO4J_CONNECTION_TIMEOUT` / `NEO4J_CONNECTION_ACQUISITION_TIMEOUT` to the backend service's `environment:` block only, and use the `CORTEX_NEO4J_*` passthroughs (like `CORTEX_NEO4J_TX_TIMEOUT`) where available.
 
-> **Slim image:** build with `--build-arg INSTALL_LOCAL_ML=false` for a torch-free backend (~1.2 GB) when reranking + conversion are offloaded to cortex-helper. Requires OpenAI embeddings; pair with `HELPER_STRICT_REMOTE=true`. The published release image already builds with `TORCH_VARIANT=cpu` (no CUDA wheels — containerized deploys run Docling's CPU path regardless), so there is nothing for a self-hoster to set there.
+> **Slim image:** build with `--build-arg INSTALL_LOCAL_ML=false` for a torch-free backend (~1.2 GB) when reranking + the Docling conversion lane are offloaded to cortex-helper. Requires OpenAI embeddings; pair with `HELPER_STRICT_REMOTE=true`. The anydoc fast path is torch-free and ships in the slim image too, so office formats and text-based PDFs convert locally even without a helper. The published release image already builds with `TORCH_VARIANT=cpu` (no CUDA wheels — containerized deploys run Docling's CPU path regardless), so there is nothing for a self-hoster to set there.
 
 > **Error tracking is off on the self-host stack.** The dev/prod/Coolify/Dokploy compose files default `SENTRY_DSN_BACKEND`/`SENTRY_DSN_FRONTEND` to the project's own GlitchTip, but `selfhost/docker-compose.yml` deliberately inverts that to empty — a self-hoster's stack traces never leave their box unless they opt in with their own DSN. Set the vars to enable it; leave them unset to stay silent.
 

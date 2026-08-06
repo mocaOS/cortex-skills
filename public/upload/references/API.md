@@ -229,14 +229,18 @@ Streamed `application/zip` containing the original uploaded files. Supports ZIP6
 
 ```
 POST /api/documents/{id}/reprocess
+POST /api/documents/{id}/reprocess?engine=docling
 ```
 
 Re-runs the full processing pipeline on an existing document. Use after a `failed` status, or when extraction/embedding models have been updated.
+
+`engine=docling` (query parameter, stored-file reprocess only; instances from August 2026 on) forces the Docling conversion engine for this run, skipping the anydoc fast path — the recourse when a document converted badly on the fast path, or when a text-PDF's embedded images should be extracted for vision analysis after all. A forced engine also bypasses the "content unchanged" delta-skip and any checkpoint chunk reuse, so the conversion genuinely reruns. Only `docling` is accepted; other values return 400.
 
 ### Errors
 
 | Status | Cause                  |
 |--------|------------------------|
+| 400    | Unsupported `engine` value (only `docling`) |
 | 404    | Document ID not found  |
 
 ---
