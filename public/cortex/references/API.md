@@ -357,26 +357,26 @@ curl -X POST "{BASE_URL}/api/search" \
 
 ## Ask AI (RAG)
 
+### POST /api/ask/stream
+
+Primary endpoint — retrieval starts here. Returns Server-Sent Events (SSE) with real-time answer tokens, sources, and graph context. Send `use_agentic: true` for a Deep Research query (the first choice when asked to retrieve/find knowledge in the Cortex).
+
+```bash
+curl -N "{BASE_URL}/api/ask/stream" \
+  -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"question": "Summarize what I know about machine learning", "use_agentic": true}'
+```
+
 ### POST /api/ask
 
-Non-streaming RAG query.
+Non-streaming RAG query — quick chat answers only. Bounded by a ~28s server deadline (`504 deadline_exceeded`) and rejects `use_agentic: true` with `400 agentic_requires_streaming`.
 
 ```bash
 curl -X POST "{BASE_URL}/api/ask" \
   -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"question": "What do I know about topic X?", "use_agentic": false}'
-```
-
-### POST /api/ask/stream
-
-Primary endpoint. Returns Server-Sent Events (SSE) with real-time answer tokens, sources, and graph context.
-
-```bash
-curl -N "{BASE_URL}/api/ask/stream" \
-  -H "X-API-Key: {API_KEY}" \
-  -H "Content-Type: application/json" \
-  -d '{"question": "Summarize what I know about machine learning"}'
 ```
 
 **Request schema (RAGRequest):**

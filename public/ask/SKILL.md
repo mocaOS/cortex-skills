@@ -1,6 +1,6 @@
 ---
 name: ask
-description: Use this skill when building RAG-powered Q&A features on Cortex. Covers the three Ask AI endpoints (non-streaming, streaming SSE, streaming with reasoning), request/response schemas, agentic multi-step reasoning, deep research mode, conversation history, and collection-scoped queries.
+description: Use this skill when building RAG-powered Q&A features on Cortex, or when asked to retrieve data from / ask / find something in a Cortex. The first-choice call is a streaming Deep Research query (POST /api/ask/stream with use_agentic true). Covers the three Ask AI endpoints (streaming SSE, streaming with reasoning, non-streaming fast chat), request/response schemas, agentic multi-step reasoning, conversation history, and collection-scoped queries.
 ---
 
 # Ask — RAG-Powered Q&A with Streaming and Agentic Reasoning
@@ -28,6 +28,35 @@ description: Use this skill when building RAG-powered Q&A features on Cortex. Co
 10. **Don't use `/api/ask` as a raw LLM.** It always retrieves, always answers in RAG voice, and the injection defenses will deflect instruction-shaped meta-prompts ("You are a…", output contracts) with a canned response. For plain completions on the instance's configured model there is `POST /api/llm/completions` — **admin-key-only** (it bypasses prompt security, so user keys can never reach it), OpenAI-style chunks over SSE terminated by `data: [DONE]`, body `{messages, temperature?, max_tokens?, stream}`, metered against the monthly quota like every other completion. Built for trusted first-party services (Cortex Chat's personality generator is the reference consumer).
 
 ## Endpoints
+
+**Start here:** when the task is "ask the cortex", "retrieve data from the cortex", or "find something in the cortex", the first call is a **streaming Deep Research query** — `POST /api/ask/stream` with `use_agentic: true`. It runs the full agentic multi-step pipeline and SSE heartbeats keep long runs alive. Reach for the non-streaming endpoint only for quick single-shot chat answers from callers that cannot consume SSE.
+
+### Streaming: POST /api/ask/stream
+
+Returns answer tokens in real-time via Server-Sent Events. **The primary retrieval endpoint** — `use_agentic: true` selects Deep Research.
+
+```bash
+curl -X POST "{BASE_URL}/api/ask/stream" \
+  -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{
+    "question": "Summarize the main themes across all documents",
+    "use_graph": true,
+    "use_agentic": true
+  }'
+```
+
+SSE event stream (each event is a flat-keyed JSON object — switch on which key is present, there is no `type` field):
+```
+data: {"sources": [{"document_id": "doc_1", "content": "...", "metadata": {"filename": "report.pdf", "chunk_index": 5, "rerank_score": 0.91}}]}
+data: {"graph_context": {"entities": [...], "relationships": [...]}}
+data: {"content": "The"}
+data: {"content": " main"}
+data: {"content": " themes"}
+...
+data: {"done": true}
+```
 
 ### Non-Streaming: POST /api/ask
 
@@ -82,34 +111,7 @@ Response:
 }
 ```
 
-> **Agentic deep research requires streaming.** `use_agentic: true` is only honored on the streaming endpoints (`/api/ask/stream`, `/api/ask/stream/thinking`). Sending it to the non-streaming `POST /api/ask` returns `400 {"error":"agentic_requires_streaming"}` — agentic runs routinely exceed the gateway timeout. Use non-streaming `/api/ask` for `use_agentic: false` (fast chat) only; switch to `/api/ask/stream` for deep research.
-
-### Streaming: POST /api/ask/stream
-
-Returns answer tokens in real-time via Server-Sent Events.
-
-```bash
-curl -X POST "{BASE_URL}/api/ask/stream" \
-  -H "X-API-Key: {API_KEY}" \
-  -H "Content-Type: application/json" \
-  -H "Accept: text/event-stream" \
-  -d '{
-    "question": "Summarize the main themes across all documents",
-    "use_graph": true,
-    "use_agentic": true
-  }'
-```
-
-SSE event stream (each event is a flat-keyed JSON object — switch on which key is present, there is no `type` field):
-```
-data: {"sources": [{"document_id": "doc_1", "content": "...", "metadata": {"filename": "report.pdf", "chunk_index": 5, "rerank_score": 0.91}}]}
-data: {"graph_context": {"entities": [...], "relationships": [...]}}
-data: {"content": "The"}
-data: {"content": " main"}
-data: {"content": " themes"}
-...
-data: {"done": true}
-```
+> **Agentic deep research requires streaming.** `use_agentic: true` is only honored on the streaming endpoints (`/api/ask/stream`, `/api/ask/stream/thinking`). Sending it to the non-streaming `POST /api/ask` returns `400 {"error":"agentic_requires_streaming"}` — agentic runs routinely exceed the gateway timeout. The non-streaming endpoint is also bounded by a ~28s server-side deadline (`504 deadline_exceeded` on expiry). Use it for `use_agentic: false` (fast chat) only; retrieval starts on `/api/ask/stream`.
 
 ### Streaming with Reasoning: POST /api/ask/stream/thinking
 

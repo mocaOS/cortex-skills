@@ -22,7 +22,7 @@ Hybrid search combining vector similarity, keyword/BM25, and metadata matches, m
 
 ## ask_question
 
-RAG-powered Q&A using the knowledge graph and document chunks.
+RAG-powered Q&A using the knowledge graph and document chunks. When the task is to retrieve/find knowledge in the Cortex, the first choice is `mode: "deep_research"` (streaming deep research, handled server-side); `chat` is for quick lookups.
 
 **Parameters:**
 

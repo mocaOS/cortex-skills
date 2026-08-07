@@ -61,7 +61,7 @@ export const skills: Skill[] = [
     slug: "ask",
     name: "Ask",
     description:
-      "RAG-powered Q&A with streaming SSE, agentic multi-step reasoning, deep research mode, conversation history, and collection scoping.",
+      "Retrieve knowledge from a Cortex — streaming deep research first (SSE + agentic multi-step reasoning), plus fast chat, conversation history, and collection scoping.",
     icon: "MessageSquare",
     category: "features",
   },

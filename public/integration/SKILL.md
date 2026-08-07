@@ -17,6 +17,8 @@ description: Use this skill when connecting Cortex to agent frameworks (LangChai
 
 5. **Streaming uses SSE, not WebSockets.** When integrating `/api/ask/stream`, parse `data:` lines from an HTTP response, not WebSocket frames.
 
+6. **Retrieval starts with streaming Deep Research.** When the task is "ask the cortex" / "retrieve data from the cortex" / "find something in the cortex", the first call is `POST /api/ask/stream` with `use_agentic: true`. The non-streaming `POST /api/ask` is for quick chat answers from platforms that cannot consume SSE (n8n, Zapier) — it carries a ~28s server deadline and rejects `use_agentic: true` with `400 agentic_requires_streaming`.
+
 ## Memory Hierarchy
 
 ```

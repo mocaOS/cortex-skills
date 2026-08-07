@@ -16,13 +16,13 @@ The key must have `read` permission.
 
 ## Endpoints
 
-### POST /api/ask
-
-Non-streaming endpoint. Returns the complete answer in a single JSON response. Best for server-to-server integrations where streaming is unnecessary.
-
 ### POST /api/ask/stream
 
-Primary streaming endpoint. Returns answer tokens, sources, and graph context via Server-Sent Events (SSE). This is the recommended endpoint for all client-facing integrations.
+Primary streaming endpoint. Returns answer tokens, sources, and graph context via Server-Sent Events (SSE). This is the recommended endpoint for all integrations — and the **first choice for retrieving knowledge from the Cortex**: send `use_agentic: true` for a Deep Research query. SSE heartbeats keep long agentic runs alive; there is no server-side deadline.
+
+### POST /api/ask
+
+Non-streaming endpoint. Returns the complete answer in a single JSON response. Quick single-shot chat answers only, for callers that cannot consume SSE: bounded by a ~28s server-side deadline (`504 deadline_exceeded` on expiry) and rejects `use_agentic: true` with `400 agentic_requires_streaming`.
 
 ### POST /api/ask/stream/thinking
 

@@ -94,7 +94,7 @@ server.tool(
 
 server.tool(
   "ask_question",
-  "Ask a question to the Cortex RAG engine. Uses the knowledge graph and document chunks to generate an answer with source citations. Chat mode answers in seconds; deep_research runs an agentic multi-step researcher/writer pipeline and can take minutes.",
+  "Ask a question to the Cortex RAG engine. Uses the knowledge graph and document chunks to generate an answer with source citations. When the task is to retrieve/find knowledge in the Cortex, prefer mode deep_research — the agentic multi-step researcher/writer pipeline (streamed server-side; can take minutes). Chat mode answers in seconds for quick lookups.",
   {
     question: z.string().describe("The question to ask"),
     mode: z
@@ -102,7 +102,7 @@ server.tool(
       .optional()
       .default("chat")
       .describe(
-        "chat: fast single-pass answer; deep_research: agentic multi-step research (thorough but slow)"
+        "deep_research: agentic multi-step research — the first choice for retrieving knowledge (thorough, minutes); chat: fast single-pass answer for quick lookups"
       ),
     use_graph: z
       .boolean()

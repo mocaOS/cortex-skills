@@ -91,8 +91,8 @@ Speak to a cortex in plain language — these phrases are the interface:
 |---|---|
 | **"dump your session into your cortex"** | Curate a markdown note of this session → upload to your personal cortex |
 | **"save today's memory into your cortex"** | Sync `MEMORY.md`, `USER.md`, and today's notes |
-| **"check your cortex for X"** | fast synthesized answer with sources (your personal cortex) |
-| **"ask your cortex about X"** / **"what does it know about X"** | deep multi-step research (streaming) |
+| **"ask your cortex about X"** / **"retrieve X from your cortex"** / **"find X in your cortex"** / **"what does it know about X"** | deep multi-step research (streaming) — **the default recall move** |
+| **"check your cortex for X"** / **"quick answer from your cortex"** | fast synthesized answer with sources — when the human explicitly wants the quick pass |
 | **"search your cortex for X"** | raw top-matching chunks, no synthesis |
 | **"what's in your cortex?"** / **"what have you saved?"** | exact inventory of saved docs (`list`) — never a guess |
 | **"show me that note"** | print a saved doc's full content (`show`) |
@@ -103,7 +103,7 @@ Speak to a cortex in plain language — these phrases are the interface:
 
 "your cortex" = your default (personal) source; name any other source to route there.
 
-**The recall verbs are one intent, not three commands.** "Check", "search", "ask", "look in", "consult", "does your cortex know…" — the human wants *the answer*, found by researching the cortex. The verb only picks your opening move; the Recall section below has the playbook (formulate → escalate → answer). Never run one literal query, paste what came back, and stop.
+**The recall verbs are one intent, not three commands.** "Check", "search", "ask", "look in", "consult", "retrieve", "find", "does your cortex know…" — the human wants *the answer*, found by researching the cortex. **The default opening move is `ask` — a streaming deep research query.** Drop to `check` only when the human explicitly asks for a quick pass, and to `search` for exact wording/receipts. The Recall section below has the playbook (formulate → escalate → answer). Never run one literal query, paste what came back, and stop.
 
 ## Connect
 
@@ -193,7 +193,7 @@ Prints the resolved source, health, and both scopes — the write collection, an
 
 Once connected, store a one-line **native** memory (with your built-in memory tool) so every future session routes correctly. Adapt it to what's actually connected:
 
-> Your cortex = the external Cortex knowledge base, reached through the cortex skill (load via skill_view cortex, then call cortex.sh). Any request mentioning "cortex" goes through that skill — the memory file is NOT the cortex. "Check/search/ask your cortex for X" = research it until answered (check → search reformulations → ask deep research), not one literal query. Connected: `<name>` (`ro|rw`, `<base_url>`) — query with `--source <name>`. \[If no personal cortex is wired: "No personal cortex configured yet."\]
+> Your cortex = the external Cortex knowledge base, reached through the cortex skill (load via skill_view cortex, then call cortex.sh). Any request mentioning "cortex" goes through that skill — the memory file is NOT the cortex. "Check/search/ask your cortex for X" = research it until answered (default: ask deep research first; search reformulations for receipts; check only for explicit quick passes), not one literal query. Connected: `<name>` (`ro|rw`, `<base_url>`) — query with `--source <name>`. \[If no personal cortex is wired: "No personal cortex configured yet."\]
 
 This matters: without it, a future session may answer "what's in your cortex?" from MEMORY.md and never load this skill. The native memory is injected into every session start — it's the router. Keep it current: when you `connect`/`forget` a source later, update this memory too.
 
@@ -272,17 +272,17 @@ The full workflow — bulk uploads, `process-pending`, dedup, cadence — is in 
 
 **Goal first: the human wants an answer that lives in a cortex.** Whatever verb they used, your job is to research until you have it — or until you've genuinely established it isn't there. One thin query is not "not there".
 
-Three moves, one ladder:
+Three moves, one ladder — **`ask` is the default opening move**:
 
 | Move | What it really does | Reach for it when |
 |------|--------------------|-------------------|
-| `check "<question>"` | quick research pass — server-side researcher, ~3 search iterations, synthesized answer + citations | simple, single-fact questions |
-| `ask "<question>"` | **deep research** (streaming) — the researcher agent runs up to 8 search iterations, decomposes the question into sub-questions, and follows entities across documents | anything multi-part, comparative, cross-document, "everything about X", timelines — or when `check` came back thin |
+| `ask "<question>"` | **deep research** (streaming) — the researcher agent runs up to 8 search iterations, decomposes the question into sub-questions, and follows entities across documents | **the default** for "ask / retrieve / find X in your cortex": anything multi-part, comparative, cross-document, "everything about X", timelines — and any recall request that doesn't explicitly ask for a quick pass |
+| `check "<question>"` | quick research pass — server-side researcher, ~3 search iterations, synthesized answer + citations | the human explicitly wants the fast answer to a simple, single-fact question |
 | `search "<terms>" [top_k]` | raw top-matching chunks, no synthesis | exact wording/receipts, or probing whether *anything* matches a term |
 
 ```bash
-bash ${HERMES_SKILL_DIR}/scripts/cortex.sh check "what did we decide about the auth rewrite?"
 bash ${HERMES_SKILL_DIR}/scripts/cortex.sh ask "compare every approach we tried for SSE reconnects and what we settled on"
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh check "what did we decide about the auth rewrite?"
 bash ${HERMES_SKILL_DIR}/scripts/cortex.sh search "SSE reconnect backoff" 15
 ```
 
@@ -294,9 +294,9 @@ bash ${HERMES_SKILL_DIR}/scripts/cortex.sh search "SSE reconnect backoff" 15
 
 **Escalate — never report "nothing found" after one query.**
 
-1. `check` answered fully → done; present it cited.
-2. `check` thin or empty → `search` 2–3 **reformulations** (synonyms, entity names, the filename you'd expect). Chunks found → `ask` a sharper question built from those terms. Still nothing → **check your scope**: reads span all collections by default, but a `read_collection` override narrows them (`status` shows the scope); the answer may also live in another connected source — route there before concluding it's absent.
-3. Multi-part / broad / comparative question → skip `check`, go **straight to `ask`**; that's exactly what deep research is for. For "what do we know about X" at full breadth, pair `ask` with `list` to see which docs even exist.
+1. `ask` (deep research) answered fully → done; present it cited. For "what do we know about X" at full breadth, pair `ask` with `list` to see which docs even exist.
+2. `ask` thin or empty → `search` 2–3 **reformulations** (synonyms, entity names, the filename you'd expect). Chunks found → re-`ask` a sharper question built from those terms. Still nothing → **check your scope**: reads span all collections by default, but a `read_collection` override narrows them (`status` shows the scope); the answer may also live in another connected source — route there before concluding it's absent.
+3. Explicit quick pass requested (`check`) that came back thin → escalate to `ask`; the deep researcher finds what the 3-iteration pass misses.
 4. Only after the ladder is exhausted, say plainly what you searched for and where, so the human can redirect you.
 
 A human saying "search your cortex for X" almost never wants raw chunks — they want the answer, found by searching. Run the ladder; give them the answer with the receipts underneath.

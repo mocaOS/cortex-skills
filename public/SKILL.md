@@ -75,6 +75,18 @@ curl -X POST "{BASE_URL}/api/search" \
 
 ### 3. Ask a question with citations
 
+To retrieve knowledge from the Cortex ("ask the cortex", "find something in the cortex"), the first choice is a **streaming Deep Research query** — the full agentic multi-step pipeline over SSE:
+
+```bash
+curl -N -X POST "{BASE_URL}/api/ask/stream" \
+  -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -H "Accept: text/event-stream" \
+  -d '{"question": "What were the key findings?", "use_agentic": true}'
+```
+
+For a quick single-shot chat answer, the non-streaming endpoint works too — but note it is bounded by a ~28s server deadline and rejects `use_agentic: true` with `400 agentic_requires_streaming`:
+
 ```bash
 curl -X POST "{BASE_URL}/api/ask" \
   -H "X-API-Key: {API_KEY}" \
@@ -91,8 +103,8 @@ curl -X POST "{BASE_URL}/api/ask" \
 | `POST` | `/api/upload` | manage | Upload a document |
 | `GET` | `/api/documents` | read | List documents |
 | `POST` | `/api/search` | read | Hybrid search |
-| `POST` | `/api/ask` | read | RAG Q&A |
-| `POST` | `/api/ask/stream` | read | Streaming RAG Q&A (SSE) |
+| `POST` | `/api/ask/stream` | read | Streaming RAG Q&A (SSE) — **primary retrieval endpoint**; `use_agentic: true` = Deep Research |
+| `POST` | `/api/ask` | read | Non-streaming quick chat (28s deadline; rejects `use_agentic`) |
 | `GET` | `/api/graph/entities` | read | List entities |
 | `GET` | `/api/collections` | read | List collections |
 | `POST` | `/api/collections` | manage | Create collection |

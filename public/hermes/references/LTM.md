@@ -180,14 +180,14 @@ Every recall verb is the same intent — *find the answer in the cortex* — the
 
 | Need | Opening move | Endpoint |
 |------|-------------|----------|
-| Fast answer with sources | "check your cortex for X" → `check` | `POST /api/ask` (`use_agentic:false`, ~3 researcher iterations) |
-| Deep multi-step research — multi-part, comparative, cross-document questions | "ask your cortex about X" → `ask` | `POST /api/ask/stream` (`use_agentic:true`, up to 8 iterations, question decomposition) |
+| **Default** — "ask / retrieve / find X in your cortex", multi-part, comparative, cross-document questions | "ask your cortex about X" → `ask` | `POST /api/ask/stream` (`use_agentic:true`, up to 8 iterations, question decomposition — streaming deep research) |
+| Explicitly requested quick answer with sources | "check your cortex for X" → `check` | `POST /api/ask` (`use_agentic:false`, ~3 researcher iterations, ~28s server deadline) |
 | Exact source passages / probing what matches | "search your cortex for X" → `search` | `POST /api/search` |
 
 The judgment that matters more than the mapping:
 
 - **Formulate a self-contained question.** The cortex can't see the current conversation — resolve pronouns and context, and name entities (retrieval is graph/entity-aware) before querying.
-- **Escalate instead of giving up.** `check` empty → `search` 2–3 reformulations → `ask` (deep research). Broad or multi-part question → go straight to `ask`. Report "not found" only after the ladder — and after confirming you searched the right collection.
+- **Escalate instead of giving up.** `ask` (deep research) is the opening move; thin or empty → `search` 2–3 reformulations, then re-`ask` sharper. An explicitly-requested `check` that came back thin escalates to `ask`. Report "not found" only after the ladder — and after confirming you searched the right collection.
 - **Writes are scoped, reads are not.** Saves always target your own collection (`collection_id`) so the graph stays about *this* agent's memory — but recall reads **all collections** in the instance by default, because a read scoped to your write collection silently misses sibling data (a document archive, another tool's ingest) and turns "it's in a sibling collection" into a confident "nothing was ever saved about X". If unscoped recall on a shared instance returns too much noise, narrow it deliberately (`CORTEX_COLLECTION_READ` / `read_collection`) — a narrowed miss then says nothing about the rest of the instance.
 
 Multi-turn recall: pass prior turns via `conversation_history` on `/api/ask`. Full request/response schemas are in the [ask skill](https://cortexskills.org/ask/SKILL.md) and [search skill](https://cortexskills.org/search/SKILL.md).
