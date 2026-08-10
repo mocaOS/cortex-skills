@@ -128,6 +128,10 @@ curl -X POST "{BASE_URL}/api/documents/process-pending" \
 
 ## Documents
 
+### Sessions (`ENABLE_SESSIONS`, opt-in)
+
+Server-stored conversation state: `POST /api/sessions` `{name?, history?, memory?}` → `{id, ...}`; pass `id` as `session_id` on ask endpoints and the backend keeps history + curated memory (no blob round-trip). `GET /api/sessions?limit=&offset=` (own sessions, metadata), `GET /api/sessions/{id}` (full state), `DELETE /api/sessions/{id}`. 403 while disabled; feature-detect via `GET /api/features` → `enable_sessions`. `session_id` is mutually exclusive with client-carried `conversation_history`/`conversation_memory` (400) and unavailable with fast search.
+
 ### POST /api/context
 
 Token-budgeted context bundle for injection into YOUR OWN prompt (retrieval without Cortex writing the answer). Body: `{query (required), max_tokens (default 4000, 200-32000), collection_id?, top_k?, include_graph?, include_communities?, use_reranking?}`. Returns `{chunks[], graph_context, communities[], text, token_count, budget, collection_id}` — `text` is ready to inject, chunks cited `[src_N]`. Available to monetized keys at the base rate. Requires backend ≥ 2026-08-10 (older instances 404).
@@ -156,6 +160,10 @@ curl "{BASE_URL}/api/documents?collection_id={COLLECTION_ID}&status=completed&so
 | `collection_id` | string | -- | Filter by collection |
 | `status` | string | -- | Filter: `pending`, `processing`, `completed`, `failed` |
 | `limit` | integer | 100 | Max results |
+
+### Sessions (`ENABLE_SESSIONS`, opt-in)
+
+Server-stored conversation state: `POST /api/sessions` `{name?, history?, memory?}` → `{id, ...}`; pass `id` as `session_id` on ask endpoints and the backend keeps history + curated memory (no blob round-trip). `GET /api/sessions?limit=&offset=` (own sessions, metadata), `GET /api/sessions/{id}` (full state), `DELETE /api/sessions/{id}`. 403 while disabled; feature-detect via `GET /api/features` → `enable_sessions`. `session_id` is mutually exclusive with client-carried `conversation_history`/`conversation_memory` (400) and unavailable with fast search.
 
 ### POST /api/context
 
@@ -201,6 +209,10 @@ curl "{BASE_URL}/api/documents/{doc_id}" -H "X-API-Key: {API_KEY}"
 
 A document with `status: "completed"` may still have background image analysis running. Check `image_progress_current` vs `image_progress_total` to confirm.
 
+### Sessions (`ENABLE_SESSIONS`, opt-in)
+
+Server-stored conversation state: `POST /api/sessions` `{name?, history?, memory?}` → `{id, ...}`; pass `id` as `session_id` on ask endpoints and the backend keeps history + curated memory (no blob round-trip). `GET /api/sessions?limit=&offset=` (own sessions, metadata), `GET /api/sessions/{id}` (full state), `DELETE /api/sessions/{id}`. 403 while disabled; feature-detect via `GET /api/features` → `enable_sessions`. `session_id` is mutually exclusive with client-carried `conversation_history`/`conversation_memory` (400) and unavailable with fast search.
+
 ### POST /api/context
 
 Token-budgeted context bundle for injection into YOUR OWN prompt (retrieval without Cortex writing the answer). Body: `{query (required), max_tokens (default 4000, 200-32000), collection_id?, top_k?, include_graph?, include_communities?, use_reranking?}`. Returns `{chunks[], graph_context, communities[], text, token_count, budget, collection_id}` — `text` is ready to inject, chunks cited `[src_N]`. Available to monetized keys at the base rate. Requires backend ≥ 2026-08-10 (older instances 404).
@@ -241,6 +253,10 @@ Trigger batch processing of all pending documents.
 curl -X POST "{BASE_URL}/api/documents/process-pending" \
   -H "X-API-Key: {API_KEY}"
 ```
+
+### Sessions (`ENABLE_SESSIONS`, opt-in)
+
+Server-stored conversation state: `POST /api/sessions` `{name?, history?, memory?}` → `{id, ...}`; pass `id` as `session_id` on ask endpoints and the backend keeps history + curated memory (no blob round-trip). `GET /api/sessions?limit=&offset=` (own sessions, metadata), `GET /api/sessions/{id}` (full state), `DELETE /api/sessions/{id}`. 403 while disabled; feature-detect via `GET /api/features` → `enable_sessions`. `session_id` is mutually exclusive with client-carried `conversation_history`/`conversation_memory` (400) and unavailable with fast search.
 
 ### POST /api/context
 

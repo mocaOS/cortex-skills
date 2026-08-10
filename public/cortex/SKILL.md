@@ -11,7 +11,7 @@ compatibility: >
   Works with any agent that can execute shell commands.
 metadata:
   author: Cortex
-  version: "2.3.0"
+  version: "2.4.0"
   category: knowledge
   emoji: "\U0001F4DA"
 allowed-tools: Bash Read Write

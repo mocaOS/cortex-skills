@@ -40,13 +40,13 @@
     },
     {
       "slug": "ask",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "entry": "/ask/SKILL.md",
       "files": [
         {
           "path": "/ask/SKILL.md",
-          "sha256": "f2c8f4e08379e4f5dba3248c71d25e1250f5e1dedf88a91199b089e4d0f3513a",
-          "bytes": 22107
+          "sha256": "e2b8cc8fc53a1e8229b6e9cc0bc0d48f441aec7b7fc712ed50ecd9fc2bdce0cc",
+          "bytes": 23454
         },
         {
           "path": "/ask/references/API.md",
@@ -147,18 +147,18 @@
     },
     {
       "slug": "cortex",
-      "version": "2.3.0",
+      "version": "2.4.0",
       "entry": "/cortex/SKILL.md",
       "files": [
         {
           "path": "/cortex/SKILL.md",
-          "sha256": "1344a0fdc0a960f7adfac51b82e97580ac837229beee6bdc0c560f771db091da",
+          "sha256": "875bd615addeb54cdf42e3a94ae85594797637a764aa5be88c542ace3ce424a8",
           "bytes": 13958
         },
         {
           "path": "/cortex/references/API.md",
-          "sha256": "ccb3c4b325630896b976c62a68862639079d28e9c1173c3b06d959a452bbcad5",
-          "bytes": 30291
+          "sha256": "958c7f0d9d86d57d7e248b750a42afa99c099af3271e7985b8cccb4934837489",
+          "bytes": 32719
         },
         {
           "path": "/cortex/references/SYNC.md",

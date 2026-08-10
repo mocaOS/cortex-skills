@@ -1,5 +1,5 @@
 ---
-version: 1.2.0
+version: 1.3.0
 name: ask
 description: Use this skill when building RAG-powered Q&A features on Cortex, or when asked to retrieve data from / ask / find something in a Cortex. The first-choice call is a streaming Deep Research query (POST /api/ask/stream with use_agentic true). Covers the three Ask AI endpoints (streaming SSE, streaming with reasoning, non-streaming fast chat), request/response schemas, agentic multi-step reasoning, conversation history, and collection-scoped queries.
 ---
@@ -181,6 +181,7 @@ The streaming endpoint emits these event keys. Current instances additionally st
 | `depth` | string | null | **The unified dial**: `fast` (vector-only) \| `standard` (default) \| `deep` (agentic research, streaming only). Authoritative when present — contradicting legacy flags → `400 depth_conflict`. Older instances ignore it, so send agreeing legacy flags too |
 | `use_fast_search` | boolean | false | Vector-only search (skip graph + reranking) |
 | `collection_id` | string | null | Scope to a specific collection or community id |
+| `session_id` | string | null | Server-side session (from `POST /api/sessions`; requires `ENABLE_SESSIONS`). Backend keeps history + memory — mutually exclusive with `conversation_history`/`conversation_memory` (`400 session_conflict`); not with fast search. Older instances 422/ignore |
 | `response_format` | object | null | JSON Schema (root `type: "object"`) for a structured answer — **non-streaming `POST /api/ask` only** (streaming endpoints 400; incompatible with `use_agentic`). The parsed object returns in the `structured` response field; raw text stays in `answer` |
 
 ## Structured Answers (`response_format`, non-streaming only)
@@ -220,6 +221,22 @@ Pass previous messages to maintain context across turns:
 ```
 
 The backend keeps the most recent messages via `MAX_CONVERSATION_HISTORY` (default 6) and automatically manages context window size.
+
+## Server-Side Sessions (opt-in, `ENABLE_SESSIONS`)
+
+When the instance advertises `enable_sessions` (via `GET /api/features`), you can skip the client-carried contract entirely:
+
+```bash
+SID=$(curl -s -X POST "{BASE_URL}/api/sessions" -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" -d '{"name": "research"}' | jq -r .id)
+curl -N -X POST "{BASE_URL}/api/ask/stream" -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" -H "Accept: text/event-stream" \
+  -d "{\"question\": \"how does auth work?\", \"session_id\": \"$SID\", \"depth\": \"deep\"}"
+# follow-ups just work — the backend kept the conversation:
+#   {"question": "expand on the caching part", "session_id": "$SID", ...}
+```
+
+Manage with `GET /api/sessions`, `GET/DELETE /api/sessions/{id}`. Sessions are private to your API key, capped per key, and expire after idle TTL. `POST /api/sessions` accepts optional `history` + `memory` to migrate an existing blob-mode conversation. Don't send `conversation_history`/`conversation_memory` together with `session_id`.
 
 ## Conversation Memory (opt-in)
 
