@@ -1,0 +1,463 @@
+{
+  "$schema": "https://cortexskills.org/index.json",
+  "manifest_version": 1,
+  "root": {
+    "version": "1.0.0",
+    "entry": "/SKILL.md",
+    "path": "/SKILL.md",
+    "sha256": "18b3bd1877f112722ffb18a08a373ddc1052e1f63c2d60688338d0d98aea103c",
+    "bytes": 13884
+  },
+  "skills": [
+    {
+      "slug": "admin",
+      "version": "1.0.0",
+      "entry": "/admin/SKILL.md",
+      "files": [
+        {
+          "path": "/admin/SKILL.md",
+          "sha256": "eba0821c22cd5bc9f437ee00dde76afe99ead547c8d3d31bc0a4604de539c953",
+          "bytes": 15499
+        },
+        {
+          "path": "/admin/references/API.md",
+          "sha256": "b64059d6755ff4a684f31751eea135adf1cdbaaa1ebfb31e5f8dea567c3c20ec",
+          "bytes": 11163
+        }
+      ]
+    },
+    {
+      "slug": "apps",
+      "version": "1.0.0",
+      "entry": "/apps/SKILL.md",
+      "files": [
+        {
+          "path": "/apps/SKILL.md",
+          "sha256": "61bf2983dddf1e3742738b9e8751f7fa0f6f63295efdf3313ea26afe1cbff965",
+          "bytes": 7720
+        }
+      ]
+    },
+    {
+      "slug": "ask",
+      "version": "1.1.0",
+      "entry": "/ask/SKILL.md",
+      "files": [
+        {
+          "path": "/ask/SKILL.md",
+          "sha256": "fd5cd05d815f5d3366052a795b360383c9d80e6e366d4ec4aafec7547ee303ff",
+          "bytes": 21807
+        },
+        {
+          "path": "/ask/references/API.md",
+          "sha256": "66f8ac2e4fd9757f62167a706141961ef38e9d4450dd3081c76c64ad71255896",
+          "bytes": 24439
+        }
+      ]
+    },
+    {
+      "slug": "auth",
+      "version": "1.0.0",
+      "entry": "/auth/SKILL.md",
+      "files": [
+        {
+          "path": "/auth/SKILL.md",
+          "sha256": "375c5626c83b52e73aef5b3b2caa72d29ca5bcab36758618071074f231b5b7e5",
+          "bytes": 15533
+        },
+        {
+          "path": "/auth/references/API.md",
+          "sha256": "7ab9ebd15d968ce5f6fc54fb74411ffb37bb81900e89f80975a2e22099d404a5",
+          "bytes": 19968
+        }
+      ]
+    },
+    {
+      "slug": "builder",
+      "version": "1.0.0",
+      "entry": "/builder/SKILL.md",
+      "files": [
+        {
+          "path": "/builder/SKILL.md",
+          "sha256": "4ea88ffa43d2ec8bcb3445bfdab63914be4c04e358683b7d7cb088b4e963ceae",
+          "bytes": 3727
+        },
+        {
+          "path": "/builder/app/SKILL.md",
+          "sha256": "ce8a07ea1aa8d4c2b31a33a3829ab0b40d90229c2ef58ef654cd6d6b09e96953",
+          "bytes": 16749
+        },
+        {
+          "path": "/builder/app/tasks.md",
+          "sha256": "ab000eea39e38d511ffe17598655b4e96f4f8286b85b37236556fa9703c650e6",
+          "bytes": 16240
+        },
+        {
+          "path": "/builder/skill/SKILL.md",
+          "sha256": "b83001c9817c53e8a6a1f7176b27f6c58ac1b840bf6f37bbbd4fc3699f2ba162",
+          "bytes": 10836
+        }
+      ],
+      "sub_skills": [
+        {
+          "slug": "builder/app",
+          "version": "1.0.0",
+          "entry": "/builder/app/SKILL.md"
+        },
+        {
+          "slug": "builder/skill",
+          "version": "1.0.0",
+          "entry": "/builder/skill/SKILL.md"
+        }
+      ]
+    },
+    {
+      "slug": "collections",
+      "version": "1.0.0",
+      "entry": "/collections/SKILL.md",
+      "files": [
+        {
+          "path": "/collections/SKILL.md",
+          "sha256": "dfa30b833fe7a7ddc789b57f4171e3e8258b28f8fa39f2111b53eaf3120f83b5",
+          "bytes": 5751
+        },
+        {
+          "path": "/collections/references/API.md",
+          "sha256": "58666b47299796ce2cee4c4719b1daa1c105a5b10425d6689860d6ccb95d9893",
+          "bytes": 19304
+        }
+      ]
+    },
+    {
+      "slug": "communities",
+      "version": "1.0.0",
+      "entry": "/communities/SKILL.md",
+      "files": [
+        {
+          "path": "/communities/SKILL.md",
+          "sha256": "638bde682cd9a2d01618f357b9fb40335b8fa33f5451267b58edaddb2b8afc19",
+          "bytes": 9737
+        },
+        {
+          "path": "/communities/references/API.md",
+          "sha256": "2add1bdcbad59439a78df46d72fbdfd7ac38944a57f7775b6facc4e651577ae3",
+          "bytes": 9411
+        }
+      ]
+    },
+    {
+      "slug": "cortex",
+      "version": "2.1.0",
+      "entry": "/cortex/SKILL.md",
+      "files": [
+        {
+          "path": "/cortex/SKILL.md",
+          "sha256": "66fdd1d9acc3eefa1f270edd7df732b1fe6e3a26bfd66254f8e0136235ae6d49",
+          "bytes": 13951
+        },
+        {
+          "path": "/cortex/references/API.md",
+          "sha256": "d8be7be99b8bee68d36ee00e2d4bb7f038cea4fbaff3c3a02849af0b0998b834",
+          "bytes": 26019
+        },
+        {
+          "path": "/cortex/references/SYNC.md",
+          "sha256": "01f5ffcf8fe0934717cb0fefc9930167dd8ef0987ba43da7e30a09b964696fac",
+          "bytes": 9351
+        }
+      ]
+    },
+    {
+      "slug": "cortex-design",
+      "version": "1.0.0",
+      "entry": "/cortex-design/SKILL.md",
+      "files": [
+        {
+          "path": "/cortex-design/SKILL.md",
+          "sha256": "edab1ab5e7118cf58047e324d484276f162997eaf152e0b84f2d6d8f536cf664",
+          "bytes": 9668
+        }
+      ]
+    },
+    {
+      "slug": "git-integration",
+      "version": "1.0.0",
+      "entry": "/git-integration/SKILL.md",
+      "files": [
+        {
+          "path": "/git-integration/SKILL.md",
+          "sha256": "1f86f2df71d809b24784ce8e76d2142b86ea9e567da1f1172b7293af5f2eeea1",
+          "bytes": 9858
+        }
+      ]
+    },
+    {
+      "slug": "graph",
+      "version": "1.0.0",
+      "entry": "/graph/SKILL.md",
+      "files": [
+        {
+          "path": "/graph/SKILL.md",
+          "sha256": "21fb91d7bcf6d2034c86c828bd6e8abcace27cd9b73c6935485740e5c750136c",
+          "bytes": 15406
+        },
+        {
+          "path": "/graph/references/API.md",
+          "sha256": "11ff4267002358988f34dd6df2076d9428c1248b3bd9179a36dedc23e26590f0",
+          "bytes": 17177
+        },
+        {
+          "path": "/graph/references/SCHEMA.md",
+          "sha256": "cf3773927aa154abf5cbcdca2f3254b5f81d4393e512337aa2c0da250f7c3d9e",
+          "bytes": 11153
+        }
+      ]
+    },
+    {
+      "slug": "hermes",
+      "version": "1.3.0",
+      "entry": "/hermes/SKILL.md",
+      "files": [
+        {
+          "path": "/hermes/SKILL.md",
+          "sha256": "f907768e4ca039842dbc36be2585ee7d2b6eda6add7f3a205b91205b494f8bff",
+          "bytes": 40694
+        },
+        {
+          "path": "/hermes/plugin/README.md",
+          "sha256": "d95d836d549590e19d22720260690b951274dc8a57fc43a662aeb036b44c6167",
+          "bytes": 3106
+        },
+        {
+          "path": "/hermes/plugin/__init__.py",
+          "sha256": "d24f293a501bf17af5b9d023f33b51c44eb6fb6991088e874f3d1199baf45e89",
+          "bytes": 29624
+        },
+        {
+          "path": "/hermes/plugin/plugin.yaml",
+          "sha256": "c6f7d1b2fb81d32f9bbc608d1fa81bdc6f3d9bed1b3180a794a9c3fffd103754",
+          "bytes": 200
+        },
+        {
+          "path": "/hermes/references/CONNECT.md",
+          "sha256": "28568a03279204447d7ff8c9612d3e1f73f6fa8c7aceb3bb2a1a66cbcc2f4f03",
+          "bytes": 9338
+        },
+        {
+          "path": "/hermes/references/LTM.md",
+          "sha256": "876d9d910c7fd769e15cba64f6b20e73d1f681a005661592f234a5706ca1a506",
+          "bytes": 15898
+        },
+        {
+          "path": "/hermes/scripts/cortex.sh",
+          "sha256": "db2a440431e5797a28cf9978cf3d518d3c6f099f47c7ae2011691adaa06575f9",
+          "bytes": 43638
+        }
+      ]
+    },
+    {
+      "slug": "integration",
+      "version": "1.0.0",
+      "entry": "/integration/SKILL.md",
+      "files": [
+        {
+          "path": "/integration/SKILL.md",
+          "sha256": "4122fbcf57498164562b60bbb7267544af2dd8bbb23fac551bbdfb9e71637144",
+          "bytes": 13379
+        },
+        {
+          "path": "/integration/references/LANGCHAIN.md",
+          "sha256": "8af1c141877d7faa6cc15dc46bec7e6b9c647753ac7f223e5ebc4b642a603e2c",
+          "bytes": 18032
+        },
+        {
+          "path": "/integration/references/PYTHON.md",
+          "sha256": "f52061bca71a5906a6162a0265991f6c094e1c6893c3811688414f0fc161d0cc",
+          "bytes": 21801
+        },
+        {
+          "path": "/integration/references/WEBHOOKS.md",
+          "sha256": "9e2b5a180a15a40be20a1d11ef81f58cd8d220c8f294a1c5eac5668e3f8a0af3",
+          "bytes": 9024
+        }
+      ]
+    },
+    {
+      "slug": "mcp",
+      "version": "1.1.0",
+      "entry": "/mcp/SKILL.md",
+      "files": [
+        {
+          "path": "/mcp/SKILL.md",
+          "sha256": "bfaea91359f676f9717cb6057c7995c707da8bc0938beedf8ca0045a49aa9fd3",
+          "bytes": 7892
+        },
+        {
+          "path": "/mcp/references/TOOLS.md",
+          "sha256": "e20abe1d0c797be782187c70d279583217cbfddb1b5c5d422f5b86e8165033cb",
+          "bytes": 7987
+        }
+      ]
+    },
+    {
+      "slug": "memory-hygiene",
+      "version": "1.0.0",
+      "entry": "/memory-hygiene/SKILL.md",
+      "files": [
+        {
+          "path": "/memory-hygiene/SKILL.md",
+          "sha256": "c6b2db43478bde2de09062303be92a631cbe603322707a335814a5e5ae342ac3",
+          "bytes": 7744
+        },
+        {
+          "path": "/memory-hygiene/references/ANCHOR-EDITING.md",
+          "sha256": "a5faab1d5654edadc4dada86f2aef9ad924177cce250abb2ea43a5fae0bf45cb",
+          "bytes": 3063
+        },
+        {
+          "path": "/memory-hygiene/references/PROCEDURE.md",
+          "sha256": "bf36f05df6665a1b321568129f893ad8448235dd7160b1832070ca52cedcd392",
+          "bytes": 6358
+        },
+        {
+          "path": "/memory-hygiene/templates/outbox-note.md",
+          "sha256": "7afce169336295aa52dd6bf2a20eae1b7bd2437d7f5c4e5d438726846631e3a0",
+          "bytes": 795
+        }
+      ]
+    },
+    {
+      "slug": "openclaw",
+      "version": "1.0.0",
+      "entry": "/openclaw/SKILL.md",
+      "files": [
+        {
+          "path": "/openclaw/SKILL.md",
+          "sha256": "449f6b9a9b2a62551cdafc3a4678ebc50cf218d406feac583f9b1e46e78021de",
+          "bytes": 6798
+        }
+      ]
+    },
+    {
+      "slug": "search",
+      "version": "1.1.0",
+      "entry": "/search/SKILL.md",
+      "files": [
+        {
+          "path": "/search/SKILL.md",
+          "sha256": "2e28a6147791845b2e46cc7b21aa58aaad88fefd5853ebb64ee40cc0f22652f3",
+          "bytes": 9140
+        },
+        {
+          "path": "/search/references/API.md",
+          "sha256": "d151fdc4cf036f6aeb5c01ffafdd6d3315b627744929a41cca97390af1289ae3",
+          "bytes": 9292
+        }
+      ]
+    },
+    {
+      "slug": "setup",
+      "version": "1.0.0",
+      "entry": "/setup/SKILL.md",
+      "files": [
+        {
+          "path": "/setup/SKILL.md",
+          "sha256": "a5a738d62aab3d02226d715e1788ba53ea2a26dabaca1d2f98c873bdbd41136d",
+          "bytes": 53616
+        },
+        {
+          "path": "/setup/references/CONFIGURATION.md",
+          "sha256": "d5bc3c0cf623be70093d819756d35d594501a19ef8ee84ce9e5c4e75bd33effa",
+          "bytes": 43518
+        }
+      ]
+    },
+    {
+      "slug": "tasks",
+      "version": "1.0.0",
+      "entry": "/tasks/SKILL.md",
+      "files": [
+        {
+          "path": "/tasks/SKILL.md",
+          "sha256": "1913df7a1685e45f7384b48693881298fce546cc00bfee7c0c0d77f6a7985b4b",
+          "bytes": 4051
+        },
+        {
+          "path": "/tasks/references/API.md",
+          "sha256": "cd2ba34ebfddd0cd12ad9b136706d49cc19bd179f2bb39460580e784ab2b2241",
+          "bytes": 3137
+        }
+      ]
+    },
+    {
+      "slug": "trainings",
+      "version": "1.0.0",
+      "entry": "/trainings/SKILL.md",
+      "files": [
+        {
+          "path": "/trainings/SKILL.md",
+          "sha256": "1fd540138902741a546d18b1de45575f0a64a7fddd68b559d945e2878cc8f032",
+          "bytes": 9007
+        }
+      ]
+    },
+    {
+      "slug": "upload",
+      "version": "1.1.0",
+      "entry": "/upload/SKILL.md",
+      "files": [
+        {
+          "path": "/upload/SKILL.md",
+          "sha256": "b49a803a6c0e55f21a742db9c81b28fb0c0eb0401a8d7b0e2667feb13cf0bd78",
+          "bytes": 19125
+        },
+        {
+          "path": "/upload/references/API.md",
+          "sha256": "c3be2ba2812de182c4432a3d0e3364e7f688b3f838869cbc4258bc2b75f0279f",
+          "bytes": 15074
+        },
+        {
+          "path": "/upload/references/FORMATS.md",
+          "sha256": "2461050ae637de961ed1bb054f7b8020df0bb8518b042b2a8a3721743e488279",
+          "bytes": 14144
+        }
+      ]
+    },
+    {
+      "slug": "videogen",
+      "version": "1.0.0",
+      "entry": "/videogen/SKILL.md",
+      "files": [
+        {
+          "path": "/videogen/SKILL.md",
+          "sha256": "d0a392f40118afdb240192f4833815191ec7a5750df34d84f1a7354231b4a2f0",
+          "bytes": 4278
+        }
+      ]
+    },
+    {
+      "slug": "web-import",
+      "version": "1.0.0",
+      "entry": "/web-import/SKILL.md",
+      "files": [
+        {
+          "path": "/web-import/SKILL.md",
+          "sha256": "a91c780712d65bab1a256f69ed2b27553785897324bed2442f98127643cebc33",
+          "bytes": 5934
+        }
+      ]
+    },
+    {
+      "slug": "x402",
+      "version": "1.0.0",
+      "entry": "/x402/SKILL.md",
+      "files": [
+        {
+          "path": "/x402/SKILL.md",
+          "sha256": "2c0f18e4debfa47ee3bfc2ea5118b0c1d092ef406d4386dfe3c4542dc90106f1",
+          "bytes": 10841
+        }
+      ]
+    }
+  ]
+}

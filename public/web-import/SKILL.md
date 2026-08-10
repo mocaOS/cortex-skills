@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: web-import
 description: Use this skill when importing web pages into Cortex as clean markdown. Covers the MDHarvest web import feature powered by a self-hosted crawl4ai service, content filters (readable / full page / relevance-ranked), link discovery, configuration, and running crawl4ai.
 ---

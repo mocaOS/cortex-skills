@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: admin
 description: Use this skill when managing a Cortex instance — installing AgentSkills from the registry, exporting/importing data for migration, resetting the system, viewing stats, or authenticating as an admin user via session login. Covers the full /api/admin/* surface and the AgentSkills system.
 ---

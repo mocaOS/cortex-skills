@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: builder-skill
 description: Recipe for turning ANY software's API documentation into an installable Cortex skill — a SKILL.md that teaches the Cortex research agent to call that software during Q&A. Covers the conventions the Cortex runtime rewards (config placeholders, auth headers, base URLs, pagination) and a validation checklist, with paperless-ngx as the worked example.
 ---

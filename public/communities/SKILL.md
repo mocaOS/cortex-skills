@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: communities
 description: Detects clusters of related entities in the knowledge graph using the Leiden algorithm (preferred), Louvain, or a BFS connected-components fallback, then generates LLM-powered descriptive names and summaries for each community to enrich RAG retrieval context and improve answer quality across broad or exploratory queries.
 ---

@@ -1,6 +1,14 @@
 {
   "headers": [
     {
+      "source": "/index.json",
+      "headers": [
+        { "key": "Access-Control-Allow-Origin", "value": "*" },
+        { "key": "Access-Control-Allow-Methods", "value": "GET, OPTIONS" },
+        { "key": "Cache-Control", "value": "public, max-age=300" }
+      ]
+    },
+    {
       "source": "/(.*)\\.md",
       "headers": [
         { "key": "Content-Type", "value": "text/markdown; charset=utf-8" },
@@ -12,7 +20,6 @@
     }
   ],
   "rewrites": [
-    { "source": "/l2s", "destination": "/l2s/SKILL.md" },
     { "source": "/:skill((?!_next|api|favicon).*)", "destination": "/:skill/SKILL.md" }
   ]
 }

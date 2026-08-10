@@ -11,7 +11,7 @@ description: >
   "ask the community cortex about X", and "free up / clean up your memory"
   (migrate MEMORY.md overflow into your cortex). Built for the Hermes agent
   (nousresearch.com).
-version: 1.2.0
+version: 1.3.0
 license: MIT
 platforms: [macos, linux]
 metadata:
@@ -301,11 +301,20 @@ bash ${HERMES_SKILL_DIR}/scripts/cortex.sh search "SSE reconnect backoff" 15
 
 A human saying "search your cortex for X" almost never wants raw chunks — they want the answer, found by searching. Run the ladder; give them the answer with the receipts underneath.
 
+**Threads: multi-turn recall.** By default every `ask`/`check` is a cold one-shot — the cortex can't see the previous question. When a recall session has follow-ups ("expand on the second point", "and how does that relate to Y?"), give the conversation a thread:
+
+```bash
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh --thread auth-review ask "how does cortex-app validate API keys?"
+bash ${HERMES_SKILL_DIR}/scripts/cortex.sh --thread auth-review ask "expand on the caching part"
+```
+
+A thread carries the full history **plus a server-curated memory blob** (rolling summary, established facts, source ledger) across calls, so follow-ups resolve naturally and repeat questions can even skip retrieval. Threads are conversations, not knowledge — `cortex.sh thread list|show <name>|clear <name>` manages them; saved docs are untouched. Use one thread per research topic; a fresh question deserves a fresh (or no) thread.
+
 **Inventory is not recall.** When the human asks *"what's in your cortex?"*, *"what have you saved?"*, or *"how many notes do you have?"*, run `cortex.sh list` — it returns the exact set of docs (filename, date, status, doc id), newest first, across **all collections** in the source (each row labeled with its collection), so the count matches what the dashboard shows — not just your own slice. Don't answer inventory questions with `check`: synthesis summarizes what retrieval surfaced, and will confidently under-count what's actually stored. `list` also gives you the doc ids that `show <doc_id>` (print a note's full content) and `forget <doc_id>` (delete a note) take.
 
 **Citations come back with the answer.** `check` and `ask` print a numbered `sources:` footer (filename + doc id) *below* the answer; the numbers line up with the `[src_N]` markers Cortex embeds in the text. So when a human asks **"cite your sources"**, **"where did that come from?"**, or **"which document?"**, you already have it — map each `[src_N]` to the footer's `[N]` filename; don't re-query. For the *exact passage* behind a claim, run `search` on that claim and quote the chunk. To hand over the whole source doc, use its doc id (`GET /api/documents/{id}`).
 
-> If `check` returns "nothing found" but you expect a hit: run `search` (raw retrieval), and confirm the doc landed in the collection. The `/api/ask` response always echoes `"collection_id": null` even when scoping worked — don't read that as failure. For a live streaming answer, `POST /api/ask/stream` (SSE) — see the [ask skill](https://cortexskills.org/ask/SKILL.md).
+> If `check` returns "nothing found" but you expect a hit: run `search` (raw retrieval), and confirm the doc landed in the collection. On older instances the `/api/ask` response echoes `"collection_id": null` even when scoping worked — don't read that as failure (current instances echo the applied collection). For a live streaming answer, `POST /api/ask/stream` (SSE) — see the [ask skill](https://cortexskills.org/ask/SKILL.md).
 
 ## When to save (and when not to)
 

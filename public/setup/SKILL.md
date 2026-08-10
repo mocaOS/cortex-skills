@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: setup
 description: Use this skill when deploying or configuring Cortex, including self-hosting a full instance on your own machine or VM. Covers Docker installation, the 160+ environment variables, service URLs, health checks, production deployment, and troubleshooting.
 ---

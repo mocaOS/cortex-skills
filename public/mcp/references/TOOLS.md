@@ -33,10 +33,13 @@ RAG-powered Q&A using the knowledge graph and document chunks. When the task is 
 | `use_graph` | boolean | No | true | Include knowledge graph context (chat mode) |
 | `collection_id` | string | No | — | Scope to a collection |
 | `top_k` | integer | No | 5 | Chunks retrieved per search (1–20) |
+| `thread` | string | No | — | Conversation thread name. Carries history + server-curated memory across `ask_question` calls, so follow-ups ("expand on the second point") work. Reuse the name to continue; omit for a one-shot |
 
-**Response:** Answer text with a source list (filenames + document IDs + scores), graph-context entity summary, and — in deep research mode — the researched sub-questions.
+**Response:** Answer text with a source list (filenames + document IDs + scores), graph-context entity summary, and — in deep research mode — the researched sub-questions. With `thread`, a footer confirms the thread was updated.
 
 **Maps to:** `chat` → `POST /api/ask` (`use_agentic: false`). `deep_research` → `POST /api/ask/stream` with `use_agentic: true`, aggregated server-side from the SSE stream (the non-streaming endpoint rejects agentic requests with `400 agentic_requires_streaming`).
+
+**Threads:** state lives in `$CORTEX_STATE_DIR/threads/` (default `~/.cortex-mcp/threads/`), file shape `{history, memory, updated_at}` — shared with the Hermes skill's `cortex.sh --thread`, so point `CORTEX_STATE_DIR` at `~/.hermes/skills/state/cortex` to interoperate. The memory blob only updates on `deep_research` (the streaming path); `chat` threads carry history only.
 
 ---
 
@@ -54,7 +57,7 @@ List documents in the knowledge base.
 
 **Response:** Bullet list with filename, ID, processing status, chunk count, and collection name. Notes how many of the total matches are shown.
 
-**Maps to:** `GET /api/documents` — the endpoint takes no query parameters and returns everything visible to the key (`{documents, total}`); filtering and limiting happen client-side in the MCP server.
+**Maps to:** `GET /api/documents` — current instances support `collection_id`, `status`, `sort`, `limit`/`offset` query params server-side; the MCP server still filters client-side so it works against older instances too.
 
 ---
 

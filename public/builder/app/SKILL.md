@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: builder-app
 description: Recipe for building a web app that runs inside a Cortex instance — React/Tailwind by default, any framework works. Covers the app template, the hosting contract (manifest, sandboxing, token handshake, API proxy), streaming Q&A rendering, platform capabilities for background work, and both endings — private install or publishing to the registry.
 ---

@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: tasks
 description: Use this skill when working with background tasks in Cortex — polling for completion, cancelling long-running jobs, or cleaning up old tasks. Background tasks are used by community detection, summarization, relationship analysis, and bulk processing.
 ---

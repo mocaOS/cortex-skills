@@ -44,7 +44,7 @@ Non-secret config (collection names) lives in `$HERMES_HOME/cortex.json`; env va
 
 - **System prompt**: one status line (instance, write collection, read scope, access) so the agent knows memory is live.
 - **Prefetch**: before each turn, a fast hybrid search over your cortex injects up to 3 relevant snippets as context (skipped for short messages, subagents, and cron).
-- **Tools**: `cortex_search` (verbatim chunks), `cortex_ask` (synthesized + cited), `cortex_list` (ground-truth inventory), `cortex_save` (curated notes; hidden on read-only keys).
+- **Tools**: `cortex_search` (verbatim chunks), `cortex_ask` (synthesized + cited; `thread` carries conversation history + server-curated memory across calls, `deep: true` runs agentic deep research), `cortex_list` (ground-truth inventory), `cortex_save` (curated notes; hidden on read-only keys).
 - **Deliberate memory**: turn transcripts are *not* auto-ingested — Cortex holds curated notes, decisions, and session dumps, not a firehose. Built-in MEMORY.md/USER.md keep working unchanged alongside.
 
 ## Uninstall / switch

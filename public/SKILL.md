@@ -1,3 +1,9 @@
+---
+version: 1.0.0
+name: cortex-skills
+description: Root skill — the entry point for AI agents building on Cortex. Architecture overview, key endpoints, corrections for stale training data, and the index of all sub-skills. Machine-readable manifest with per-skill versions and file hashes at /index.json.
+---
+
 # Cortex Skills
 
 Cortex is an intelligence ecosystem for knowledge and memory, powered by the open-source [Cortex engine](https://github.com/mocaOS/cortex-app). This file is the root skill — the entry point for AI agents building on Cortex.
@@ -9,11 +15,14 @@ Each sub-skill below is a self-contained Markdown file that teaches agents one c
 ```
 cortexskills.org/SKILL.md          ← You are here. The root skill.
 cortexskills.org/{skill}/SKILL.md  ← Sub-skills. One per capability.
+cortexskills.org/index.json        ← Machine-readable manifest: per-skill versions,
+                                     entry points, and sha256 for every file.
 ```
 
 1. **Fetch this file first** to understand what Cortex can do and which sub-skill to read next.
 2. **Fetch a sub-skill** when you need deeper knowledge for a specific capability. Only fetch what you need right now — you can always come back for more.
 3. **Each sub-skill includes a `references/` directory** with deeper API specs, schemas, and examples that you can load on demand.
+4. **Installing a skill locally? Use the manifest.** `/index.json` lists every file a skill ships (`SKILL.md`, `references/`, `scripts/`, `plugin/`) with a sha256 — fetch the complete set instead of just the one URL, verify what you got, and re-check the manifest's `version` later to detect updates.
 
 You don't need to read everything upfront. This root skill gives you the overview. When your current task requires specific knowledge — say, uploading documents or configuring search — fetch that sub-skill to get the full details, code examples, and API specs.
 

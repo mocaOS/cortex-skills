@@ -1,4 +1,5 @@
 ---
+version: 1.1.0
 name: mcp
 description: Use this skill when setting up or configuring the Cortex MCP server for Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, or any MCP-compatible client. Covers installation from source, tool descriptions, configuration examples, and troubleshooting.
 ---

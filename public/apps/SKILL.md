@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: apps
 description: Use this skill when installing, operating, or reasoning about apps that run INSIDE a Cortex instance — registry installs (sha256-verified), zip installs, the sandbox/proxy security model, platform capabilities (server-side http, storage, scheduled background tasks, LLM), share links, and the first-party apps. To BUILD an app, fetch builder/app instead.
 ---

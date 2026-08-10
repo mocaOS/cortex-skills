@@ -1,4 +1,5 @@
 ---
+version: 1.1.0
 name: ask
 description: Use this skill when building RAG-powered Q&A features on Cortex, or when asked to retrieve data from / ask / find something in a Cortex. The first-choice call is a streaming Deep Research query (POST /api/ask/stream with use_agentic true). Covers the three Ask AI endpoints (streaming SSE, streaming with reasoning, non-streaming fast chat), request/response schemas, agentic multi-step reasoning, conversation history, and collection-scoped queries.
 ---
@@ -144,7 +145,7 @@ data: {"done": true, "communities_used": [1, 4]}
 
 ## SSE Event Reference
 
-The streaming endpoint emits these event keys (the exact `data:` payload shape may vary by build — switch on the event key):
+The streaming endpoint emits these event keys. Current instances additionally stamp every frame with a `type` field naming the event (`{"type": "content", "content": "..."}`) — new clients can switch on `type`; older instances lack it, so key-presence switching remains the portable approach:
 
 | Event | Mode | Description |
 |-------|------|-------------|
@@ -179,6 +180,27 @@ The streaming endpoint emits these event keys (the exact `data:` payload shape m
 | `use_agentic` | boolean | false | Enable deep research (multi-step reasoning) |
 | `use_fast_search` | boolean | false | Vector-only search (skip graph + reranking) |
 | `collection_id` | string | null | Scope to a specific collection or community id |
+| `response_format` | object | null | JSON Schema (root `type: "object"`) for a structured answer — **non-streaming `POST /api/ask` only** (streaming endpoints 400; incompatible with `use_agentic`). The parsed object returns in the `structured` response field; raw text stays in `answer` |
+
+## Structured Answers (`response_format`, non-streaming only)
+
+Pass a JSON Schema and `POST /api/ask` answers as JSON conforming to it — for apps and agents that consume answers programmatically instead of parsing prose:
+
+```json
+{
+  "question": "List the deployment options with their trade-offs",
+  "response_format": {
+    "type": "object",
+    "properties": {
+      "options": {"type": "array", "items": {"type": "object", "properties": {
+        "name": {"type": "string"}, "tradeoff": {"type": "string"}}}}
+    },
+    "required": ["options"]
+  }
+}
+```
+
+The response carries the parsed object in `structured` (null if the model's output didn't parse — the raw text is always in `answer`). Root must be `type: "object"`; schema max 20k chars serialized. The non-streaming response also echoes the **applied** `collection_id` (request or key restriction). Older instances don't support `response_format` and ignore unknown fields — check `structured` is present before relying on it.
 
 ## Conversation History
 

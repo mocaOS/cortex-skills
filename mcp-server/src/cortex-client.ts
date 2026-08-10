@@ -54,6 +54,13 @@ export interface AskResult {
   communities_used?: number[] | null;
   reranked?: boolean;
   collection_id?: string | null;
+  /** Updated conversation-memory blob (only when conversation_memory was sent). */
+  memory_update?: Record<string, unknown>;
+}
+
+export interface ConversationMessage {
+  role: "user" | "assistant";
+  content: string;
 }
 
 export interface Document {
@@ -135,6 +142,7 @@ export interface UploadResult {
 
 /** A single SSE frame from /api/ask/stream — exactly one key is set per event. */
 interface AskStreamEvent {
+  type?: string;
   content?: string;
   sources?: SearchResult[];
   graph_context?: GraphContext;
@@ -144,6 +152,9 @@ interface AskStreamEvent {
   retrieval_stats?: Record<string, unknown>;
   communities_used?: number[];
   done?: boolean;
+  /** On the done frame: a memory_update frame still follows — keep reading. */
+  pending_memory?: boolean;
+  memory_update?: Record<string, unknown>;
   error?: string;
 }
 
@@ -217,12 +228,16 @@ export class CortexClient {
       top_k?: number;
       use_graph?: boolean;
       collection_id?: string;
+      conversation_history?: ConversationMessage[];
     }
   ): Promise<AskResult> {
     const body: Record<string, unknown> = { question, use_agentic: false };
     if (options?.top_k) body.top_k = options.top_k;
     if (options?.use_graph !== undefined) body.use_graph = options.use_graph;
     if (options?.collection_id) body.collection_id = options.collection_id;
+    if (options?.conversation_history?.length) {
+      body.conversation_history = options.conversation_history;
+    }
 
     return this.request<AskResult>("/api/ask", {
       method: "POST",
@@ -237,11 +252,25 @@ export class CortexClient {
    */
   async askDeepResearch(
     question: string,
-    options?: { top_k?: number; collection_id?: string }
+    options?: {
+      top_k?: number;
+      collection_id?: string;
+      conversation_history?: ConversationMessage[];
+      conversation_memory?: Record<string, unknown>;
+    }
   ): Promise<AskResult> {
     const body: Record<string, unknown> = { question, use_agentic: true };
     if (options?.top_k) body.top_k = options.top_k;
     if (options?.collection_id) body.collection_id = options.collection_id;
+    if (options?.conversation_memory !== undefined) {
+      // Opting into server-curated conversation memory: send the blob (start
+      // with {}) plus the FULL history; an updated blob comes back via a
+      // memory_update frame that may arrive AFTER the done frame.
+      body.conversation_history = options.conversation_history ?? [];
+      body.conversation_memory = options.conversation_memory;
+    } else if (options?.conversation_history?.length) {
+      body.conversation_history = options.conversation_history;
+    }
 
     const res = await fetch(`${this.baseUrl}/api/ask/stream`, {
       method: "POST",
@@ -274,6 +303,7 @@ export class CortexClient {
       if (ev.retrieval) steps.push(ev.retrieval);
       if (ev.sub_questions) result.sub_questions = ev.sub_questions;
       if (ev.communities_used) result.communities_used = ev.communities_used;
+      if (ev.memory_update) result.memory_update = ev.memory_update;
     };
 
     let done = false;
@@ -295,7 +325,10 @@ export class CortexClient {
             continue;
           }
           handleEvent(ev);
-          if (ev.done) done = true;
+          // A done frame with pending_memory:true means a memory_update frame
+          // still follows — read on; the server closes the stream after it.
+          if (ev.done && !ev.pending_memory) done = true;
+          if (ev.memory_update) done = true;
         }
       }
     }

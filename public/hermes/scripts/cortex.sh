@@ -17,6 +17,9 @@
 #   cortex.sh [--source NAME] save   <file>        # upload a file (needs rw)
 #   cortex.sh [--source NAME] check  "<question>"  # fast synthesized answer
 #   cortex.sh [--source NAME] ask    "<question>"  # deep agentic answer
+#   cortex.sh --thread <name> ask    "<question>"  # multi-turn: carries history +
+#                                                  # server-curated memory across calls
+#   cortex.sh thread [list|show <name>|clear <name>]   # manage threads
 #   cortex.sh [--source NAME] search "<query>"     # raw top chunks
 #   cortex.sh [--source NAME] list   [n]           # newest saved docs (ground truth, default 10)
 #   cortex.sh [--source NAME] show   <doc_id>      # print a saved doc's full content
@@ -56,8 +59,14 @@ mkdir -p "$STATE"
 die(){ echo "cortex: $*" >&2; exit 1; }
 
 # ---- source resolution -------------------------------------------------------
-SRC=""
-if [ "${1:-}" = "--source" ]; then SRC="${2:-}"; shift 2 || true; fi
+SRC=""; THREAD=""
+while :; do
+  case "${1:-}" in
+    --source) SRC="${2:-}"; shift 2 || true;;
+    --thread) THREAD="${2:-}"; shift 2 || true;;
+    *) break;;
+  esac
+done
 
 load_named(){ # $1 = name -> sets BASE_URL/API_KEY/COLLECTION/READ_COLLECTION/ACCESS/LABEL
   local row; row=$(jq -c --arg s "$1" '.sources[$s] // empty' "$SRCFILE" 2>/dev/null)
@@ -131,10 +140,44 @@ read_scope(){
 
 need_write(){ [ "$ACCESS" = rw ] || die "source '$SRCNAME' is read-only (recall only). To save, target a read/write cortex — omit --source (or use --source mine) to write to your personal cortex, or use a named source you hold a cortex_rw_ key for."; }
 
-# ask/search JSON with optional collection scoping
+# ---- threads (multi-turn conversations) ---------------------------------------
+# A thread carries the full conversation_history PLUS the server-curated
+# conversation_memory blob across calls, so follow-ups ("expand on the second
+# point", "why?") actually work instead of every ask being a cold one-shot.
+# Contract: send the blob + FULL history each turn; the stream returns an
+# updated blob via a memory_update event (which may arrive AFTER done).
+# State: $STATE/threads/<name>.json (chmod 600), per source-independent name.
+THIST='[]'; TMEM='{}'
+thread_load(){
+  [ -n "$THREAD" ] || return 0
+  case "$THREAD" in *[!A-Za-z0-9._-]*) die "thread names: letters, digits, . _ - only";; esac
+  local f="$STATE/threads/$THREAD.json"
+  if [ -f "$f" ]; then
+    THIST=$(jq -c '.history // []' "$f" 2>/dev/null) || THIST='[]'
+    TMEM=$(jq -c '.memory // {}' "$f" 2>/dev/null) || TMEM='{}'
+  fi
+}
+thread_save(){ # $1 = question, $2 = answer file, $3 = memory_update frame file (may be empty)
+  [ -n "$THREAD" ] || return 0
+  mkdir -p "$STATE/threads"
+  local f="$STATE/threads/$THREAD.json" mem="$TMEM"
+  if [ -n "${3:-}" ] && [ -s "$3" ]; then
+    mem=$(jq -c '.memory_update // empty' "$3" 2>/dev/null)
+    [ -n "$mem" ] || mem="$TMEM"
+  fi
+  jq -n --argjson h "$THIST" --arg q "$1" --rawfile a "$2" --argjson m "$mem" \
+    '{history: ($h + [{role:"user",content:$q},{role:"assistant",content:$a}]), memory: $m, updated_at: (now|todate)}' \
+    > "$f" 2>/dev/null || return 0
+  chmod 600 "$f"
+}
+
+# ask/search JSON with optional collection scoping (+ thread history/memory)
 ask_body(){ local q="$1" cid="$2" ag="$3"
-  if [ -n "$cid" ]; then jq -n --arg q "$q" --arg c "$cid" --argjson a "$ag" '{question:$q,collection_id:$c,use_agentic:$a}'
-  else jq -n --arg q "$q" --argjson a "$ag" '{question:$q,use_agentic:$a}'; fi; }
+  jq -n --arg q "$q" --arg c "$cid" --argjson a "$ag" \
+        --argjson h "$THIST" --argjson m "$TMEM" --arg t "$THREAD" '
+    {question:$q, use_agentic:$a}
+    + (if $c != "" then {collection_id:$c} else {} end)
+    + (if $t != "" then {conversation_history:$h, conversation_memory:$m} else {} end)'; }
 search_body(){ local q="$1" cid="$2" k="${3:-8}"
   if [ -n "$cid" ]; then jq -n --arg q "$q" --arg c "$cid" --argjson k "$k" '{query:$q,top_k:$k,filters:{collection_id:$c}}'
   else jq -n --arg q "$q" --argjson k "$k" '{query:$q,top_k:$k}'; fi; }
@@ -225,11 +268,19 @@ case "$cmd" in
   check)
     # fast synthesized answer — non-streaming /api/ask (use_agentic:false).
     # Returns the answer AND a numbered "sources:" footer so [src_N] is resolvable.
-    resolve
-    q="${1:-}"; [ -n "$q" ] || die "usage: cortex.sh check \"<question>\""
+    # With --thread NAME the conversation history rides along (the curated memory
+    # blob only updates on the streaming path, so `ask` is the better thread turn).
+    resolve; thread_load
+    q="${1:-}"; [ -n "$q" ] || die "usage: cortex.sh [--thread NAME] check \"<question>\""
     cid=$(read_collection_id)
     resp=$(api -X POST "$BASE_URL/api/ask" -H "Content-Type: application/json" -d "$(ask_body "$q" "$cid" false)")
     jq -r '.answer // .detail.message // "cortex: no answer in response"' <<<"$resp"
+    if [ -n "$THREAD" ]; then
+      ans=$(jq -r '.answer // empty' <<<"$resp")
+      if [ -n "$ans" ]; then
+        AF=$(mktemp); printf '%s' "$ans" > "$AF"; thread_save "$q" "$AF" ""; rm -f "$AF"
+      fi
+    fi
     # A busy/slow LLM backend trips the non-streaming endpoint's server deadline;
     # the streaming path has none — tell the agent the right next move.
     grep -q "deadline" <<<"$resp" && echo "hint: the backend LLM is busy/slow — use the streaming path instead: cortex.sh ask \"$q\""
@@ -244,22 +295,62 @@ case "$cmd" in
     # deep agentic research — MUST use the streaming endpoint (non-streaming /api/ask
     # rejects use_agentic:true with 400 agentic_requires_streaming). Reconstruct the
     # answer from SSE "content" events, and capture the "sources" event for the footer.
-    resolve
-    q="${1:-}"; [ -n "$q" ] || die "usage: cortex.sh ask \"<question>\""
+    # With --thread NAME, also send/receive conversation memory: the memory_update
+    # event may arrive AFTER the done frame — keep reading to stream end.
+    resolve; thread_load
+    q="${1:-}"; [ -n "$q" ] || die "usage: cortex.sh [--thread NAME] ask \"<question>\""
     cid=$(read_collection_id)
-    if [ -n "$cid" ]; then body=$(jq -n --arg q "$q" --arg c "$cid" '{question:$q,collection_id:$c,use_agentic:true}')
-    else body=$(jq -n --arg q "$q" '{question:$q,use_agentic:true}'); fi
-    SRCF=$(mktemp)
+    body=$(ask_body "$q" "$cid" true)
+    SRCF=$(mktemp); ANSF=$(mktemp); MEMF=$(mktemp)
     api -N -X POST "$BASE_URL/api/ask/stream" -H "Content-Type: application/json" -H "Accept: text/event-stream" -d "$body" \
       | while IFS= read -r line; do
           [ "${line#data: }" = "$line" ] && continue
           json="${line#data: }"
-          printf '%s' "$(jq -r 'if has("content") then .content elif has("error") then "\n[cortex error] "+(.error|tostring) else empty end' 2>/dev/null <<<"$json")"
+          if jq -e 'has("content")' >/dev/null 2>&1 <<<"$json"; then
+            tok=$(jq -r '.content' <<<"$json")
+            printf '%s' "$tok"; printf '%s' "$tok" >> "$ANSF"
+          elif jq -e 'has("error")' >/dev/null 2>&1 <<<"$json"; then
+            printf '\n[cortex error] %s' "$(jq -r '.error|tostring' <<<"$json")"
+          fi
           jq -e 'has("sources")' >/dev/null 2>&1 <<<"$json" && printf '%s' "$json" > "$SRCF"
+          jq -e 'has("memory_update")' >/dev/null 2>&1 <<<"$json" && printf '%s' "$json" > "$MEMF"
         done
     echo
     [ -s "$SRCF" ] && jq -r 'if (.sources|length)>0 then "\nsources (matches [src_N] in the answer):\n" + ([.sources|to_entries[]|"  [\(.key+1)] \(.value.metadata.filename // .value.document_title // .value.document_id) — doc \(.value.document_id[0:8])"]|join("\n")) else empty end' "$SRCF"
-    rm -f "$SRCF"
+    if [ -n "$THREAD" ] && [ -s "$ANSF" ]; then
+      thread_save "$q" "$ANSF" "$MEMF"
+      echo "(thread '$THREAD': $(jq -r '.history|length' "$STATE/threads/$THREAD.json" 2>/dev/null || echo '?') messages — follow up with: cortex.sh --thread $THREAD ask \"...\")"
+    fi
+    rm -f "$SRCF" "$ANSF" "$MEMF"
+    ;;
+  thread|threads)
+    # Thread inventory & lifecycle. Threads are conversations, not knowledge:
+    # delete freely — saved docs are untouched.
+    sub="${1:-list}"
+    case "$sub" in
+      list)
+        if [ -d "$STATE/threads" ] && [ -n "$(ls -A "$STATE/threads" 2>/dev/null)" ]; then
+          for f in "$STATE/threads"/*.json; do
+            [ -f "$f" ] || continue
+            n=$(basename "$f" .json)
+            jq -r --arg n "$n" '"• \($n)  \(.history|length) messages  (updated \(.updated_at // "?"))"' "$f" 2>/dev/null || echo "• $n  (unreadable)"
+          done
+        else
+          echo "no threads yet — start one: cortex.sh --thread <name> ask \"<question>\""
+        fi
+        ;;
+      show)
+        t="${2:-}"; [ -n "$t" ] || die "usage: cortex.sh thread show <name>"
+        f="$STATE/threads/$t.json"; [ -f "$f" ] || die "no thread '$t' — see: cortex.sh thread list"
+        jq -r '.history[] | "[\(.role)] \(.content[0:400])"' "$f"
+        ;;
+      clear|delete|rm)
+        t="${2:-}"; [ -n "$t" ] || die "usage: cortex.sh thread clear <name>"
+        rm -f "$STATE/threads/$t.json" && echo "thread '$t' cleared"
+        ;;
+      *) die "usage: cortex.sh thread [list|show <name>|clear <name>]";;
+    esac
+    exit 0
     ;;
   search)
     resolve

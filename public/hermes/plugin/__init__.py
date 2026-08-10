@@ -206,6 +206,102 @@ class CortexMemoryProvider(MemoryProvider):
         except RuntimeError:
             return {}
 
+    # -- Threads (multi-turn conversation memory) --------------------------------
+    # A thread carries the full conversation_history PLUS the server-curated
+    # conversation_memory blob across cortex_ask calls, so follow-ups work
+    # instead of every ask being a cold one-shot. Same state dir and file shape
+    # as the cortex skill's `cortex.sh --thread`, so skill and plugin threads
+    # interoperate: {"history": [...], "memory": {...}, "updated_at": ...}.
+
+    def _threads_dir(self) -> Path:
+        state = os.environ.get("CORTEX_STATE_DIR", "").strip() or os.path.join(
+            self._hermes_home or os.path.expanduser("~/.hermes"),
+            "skills", "state", "cortex",
+        )
+        return Path(state) / "threads"
+
+    @staticmethod
+    def _thread_key(name: str) -> str:
+        key = re.sub(r"[^A-Za-z0-9._-]", "-", str(name).strip())[:80]
+        return key or "default"
+
+    def _thread_load(self, name: str) -> tuple:
+        path = self._threads_dir() / f"{self._thread_key(name)}.json"
+        try:
+            state = json.loads(path.read_text())
+            history = state.get("history") or []
+            memory = state.get("memory") or {}
+            if isinstance(history, list) and isinstance(memory, dict):
+                return history, memory
+        except (OSError, ValueError):
+            pass
+        return [], {}
+
+    def _thread_save(
+        self, name: str, history: list, question: str, answer: str, memory: dict
+    ) -> None:
+        try:
+            d = self._threads_dir()
+            d.mkdir(parents=True, exist_ok=True)
+            path = d / f"{self._thread_key(name)}.json"
+            path.write_text(json.dumps({
+                "history": history + [
+                    {"role": "user", "content": question},
+                    {"role": "assistant", "content": answer},
+                ],
+                "memory": memory or {},
+                "updated_at": __import__("datetime").datetime.now(
+                    __import__("datetime").timezone.utc
+                ).isoformat(timespec="seconds"),
+            }, indent=2))
+            os.chmod(path, 0o600)
+        except OSError as e:
+            logger.warning("cortex thread save failed: %s", e)
+
+    def _ask_stream(self, body: Dict[str, Any], timeout: float) -> tuple:
+        """POST /api/ask/stream and reassemble (answer, sources, memory_update).
+
+        The memory_update frame may arrive AFTER the done frame — read the
+        stream to its end. The socket timeout is per-read; the server's SSE
+        heartbeats (`: ping` comments) keep quiet windows alive.
+        """
+        url = f"{self._base_url}/api/ask/stream"
+        headers = {
+            "X-API-Key": self._api_key,
+            "Content-Type": "application/json",
+            "Accept": "text/event-stream",
+        }
+        req = urllib.request.Request(
+            url, data=json.dumps(body).encode(), headers=headers, method="POST"
+        )
+        answer_parts: List[str] = []
+        sources: List[Dict[str, Any]] = []
+        memory: Optional[dict] = None
+        try:
+            with urllib.request.urlopen(req, timeout=timeout) as resp:
+                for raw in resp:
+                    line = raw.decode("utf-8", errors="replace").rstrip("\r\n")
+                    if not line.startswith("data: "):
+                        continue
+                    try:
+                        evt = json.loads(line[len("data: "):])
+                    except ValueError:
+                        continue
+                    if "content" in evt:
+                        answer_parts.append(str(evt["content"]))
+                    elif "sources" in evt:
+                        sources = evt["sources"] or []
+                    elif "memory_update" in evt:
+                        memory = evt["memory_update"]
+                    elif "error" in evt:
+                        raise RuntimeError(f"cortex stream error: {evt['error']}")
+        except urllib.error.HTTPError as e:
+            detail = e.read().decode(errors="replace")[:300]
+            raise RuntimeError(f"cortex {e.code} on /api/ask/stream: {detail}") from e
+        except (urllib.error.URLError, TimeoutError, OSError) as e:
+            raise RuntimeError(f"cortex unreachable at {self._base_url}: {e}") from e
+        return "".join(answer_parts), sources, memory
+
     # -- System prompt / prefetch ----------------------------------------------
 
     def system_prompt_block(self) -> str:
@@ -320,11 +416,30 @@ class CortexMemoryProvider(MemoryProvider):
                         "question": {
                             "type": "string",
                             "description": (
-                                "Self-contained natural-language question. The cortex "
-                                "cannot see this conversation — resolve pronouns and "
-                                "context, and name entities (people, projects, tools)."
+                                "Natural-language question. Without a thread, make it "
+                                "self-contained — the cortex cannot see this conversation: "
+                                "resolve pronouns and context, and name entities (people, "
+                                "projects, tools). Within a thread, follow-ups may refer "
+                                "to earlier turns of that thread."
                             ),
-                        }
+                        },
+                        "thread": {
+                            "type": "string",
+                            "description": (
+                                "Optional conversation thread name. Carries history and "
+                                "server-curated memory across cortex_ask calls, so "
+                                "follow-up questions ('expand on the second point') work. "
+                                "Reuse the same name to continue a conversation."
+                            ),
+                        },
+                        "deep": {
+                            "type": "boolean",
+                            "description": (
+                                "Run deep agentic research (multi-step retrieval + "
+                                "reasoning, slower but thorough). Use for multi-part or "
+                                "cross-document questions."
+                            ),
+                        },
                     },
                     "required": ["question"],
                 },
@@ -421,11 +536,35 @@ class CortexMemoryProvider(MemoryProvider):
         question = str(args.get("question", "")).strip()
         if not question:
             return {"success": False, "error": "question is required"}
-        body: Dict[str, Any] = {"question": question, "use_agentic": False}
+        thread = str(args.get("thread") or "").strip()
+        deep = bool(args.get("deep"))
+
+        body: Dict[str, Any] = {"question": question, "use_agentic": deep}
         cid = self._read_collection_filter_id()
         if cid:
             body["collection_id"] = cid
-        resp = self._request("POST", "/api/ask", body=body, timeout=ASK_TIMEOUT_S)
+
+        if thread or deep:
+            # Streaming path: required for deep research, and the only path
+            # that returns the server-curated conversation_memory blob.
+            history: list = []
+            memory: dict = {}
+            if thread:
+                history, memory = self._thread_load(thread)
+                body["conversation_history"] = history
+                body["conversation_memory"] = memory
+            answer, raw_sources, memory_update = self._ask_stream(
+                body, timeout=ASK_TIMEOUT_S
+            )
+            if thread and answer:
+                self._thread_save(
+                    thread, history, question, answer, memory_update or memory
+                )
+        else:
+            resp = self._request("POST", "/api/ask", body=body, timeout=ASK_TIMEOUT_S)
+            answer = resp.get("answer") or resp.get("detail") or ""
+            raw_sources = resp.get("sources", [])
+
         sources = [
             {
                 "n": i + 1,
@@ -433,14 +572,17 @@ class CortexMemoryProvider(MemoryProvider):
                 or s.get("document_title") or s.get("document_id"),
                 "document_id": s.get("document_id"),
             }
-            for i, s in enumerate(resp.get("sources", []))
+            for i, s in enumerate(raw_sources)
         ]
-        return {
+        out = {
             "success": True,
-            "answer": resp.get("answer") or resp.get("detail") or "",
+            "answer": answer,
             "sources": sources,
             "note": "[src_N] markers in the answer map to sources[n]; surface citations to the user",
         }
+        if thread:
+            out["thread"] = self._thread_key(thread)
+        return out
 
     def _tool_list(self, args: Dict[str, Any]) -> Dict[str, Any]:
         limit = int(args.get("limit") or 10)

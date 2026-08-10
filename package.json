@@ -4,9 +4,10 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "npm run manifest && next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "manifest": "node scripts/build-manifest.mjs"
   },
   "dependencies": {
     "clsx": "^2.1.1",

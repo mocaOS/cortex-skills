@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: videogen
 description: Use this skill when setting up or operating Cortex Videogen — the standalone app that generates marketing videos (16:9 or 9:16 MP4) from a Cortex instance's knowledge. Covers setup, the two human gates (storyboard, cost), grounding, reference images, model/resolution choice, costs, and resume behavior.
 ---

@@ -1,4 +1,5 @@
 ---
+version: 1.1.0
 name: search
 description: Perform hybrid search combining vector similarity, keyword matching, and graph traversal with cross-encoder re-ranking. Use this skill when searching documents, finding relevant chunks, or retrieving knowledge from the Cortex knowledge base.
 ---
@@ -41,6 +42,7 @@ Content-Type: application/json
 | `query`         | string   | Yes      | —       | The search query. Natural language works best.    |
 | `top_k`         | integer  | No       | 5       | Number of results to return. Range: 1–50.        |
 | `filters`       | object   | No       | null    | Metadata filters to narrow results. Scope to a collection with `{"collection_id": "..."}`. |
+| `collection_id` | string   | No       | null    | Top-level alternative to `filters.collection_id` — same effect, uniform with `/api/ask` and `/api/upload`. Don't pass both with different values (400). |
 
 > Search always runs the hybrid strategy (vector + keyword + graph via RRF). There is no per-request `search_type` or `fast_mode` toggle — those behaviors are controlled system-wide via environment variables.
 
@@ -55,13 +57,15 @@ Content-Type: application/json
       "chunk_id": "chunk_001",
       "content": "The retrieved text content of this chunk...",
       "score": 0.9234,
+      "document_title": "report.pdf",
       "metadata": {
         "filename": "report.pdf",
         "chunk_index": 7
       }
     }
   ],
-  "total_results": 5
+  "total_results": 5,
+  "total": 5
 }
 ```
 

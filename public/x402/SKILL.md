@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: x402
 description: Use this skill when paying for Cortex queries with x402 micropayments (as an agent holding a monetized key) or when monetizing a Cortex instance (as an operator). Covers the x402 v2 payment handshake, EIP-3009 signing, monetized public keys, the admin config/verify/earnings endpoints, facilitator selection, and the EIP-712 pitfalls that make signatures revert.
 ---

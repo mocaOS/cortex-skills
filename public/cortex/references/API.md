@@ -130,10 +130,10 @@ curl -X POST "{BASE_URL}/api/documents/process-pending" \
 
 ### GET /api/documents
 
-List all documents. Supports filtering by collection and status.
+List documents. Server-side filtering, sorting and pagination: `collection_id`, `status`, `sort` (`upload_date|filename|file_size|chunk_count|processing_status|entity_count`, prefix `-` for descending), `limit` (1-1000), `offset`. No params = full list, newest first. `total` is the filtered count before pagination.
 
 ```bash
-curl "{BASE_URL}/api/documents?collection_id={COLLECTION_ID}&status=completed&limit=100" \
+curl "{BASE_URL}/api/documents?collection_id={COLLECTION_ID}&status=completed&sort=-upload_date&limit=100" \
   -H "X-API-Key: {API_KEY}"
 ```
 
@@ -322,25 +322,28 @@ curl -X POST "{BASE_URL}/api/search" \
 | `query` | string | **required** | Search query |
 | `top_k` | integer | 5 | Max results (range 1-50) |
 | `filters` | object | null | Filter criteria. Scope to a collection with `{"collection_id": "coll_abc123"}`. |
+| `collection_id` | string | null | Top-level alternative to `filters.collection_id` (same effect; don't pass both with different values — that's a 400). |
 
-**Response:**
+**Response** (actual shape — `document_title` mirrors `metadata.filename`; `total` and `total_results` are aliases):
 
 ```json
 {
+  "query": "your search query",
   "results": [
     {
-      "id": "chunk_abc123",
+      "chunk_id": "chunk_abc123",
       "content": "Machine learning algorithms can be categorized...",
       "score": 0.92,
       "document_id": "doc_xyz789",
       "document_title": "ML Fundamentals.pdf",
       "metadata": {
-        "page": 15,
+        "filename": "ML Fundamentals.pdf",
         "chunk_index": 3
       }
     }
   ],
-  "total": 45,
+  "total_results": 5,
+  "total": 5,
   "query_time_ms": 127,
   "graph_context": {
     "entities": [

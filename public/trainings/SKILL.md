@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: trainings
 description: Use this skill when deploying, operating, or reasoning about Cortex Trainings — the standalone app that turns a Cortex knowledge base into interactive training units (researched curriculum → approval gate → generated video, voiceover, animations, quizzes → one offline HTML file). Covers the access model, required instance flags, the endpoints it reads, and where the cost actually is.
 ---

@@ -26,13 +26,14 @@ Content-Type: multipart/form-data
 | `collection_id`    | string  | none    | Assign the document to a collection         |
 | `start_processing` | boolean | `true`  | Begin processing immediately after upload   |
 
-`collection_id` and `start_processing` are query parameters, not form fields. Sending them as form data will not work.
+`collection_id`, `start_processing`, and `source` work as query parameters **or** multipart form fields (query wins when both are set). Older instances accept query params only.
 
 ### Response `200`
 
 ```json
 {
   "document_id": "doc_abc123",
+  "id": "doc_abc123",
   "filename": "document.pdf",
   "status": "processing",
   "message": "Document uploaded and processing started",

@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: builder
 description: The entry point for building ON Cortex — turn any software's documentation into a Cortex skill, or build a web app that runs inside a Cortex instance. Read this first to pick the right path, then fetch the matching sub-skill for the full recipe.
 ---

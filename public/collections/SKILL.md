@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: collections
 description: Use this skill when organizing documents into collections in Cortex. Collections scope documents into independent knowledge graphs with isolated search indexes. Covers CRUD operations, document assignment, scoped search, scoped Ask AI, and resource limits.
 ---

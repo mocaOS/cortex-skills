@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: cortex-design
 description: Use this skill when generating User Interfaces or applications in the Cortex ecosystem. It outlines the core principles of the "Bold Typography" design language with concrete tokens, component patterns, and animation specs extracted from the Cortex Landing Page.
 ---

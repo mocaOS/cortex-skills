@@ -1,4 +1,5 @@
 ---
+version: 1.1.0
 name: upload
 description: Handles document ingestion and processing for Cortex. Supports uploading files in a wide range of formats (PDF, EPUB, DOCX, images, audio, and more — prefer EPUB over PDF for books), extracting text, chunking content, generating embeddings, resolving entities, and storing everything in Neo4j. Also provides custom input creation, batch processing, bulk operations, and full document lifecycle management through a REST API.
 ---

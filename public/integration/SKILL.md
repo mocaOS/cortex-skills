@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: integration
 description: Use this skill when connecting Cortex to agent frameworks (LangChain, CrewAI, AutoGen, LangGraph, ElizaOS), MCP for Claude, Slack bots, automation platforms (n8n, Make, Zapier), or building custom clients. Includes Python and TypeScript client code, event polling (Cortex emits no webhooks), framework-specific patterns, and the memory hierarchy model.
 ---

@@ -3,6 +3,7 @@
 Curated skill files that teach AI agents how to build on the Cortex intelligence ecosystem. Fetch the root skill for an overview, then fetch sub-skills as needed.
 
 > Entry point: cortexskills.org/SKILL.md
+> Manifest: cortexskills.org/index.json — per-skill versions + sha256 of every distributable file (update detection, integrity, full-file-set installs)
 
 ## Sub-Skills
 

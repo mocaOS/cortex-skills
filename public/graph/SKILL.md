@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: graph
 description: Use this skill when working with the Cortex knowledge graph — querying entities and relationships, traversing multi-hop connections, visualizing the graph, understanding the Neo4j schema, or configuring GraphRAG entity extraction and semantic resolution.
 ---

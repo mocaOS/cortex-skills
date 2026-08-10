@@ -132,6 +132,24 @@ export const skills: Skill[] = [
       "Give yourself long-term memory: install the cortex skill from https://cortexskills.org/hermes/SKILL.md, then hook into the cortex at <BASE_URL> — API key: <KEY>, call it <NAME>. Validate the connection and prove recall with one question. (No instance yet? Drop the URL/key part and say: set up a new cortex for me.)",
   },
   {
+    slug: "openclaw",
+    name: "OpenClaw",
+    description:
+      "Run the Cortex long-term-memory skill on OpenClaw. The adapter page: where to install the files, injecting CORTEX_* env via openclaw.json, replacing the Hermes heartbeat with a cron job, and which Hermes-only extras don't apply.",
+    icon: "Cat",
+    category: "ecosystem",
+    agentPrompt:
+      "Give yourself long-term memory: follow the OpenClaw adapter at https://cortexskills.org/openclaw/SKILL.md to install the cortex skill, then hook into the cortex at <BASE_URL> — API key: <KEY>, call it <NAME>. Validate the connection and prove recall with one question.",
+  },
+  {
+    slug: "memory-hygiene",
+    name: "Memory Hygiene",
+    description:
+      "Migrate an agent's local memory file (MEMORY.md or equivalent) into a Cortex knowledge graph when it approaches capacity. Sorts entries into stays-local vs goes-to-Cortex, synthesizes topic-organized notes, verifies recall, then shrinks local entries to one-line pointers.",
+    icon: "Recycle",
+    category: "ecosystem",
+  },
+  {
     slug: "mcp",
     name: "MCP",
     description:
@@ -145,6 +163,14 @@ export const skills: Skill[] = [
     description:
       "Connect Cortex to LangChain, CrewAI, AutoGen, LangGraph, ElizaOS, MCP, Slack bots, and automation platforms.",
     icon: "Link",
+    category: "ecosystem",
+  },
+  {
+    slug: "builder",
+    name: "Builder",
+    description:
+      "The entry point for building ON Cortex — turn any software's documentation into a Cortex skill, or build a web app that runs inside a Cortex instance. Routes to the skill and app sub-recipes.",
+    icon: "Hammer",
     category: "ecosystem",
   },
   {

@@ -8,6 +8,7 @@ import {
   type GraphContext,
   type SearchResult,
 } from "./cortex-client.js";
+import { loadThread, saveThread, threadKey } from "./threads.js";
 
 const CORTEX_BASE_URL = process.env.CORTEX_BASE_URL;
 const CORTEX_API_KEY = process.env.CORTEX_API_KEY;
@@ -120,12 +121,42 @@ server.tool(
       .max(20)
       .optional()
       .describe("Number of chunks to retrieve per search (default: 5)"),
+    thread: z
+      .string()
+      .optional()
+      .describe(
+        "Optional conversation thread name. Carries history and server-curated memory across ask_question calls, so follow-ups ('expand on the second point') work. Reuse the same name to continue a conversation; omit for a one-shot question."
+      ),
   },
-  async ({ question, mode, use_graph, collection_id, top_k }) => {
+  async ({ question, mode, use_graph, collection_id, top_k, thread }) => {
+    // Threads: send prior history (+ the curated memory blob on the streaming
+    // path — the only path that returns an updated blob) and persist the turn.
+    const threadState = thread ? loadThread(thread) : undefined;
+
     const result =
       mode === "deep_research"
-        ? await client.askDeepResearch(question, { collection_id, top_k })
-        : await client.ask(question, { use_graph, collection_id, top_k });
+        ? await client.askDeepResearch(question, {
+            collection_id,
+            top_k,
+            conversation_history: threadState?.history,
+            conversation_memory: threadState ? threadState.memory : undefined,
+          })
+        : await client.ask(question, {
+            use_graph,
+            collection_id,
+            top_k,
+            conversation_history: threadState?.history,
+          });
+
+    if (thread && threadState && result.answer) {
+      saveThread(
+        thread,
+        threadState,
+        question,
+        result.answer,
+        result.memory_update ?? threadState.memory
+      );
+    }
 
     let text = result.answer || "No answer generated.";
     if (result.sources?.length) {
@@ -137,6 +168,9 @@ server.tool(
     }
     if (result.sub_questions?.length) {
       text += `\n\n**Sub-questions researched:**\n${result.sub_questions.map((q) => `- ${q}`).join("\n")}`;
+    }
+    if (thread) {
+      text += `\n\n_(thread '${threadKey(thread)}' updated — pass the same thread to continue this conversation)_`;
     }
 
     return textResult(text);

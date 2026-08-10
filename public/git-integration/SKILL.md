@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: git-integration
 description: Use this skill when connecting GitHub, GitLab, or Gitea repositories to Cortex as a knowledge source, configuring incremental repo sync, or enabling the research agent to open pull requests. Covers access levels, token scopes, file filtering, incremental sync, the git_repo agent tool, and configuration.
 ---

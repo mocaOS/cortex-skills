@@ -1,4 +1,5 @@
 ---
+version: 1.0.0
 name: auth
 description: Use this skill when implementing authentication, managing API keys, configuring permissions, or hardening security for a Cortex deployment. Covers the X-API-Key auth system, the read/manage permission model, collection scoping, key management endpoints, prompt injection protection, and security best practices.
 ---
