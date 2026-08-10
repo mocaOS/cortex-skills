@@ -147,18 +147,18 @@
     },
     {
       "slug": "cortex",
-      "version": "2.2.0",
+      "version": "2.3.0",
       "entry": "/cortex/SKILL.md",
       "files": [
         {
           "path": "/cortex/SKILL.md",
-          "sha256": "a801418b6a8dfa76659de9343e5737901efda487aaebcf120924795a1ec59e0d",
+          "sha256": "1344a0fdc0a960f7adfac51b82e97580ac837229beee6bdc0c560f771db091da",
           "bytes": 13958
         },
         {
           "path": "/cortex/references/API.md",
-          "sha256": "b8bc3a80019652b2b916ba45488332960b926392450c73645c5de101f8ba9a88",
-          "bytes": 27463
+          "sha256": "ccb3c4b325630896b976c62a68862639079d28e9c1173c3b06d959a452bbcad5",
+          "bytes": 30291
         },
         {
           "path": "/cortex/references/SYNC.md",
@@ -257,13 +257,13 @@
     },
     {
       "slug": "integration",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "entry": "/integration/SKILL.md",
       "files": [
         {
           "path": "/integration/SKILL.md",
-          "sha256": "cfbc47082056ebf196a0c72c89d6cdbf3ab26e023628651dabec961d19e67ba8",
-          "bytes": 13879
+          "sha256": "9a81da5671605f49982e2296433469c04f1d0204c97b6bfd86805bb6828ce02b",
+          "bytes": 14965
         },
         {
           "path": "/integration/references/LANGCHAIN.md",
@@ -284,13 +284,13 @@
     },
     {
       "slug": "mcp",
-      "version": "1.2.0",
+      "version": "1.3.0",
       "entry": "/mcp/SKILL.md",
       "files": [
         {
           "path": "/mcp/SKILL.md",
-          "sha256": "f79aec4cbf3ff10951dabda1b55714e7d4f010b2d6d6fb22891538daa8e2dc0b",
-          "bytes": 7871
+          "sha256": "33fbccd2804333c0efc986d8f609a009e81039567dda94feaccad54cf7a6c801",
+          "bytes": 8569
         },
         {
           "path": "/mcp/references/TOOLS.md",

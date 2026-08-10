@@ -19,6 +19,8 @@ import type {
   AskResult,
   AskStreamEvent,
   Collection,
+  ContextBundle,
+  ContextOptions,
   CortexClientOptions,
   CortexDocument,
   IngestionStatus,
@@ -238,6 +240,17 @@ export class CortexClient {
    * blob across asks, so follow-up questions work. */
   thread(name: string): CortexThread {
     return new CortexThread(this, name, this.threadStore);
+  }
+
+  /** Assemble a token-budgeted context bundle (reranked chunks + graph +
+   * community summaries) for injection into YOUR OWN prompt — retrieval
+   * without Cortex writing the answer. Requires a backend with /api/context
+   * (2026-08-10+); older instances return 404. */
+  async getContext(query: string, options: ContextOptions = {}): Promise<ContextBundle> {
+    return this.request<ContextBundle>(
+      "/api/context",
+      this.json({ query, ...options })
+    );
   }
 
   // -- Search -------------------------------------------------------------------

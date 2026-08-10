@@ -185,6 +185,29 @@ export interface IngestionStatus {
   total_documents: number;
 }
 
+export interface ContextOptions {
+  collection_id?: string;
+  /** Token budget for the assembled bundle (default 4000). */
+  max_tokens?: number;
+  top_k?: number;
+  max_hops?: number;
+  include_graph?: boolean;
+  include_communities?: boolean;
+  use_reranking?: boolean;
+}
+
+export interface ContextBundle {
+  query: string;
+  chunks: SearchResult[];
+  graph_context?: GraphContext | null;
+  communities: Record<string, unknown>[];
+  /** Ready-to-inject text block (chunks cited [src_N], graph + community sections). */
+  text: string;
+  token_count: number;
+  budget: Record<string, number>;
+  collection_id?: string | null;
+}
+
 export interface WebhookEndpoint {
   id: string;
   url: string;

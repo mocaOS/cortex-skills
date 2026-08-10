@@ -1,5 +1,5 @@
 ---
-version: 1.1.0
+version: 1.2.0
 name: integration
 description: Use this skill when connecting Cortex to agent frameworks (LangChain, CrewAI, AutoGen, LangGraph, ElizaOS), MCP for Claude, Slack bots, automation platforms (n8n, Make, Zapier), or building custom clients. Includes Python and TypeScript client code, event polling (Cortex emits no webhooks), framework-specific patterns, and the memory hierarchy model.
 ---
@@ -142,6 +142,31 @@ for event in client.ask_stream("What were the key findings?", use_graph=True):
     elif event["type"] == "done":
         print()
 ```
+
+## TypeScript: the official SDK
+
+For JavaScript/TypeScript, don't hand-roll a client — the official SDK owns the whole surface and is version-tolerant across Cortex releases:
+
+```bash
+npm install @mocaos/cortex-client
+```
+
+```typescript
+import { CortexClient } from "@mocaos/cortex-client";
+const cortex = new CortexClient({ baseUrl: BASE_URL, apiKey: API_KEY });
+
+const quick = await cortex.ask("What did we decide about X?");
+const deep  = await cortex.deepResearch("Compare every approach we tried");   // streams, minutes
+
+const thread = cortex.thread("session");        // history + server-curated memory
+await thread.ask("How does auth work?");
+await thread.ask("Expand on the caching part"); // follow-ups work
+
+const bundle = await cortex.getContext("topic", { max_tokens: 3000 });
+myPrompt += bundle.text;                        // retrieval into YOUR OWN prompt
+```
+
+Covers unified ask (`depth: fast|standard|deep`), typed SSE streaming, uploads with `waitForDocument`, collections find-or-create, ingestion status, webhooks admin, and typed errors. Node ≥18 + browsers.
 
 ## LangChain Integration
 

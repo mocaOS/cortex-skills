@@ -128,6 +128,16 @@ curl -X POST "{BASE_URL}/api/documents/process-pending" \
 
 ## Documents
 
+### POST /api/context
+
+Token-budgeted context bundle for injection into YOUR OWN prompt (retrieval without Cortex writing the answer). Body: `{query (required), max_tokens (default 4000, 200-32000), collection_id?, top_k?, include_graph?, include_communities?, use_reranking?}`. Returns `{chunks[], graph_context, communities[], text, token_count, budget, collection_id}` — `text` is ready to inject, chunks cited `[src_N]`. Available to monetized keys at the base rate. Requires backend ≥ 2026-08-10 (older instances 404).
+
+```bash
+curl -X POST "{BASE_URL}/api/context" -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "deployment options", "max_tokens": 3000}'
+```
+
 ### GET /api/ingestion/status
 
 One-call pipeline backlog view (read permission): `{counts: {pending, queued, processing, extracting, completed, failed}, active: [{id, filename, progress_current, progress_total, live}], backlog, idle, total_documents}`. Use instead of polling individual documents; on `ENABLE_WEBHOOKS` instances, prefer registering a webhook.
@@ -146,6 +156,16 @@ curl "{BASE_URL}/api/documents?collection_id={COLLECTION_ID}&status=completed&so
 | `collection_id` | string | -- | Filter by collection |
 | `status` | string | -- | Filter: `pending`, `processing`, `completed`, `failed` |
 | `limit` | integer | 100 | Max results |
+
+### POST /api/context
+
+Token-budgeted context bundle for injection into YOUR OWN prompt (retrieval without Cortex writing the answer). Body: `{query (required), max_tokens (default 4000, 200-32000), collection_id?, top_k?, include_graph?, include_communities?, use_reranking?}`. Returns `{chunks[], graph_context, communities[], text, token_count, budget, collection_id}` — `text` is ready to inject, chunks cited `[src_N]`. Available to monetized keys at the base rate. Requires backend ≥ 2026-08-10 (older instances 404).
+
+```bash
+curl -X POST "{BASE_URL}/api/context" -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "deployment options", "max_tokens": 3000}'
+```
 
 ### GET /api/ingestion/status
 
@@ -181,6 +201,16 @@ curl "{BASE_URL}/api/documents/{doc_id}" -H "X-API-Key: {API_KEY}"
 
 A document with `status: "completed"` may still have background image analysis running. Check `image_progress_current` vs `image_progress_total` to confirm.
 
+### POST /api/context
+
+Token-budgeted context bundle for injection into YOUR OWN prompt (retrieval without Cortex writing the answer). Body: `{query (required), max_tokens (default 4000, 200-32000), collection_id?, top_k?, include_graph?, include_communities?, use_reranking?}`. Returns `{chunks[], graph_context, communities[], text, token_count, budget, collection_id}` — `text` is ready to inject, chunks cited `[src_N]`. Available to monetized keys at the base rate. Requires backend ≥ 2026-08-10 (older instances 404).
+
+```bash
+curl -X POST "{BASE_URL}/api/context" -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "deployment options", "max_tokens": 3000}'
+```
+
 ### GET /api/ingestion/status
 
 One-call pipeline backlog view (read permission): `{counts: {pending, queued, processing, extracting, completed, failed}, active: [{id, filename, progress_current, progress_total, live}], backlog, idle, total_documents}`. Use instead of polling individual documents; on `ENABLE_WEBHOOKS` instances, prefer registering a webhook.
@@ -210,6 +240,16 @@ Trigger batch processing of all pending documents.
 ```bash
 curl -X POST "{BASE_URL}/api/documents/process-pending" \
   -H "X-API-Key: {API_KEY}"
+```
+
+### POST /api/context
+
+Token-budgeted context bundle for injection into YOUR OWN prompt (retrieval without Cortex writing the answer). Body: `{query (required), max_tokens (default 4000, 200-32000), collection_id?, top_k?, include_graph?, include_communities?, use_reranking?}`. Returns `{chunks[], graph_context, communities[], text, token_count, budget, collection_id}` — `text` is ready to inject, chunks cited `[src_N]`. Available to monetized keys at the base rate. Requires backend ≥ 2026-08-10 (older instances 404).
+
+```bash
+curl -X POST "{BASE_URL}/api/context" -H "X-API-Key: {API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"query": "deployment options", "max_tokens": 3000}'
 ```
 
 ### GET /api/ingestion/status

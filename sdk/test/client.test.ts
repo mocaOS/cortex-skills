@@ -224,6 +224,22 @@ test("API errors map to CortexApiError with errorCode", async () => {
   );
 });
 
+test("getContext posts the bundle request", async () => {
+  const { c, calls } = client(() =>
+    jsonResponse({
+      query: "q", chunks: [], communities: [], text: "=== Knowledge Context ===",
+      token_count: 5, budget: { max_tokens: 1000 },
+    })
+  );
+  const bundle = await c.getContext("q", { max_tokens: 1000, collection_id: "c1" });
+  assert.equal(calls[0].url, "http://cortex.test/api/context");
+  const body = calls[0].body as Record<string, unknown>;
+  assert.equal(body.query, "q");
+  assert.equal(body.max_tokens, 1000);
+  assert.equal(body.collection_id, "c1");
+  assert.equal(bundle.text, "=== Knowledge Context ===");
+});
+
 test("ensureCollection finds before creating", async () => {
   const { c, calls } = client((url) => {
     if (url.endsWith("/api/collections")) {

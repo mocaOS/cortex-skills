@@ -77,6 +77,15 @@ const recent = await cortex.listDocuments({ sort: "-upload_date", limit: 20 });
 const backlog = await cortex.ingestionStatus();      // {counts, active, idle, …}
 ```
 
+## Context assembly (retrieval into your own prompt)
+
+```ts
+const bundle = await cortex.getContext("deployment options", { max_tokens: 3000 });
+myPrompt += bundle.text;   // [src_N]-cited chunks + graph + community sections
+```
+
+One call, token-budgeted: reranked chunks plus entity/relationship and community context, structured and as a ready-to-inject block. Requires a backend with `POST /api/context` (2026-08-10+; older instances 404).
+
 ## Streaming, raw
 
 ```ts

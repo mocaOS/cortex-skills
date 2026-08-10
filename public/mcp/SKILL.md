@@ -1,5 +1,5 @@
 ---
-version: 1.2.0
+version: 1.3.0
 name: mcp
 description: Use this skill when setting up or configuring the Cortex MCP server for Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, or any MCP-compatible client. Covers installation from source, tool descriptions, configuration examples, and troubleshooting.
 ---
@@ -21,7 +21,19 @@ The Cortex MCP server gives any MCP-compatible AI client native access to your C
 5. **Deep research runs over SSE internally — and is the first choice for retrieval.** The Cortex API only honors `use_agentic: true` on its streaming endpoint — the MCP server handles this for you: `ask_question` with `mode: "deep_research"` consumes `/api/ask/stream` and returns the aggregated answer. When the task is "ask the cortex" / "find something in the cortex", start with `mode: "deep_research"`; reserve `chat` for quick lookups. Expect deep research calls to take minutes.
 6. **AgentSkills are not MCP tools.** The AgentSkills system (installing skills from the skills.sh registry) is a separate admin feature that extends the built-in researcher agent. See the [Admin skill](../admin/SKILL.md).
 
-## Installation
+## Two ways to connect
+
+1. **Remote (zero install, instance-hosted):** if the operator sets `ENABLE_REMOTE_MCP=true`, the instance itself serves MCP at `{BASE_URL}/mcp` (streamable HTTP). Connect with just the URL + an API key:
+
+```bash
+claude mcp add cortex --transport http {BASE_URL}/mcp --header "X-API-Key: cortex_ro_..."
+```
+
+Tools mirror the npm server (plus `get_context` for token-budgeted context bundles); conversation threads are npm-server-only (they are client-side state). If `/mcp` returns 404 the feature is off — use the npm server below.
+
+2. **Local (npm, stdio):** the classic setup — needed for conversation threads and when the instance doesn't expose /mcp.
+
+## Installation (npm server)
 
 Published on npm — no build step (Node.js >= 18):
 
