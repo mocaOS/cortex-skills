@@ -128,6 +128,10 @@ curl -X POST "{BASE_URL}/api/documents/process-pending" \
 
 ## Documents
 
+### GET /api/ingestion/status
+
+One-call pipeline backlog view (read permission): `{counts: {pending, queued, processing, extracting, completed, failed}, active: [{id, filename, progress_current, progress_total, live}], backlog, idle, total_documents}`. Use instead of polling individual documents; on `ENABLE_WEBHOOKS` instances, prefer registering a webhook.
+
 ### GET /api/documents
 
 List documents. Server-side filtering, sorting and pagination: `collection_id`, `status`, `sort` (`upload_date|filename|file_size|chunk_count|processing_status|entity_count`, prefix `-` for descending), `limit` (1-1000), `offset`. No params = full list, newest first. `total` is the filtered count before pagination.
@@ -142,6 +146,10 @@ curl "{BASE_URL}/api/documents?collection_id={COLLECTION_ID}&status=completed&so
 | `collection_id` | string | -- | Filter by collection |
 | `status` | string | -- | Filter: `pending`, `processing`, `completed`, `failed` |
 | `limit` | integer | 100 | Max results |
+
+### GET /api/ingestion/status
+
+One-call pipeline backlog view (read permission): `{counts: {pending, queued, processing, extracting, completed, failed}, active: [{id, filename, progress_current, progress_total, live}], backlog, idle, total_documents}`. Use instead of polling individual documents; on `ENABLE_WEBHOOKS` instances, prefer registering a webhook.
 
 ### GET /api/documents/{doc_id}
 
@@ -173,6 +181,10 @@ curl "{BASE_URL}/api/documents/{doc_id}" -H "X-API-Key: {API_KEY}"
 
 A document with `status: "completed"` may still have background image analysis running. Check `image_progress_current` vs `image_progress_total` to confirm.
 
+### GET /api/ingestion/status
+
+One-call pipeline backlog view (read permission): `{counts: {pending, queued, processing, extracting, completed, failed}, active: [{id, filename, progress_current, progress_total, live}], backlog, idle, total_documents}`. Use instead of polling individual documents; on `ENABLE_WEBHOOKS` instances, prefer registering a webhook.
+
 ### GET /api/documents/{doc_id}/file
 
 Download the original uploaded file.
@@ -199,6 +211,10 @@ Trigger batch processing of all pending documents.
 curl -X POST "{BASE_URL}/api/documents/process-pending" \
   -H "X-API-Key: {API_KEY}"
 ```
+
+### GET /api/ingestion/status
+
+One-call pipeline backlog view (read permission): `{counts: {pending, queued, processing, extracting, completed, failed}, active: [{id, filename, progress_current, progress_total, live}], backlog, idle, total_documents}`. Use instead of polling individual documents; on `ENABLE_WEBHOOKS` instances, prefer registering a webhook.
 
 ### GET /api/documents/pending
 

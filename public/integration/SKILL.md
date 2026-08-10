@@ -1,5 +1,5 @@
 ---
-version: 1.0.0
+version: 1.1.0
 name: integration
 description: Use this skill when connecting Cortex to agent frameworks (LangChain, CrewAI, AutoGen, LangGraph, ElizaOS), MCP for Claude, Slack bots, automation platforms (n8n, Make, Zapier), or building custom clients. Includes Python and TypeScript client code, event polling (Cortex emits no webhooks), framework-specific patterns, and the memory hierarchy model.
 ---
@@ -288,9 +288,11 @@ def slack_search():
     return jsonify({"response_type": "in_channel", "text": text})
 ```
 
-## Event Notifications (No Webhooks)
+## Event Notifications (Webhooks + polling)
 
-Cortex does **not** emit webhooks — there is no `/api/webhooks` API. To react to events, poll: `GET /api/tasks/{id}` for background tasks (records survive restarts; an interrupted task reports `failed` with "interrupted by server restart"), and `GET /api/documents/{id}` until `status` settles at `completed`/`failed`:
+Current instances emit **outbound webhooks** when the operator sets `ENABLE_WEBHOOKS=true`: register an endpoint with the admin key (`POST /api/admin/webhooks`, the signing secret is returned once) and receive HMAC-signed POSTs for `document.processed`, `document.failed`, `task.completed`, `task.failed`. Verify with `X-Cortex-Signature: t=<unix>,v1=hex(hmac_sha256(secret, "<t>.<body>"))`. There is also `GET /api/ingestion/status` — one call for the whole pipeline backlog (counts, active docs with progress, an `idle` flag).
+
+On older instances (or when webhooks are disabled), poll: `GET /api/tasks/{id}` for background tasks (records survive restarts; an interrupted task reports `failed` with "interrupted by server restart"), and `GET /api/documents/{id}` until `status` settles at `completed`/`failed`:
 
 ```python
 import time, requests

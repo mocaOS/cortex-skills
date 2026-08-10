@@ -1,5 +1,5 @@
 ---
-version: 1.1.0
+version: 1.2.0
 name: ask
 description: Use this skill when building RAG-powered Q&A features on Cortex, or when asked to retrieve data from / ask / find something in a Cortex. The first-choice call is a streaming Deep Research query (POST /api/ask/stream with use_agentic true). Covers the three Ask AI endpoints (streaming SSE, streaming with reasoning, non-streaming fast chat), request/response schemas, agentic multi-step reasoning, conversation history, and collection-scoped queries.
 ---
@@ -177,7 +177,8 @@ The streaming endpoint emits these event keys. Current instances additionally st
 | `conversation_history` | array | null | Previous messages: `[{role, content}]` |
 | `conversation_memory` | object | null | Opt-in client-carried memory blob (see below) |
 | `use_reranking` | boolean | true | Apply cross-encoder re-ranking |
-| `use_agentic` | boolean | false | Enable deep research (multi-step reasoning) |
+| `use_agentic` | boolean | false | Legacy flag ≡ `depth: "deep"` (permanently supported) |
+| `depth` | string | null | **The unified dial**: `fast` (vector-only) \| `standard` (default) \| `deep` (agentic research, streaming only). Authoritative when present — contradicting legacy flags → `400 depth_conflict`. Older instances ignore it, so send agreeing legacy flags too |
 | `use_fast_search` | boolean | false | Vector-only search (skip graph + reranking) |
 | `collection_id` | string | null | Scope to a specific collection or community id |
 | `response_format` | object | null | JSON Schema (root `type: "object"`) for a structured answer — **non-streaming `POST /api/ask` only** (streaming endpoints 400; incompatible with `use_agentic`). The parsed object returns in the `structured` response field; raw text stays in `answer` |

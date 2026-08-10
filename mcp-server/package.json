@@ -1,18 +1,17 @@
 {
-  "name": "@cortex/mcp-server",
-  "version": "0.2.0",
-  "description": "MCP server for Cortex — search, ask, and manage your knowledge graph from any MCP-compatible client",
+  "name": "@mocaos/cortex-mcp",
+  "version": "0.3.0",
+  "description": "MCP server for the Cortex knowledge base \u2014 search, unified ask (chat/deep research) with conversation threads, documents, knowledge graph, collections, uploads.",
   "type": "module",
-  "private": true,
   "bin": {
-    "cortex-mcp": "./dist/index.js"
+    "cortex-mcp": "dist/index.js"
   },
   "main": "./dist/index.js",
   "scripts": {
     "build": "tsc",
     "dev": "tsc --watch",
     "start": "node dist/index.js",
-    "prepare": "tsc"
+    "prepublishOnly": "tsc"
   },
   "keywords": [
     "mcp",
@@ -29,7 +28,8 @@
   "license": "MIT",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
-    "zod": "^3.24.1"
+    "zod": "^4.3.6",
+    "@mocaos/cortex-client": "^0.1.0"
   },
   "devDependencies": {
     "@types/node": "^22",
@@ -37,5 +37,12 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "publishConfig": {
+    "access": "public"
   }
 }

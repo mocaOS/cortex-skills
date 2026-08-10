@@ -43,9 +43,14 @@ next-env.d.ts
 # claude
 .claude/
 
-# mcp-server package (own toolchain)
+# workspace packages (sdk, mcp-server) — build output and any stray
+# per-package installs; the root lockfile + node_modules are canonical
 mcp-server/node_modules/
 mcp-server/dist/
+sdk/node_modules/
+sdk/dist/
+sdk/dist-test/
+sdk/package-lock.json
 
 __pycache__/
 *.pyc

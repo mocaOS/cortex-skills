@@ -3,12 +3,16 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { readFile } from "node:fs/promises";
+import { homedir } from "node:os";
+import { basename, join } from "node:path";
 import {
   CortexClient,
+  FileThreadStore,
+  threadKey,
   type GraphContext,
   type SearchResult,
-} from "./cortex-client.js";
-import { loadThread, saveThread, threadKey } from "./threads.js";
+} from "@mocaos/cortex-client";
 
 const CORTEX_BASE_URL = process.env.CORTEX_BASE_URL;
 const CORTEX_API_KEY = process.env.CORTEX_API_KEY;
@@ -24,6 +28,12 @@ const client = new CortexClient({
   baseUrl: CORTEX_BASE_URL,
   apiKey: CORTEX_API_KEY,
 });
+
+// Conversation threads persist under CORTEX_STATE_DIR (point it at
+// ~/.hermes/skills/state/cortex to share threads with the Hermes skill's
+// `cortex.sh --thread`), defaulting to ~/.cortex-mcp.
+const stateDir = process.env.CORTEX_STATE_DIR?.trim() || join(homedir(), ".cortex-mcp");
+client.useThreadStore(new FileThreadStore(join(stateDir, "threads")));
 
 const server = new McpServer({
   name: "cortex",
@@ -129,34 +139,14 @@ server.tool(
       ),
   },
   async ({ question, mode, use_graph, collection_id, top_k, thread }) => {
-    // Threads: send prior history (+ the curated memory blob on the streaming
-    // path — the only path that returns an updated blob) and persist the turn.
-    const threadState = thread ? loadThread(thread) : undefined;
+    const depth = mode === "deep_research" ? ("deep" as const) : ("standard" as const);
+    const options = { depth, use_graph, collection_id, top_k };
 
-    const result =
-      mode === "deep_research"
-        ? await client.askDeepResearch(question, {
-            collection_id,
-            top_k,
-            conversation_history: threadState?.history,
-            conversation_memory: threadState ? threadState.memory : undefined,
-          })
-        : await client.ask(question, {
-            use_graph,
-            collection_id,
-            top_k,
-            conversation_history: threadState?.history,
-          });
-
-    if (thread && threadState && result.answer) {
-      saveThread(
-        thread,
-        threadState,
-        question,
-        result.answer,
-        result.memory_update ?? threadState.memory
-      );
-    }
+    // Threads carry history + the server-curated memory blob across calls
+    // (persisted via the client's FileThreadStore) — follow-ups just work.
+    const result = thread
+      ? await client.thread(thread).ask(question, options)
+      : await client.ask(question, options);
 
     let text = result.answer || "No answer generated.";
     if (result.sources?.length) {
@@ -196,11 +186,17 @@ server.tool(
       .describe("Max results (default: 50)"),
   },
   async ({ collection_id, status, limit }) => {
-    const { documents, total } = await client.listDocuments({
-      collection_id,
-      status,
-      limit,
-    });
+    const res = await client.listDocuments({ collection_id, status, limit });
+    // Current backends filter/limit server-side; older ones ignore the query
+    // params and return everything — re-apply defensively so behavior matches.
+    const documents = res.documents
+      .filter(
+        (d) =>
+          (!collection_id || d.collection_id === collection_id) &&
+          (!status || d.processing_status === status)
+      )
+      .slice(0, limit);
+    const total = res.total ?? documents.length;
     const list = documents
       .map((d) => {
         const col = d.collection_name ? `, collection: ${d.collection_name}` : "";
@@ -331,7 +327,7 @@ server.tool(
   "List all collections in the knowledge base. Collections organize documents by project or tenant.",
   {},
   async () => {
-    const { collections } = await client.listCollections();
+    const collections = await client.listCollections();
     const list = collections
       .map(
         (c) =>
@@ -393,7 +389,8 @@ server.tool(
       .describe("Start processing immediately (set false for bulk uploads)"),
   },
   async ({ file_path, collection_id, start_processing }) => {
-    const res = await client.uploadDocument(file_path, {
+    const data = await readFile(file_path);
+    const res = await client.upload(basename(file_path), new Uint8Array(data), {
       collection_id,
       start_processing,
     });
@@ -408,7 +405,7 @@ server.tool(
   "Get knowledge base statistics: document counts by status, chunks, entities, relationships, communities, collections, and monthly usage.",
   {},
   async () => {
-    const stats = await client.stats();
+    const stats = (await client.stats()) as Record<string, number | undefined>;
     const lines = [
       `Documents: ${stats.document_count} (completed: ${stats.completed_count ?? "?"}, pending: ${stats.pending_count ?? "?"}, processing: ${stats.processing_count ?? "?"}, failed: ${stats.failed_count ?? "?"})`,
       `Chunks: ${stats.chunk_count}`,

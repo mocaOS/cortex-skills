@@ -1,5 +1,5 @@
 ---
-version: 1.0.0
+version: 1.1.0
 name: admin
 description: Use this skill when managing a Cortex instance — installing AgentSkills from the registry, exporting/importing data for migration, resetting the system, viewing stats, or authenticating as an admin user via session login. Covers the full /api/admin/* surface and the AgentSkills system.
 ---
@@ -185,6 +185,19 @@ Rescans the `SKILLS_DIR` directory for new or changed skills.
 | `MAX_SKILL_TOOLS` | `10` | Max skill tools available to the researcher agent |
 
 ---
+
+## Outbound Webhooks (`ENABLE_WEBHOOKS`)
+
+Push notifications for finished work instead of polling. Admin-key endpoints, all 403 while the env flag is off:
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `GET` | `/api/admin/webhooks` | List endpoints (secrets never returned) |
+| `POST` | `/api/admin/webhooks` | Register `{url, events?, description?}` — response includes the signing `secret` ONCE |
+| `DELETE` | `/api/admin/webhooks/{id}` | Remove an endpoint |
+| `POST` | `/api/admin/webhooks/{id}/test` | Synchronous `webhook.test` delivery, reports the outcome |
+
+Events: `document.processed`, `document.failed`, `task.completed`, `task.failed` (empty `events` list = subscribe to all). Deliveries are signed `X-Cortex-Signature: t=<unix>,v1=hex(hmac_sha256(secret, "<t>.<body>"))` with `X-Cortex-Event` and `X-Cortex-Delivery` headers; 3 attempts with backoff.
 
 ## Export and Import
 

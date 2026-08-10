@@ -1,5 +1,5 @@
 ---
-version: 1.1.0
+version: 1.2.0
 name: mcp
 description: Use this skill when setting up or configuring the Cortex MCP server for Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, or any MCP-compatible client. Covers installation from source, tool descriptions, configuration examples, and troubleshooting.
 ---
@@ -23,16 +23,13 @@ The Cortex MCP server gives any MCP-compatible AI client native access to your C
 
 ## Installation
 
-Build once from source (Node.js >= 18):
+Published on npm — no build step (Node.js >= 18):
 
 ```bash
-git clone https://github.com/mocaOS/cortex-skills.git
-cd cortex-skills/mcp-server
-npm install
-npm run build
+npx @mocaos/cortex-mcp   # that's the whole install; configure via env vars
 ```
 
-The server entry point is now at `<clone-path>/mcp-server/dist/index.js`. All client configs below point `node` at that file.
+Building from source still works (`git clone https://github.com/mocaOS/cortex-skills && npm install && npm run build` from the repo root — npm workspaces — then point `node` at `mcp-server/dist/index.js`), but the configs below use `npx`.
 
 ### Claude Desktop
 
@@ -42,8 +39,8 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 {
   "mcpServers": {
     "cortex": {
-      "command": "node",
-      "args": ["/absolute/path/to/cortex-skills/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["@mocaos/cortex-mcp"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
         "CORTEX_API_KEY": "cortex_ro_your_key_here"
@@ -59,7 +56,7 @@ Edit `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS) o
 claude mcp add cortex \
   --env CORTEX_BASE_URL=http://localhost:8000 \
   --env CORTEX_API_KEY=cortex_ro_your_key_here \
-  -- node /absolute/path/to/cortex-skills/mcp-server/dist/index.js
+  -- npx @mocaos/cortex-mcp
 ```
 
 ### Cursor
@@ -166,7 +163,7 @@ Once the MCP server is connected, try these prompts in your AI client:
 
 | Issue | Solution |
 |-------|----------|
-| `npx @cortex/mcp-server` fails | The package is not on npm. Install from source and point `node` at `mcp-server/dist/index.js` |
+| `npx @cortex/mcp-server` fails | Wrong package name — it is `npx @mocaos/cortex-mcp` |
 | "Missing required environment variables" | Ensure both `CORTEX_BASE_URL` and `CORTEX_API_KEY` are set in your MCP client config |
 | Connection refused | Verify your Cortex instance is running: `curl {BASE_URL}/health` |
 | 401 Unauthorized | API key is invalid or expired — generate a new one from the admin panel |

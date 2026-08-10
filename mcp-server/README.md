@@ -1,110 +1,55 @@
-# Cortex MCP Server
+# @mocaos/cortex-mcp
 
-MCP (Model Context Protocol) server for [Cortex](https://github.com/mocaOS/cortex-app) — the open-source agentic knowledge base.
+MCP (Model Context Protocol) server for the [Cortex](https://github.com/mocaOS/cortex-app) knowledge base. Gives Claude Desktop, Claude Code, Cursor, Windsurf, and any MCP client native tools over your Cortex instance: hybrid search, unified ask (fast chat or agentic deep research) with **conversation threads**, documents, the knowledge graph, collections, communities, uploads, and stats.
 
-Gives any MCP-compatible client (Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, etc.) native access to your Cortex instance: hybrid search, RAG Q&A (chat + agentic deep research), document management, and knowledge graph exploration.
+Built on the official [`@mocaos/cortex-client`](https://www.npmjs.com/package/@mocaos/cortex-client) SDK.
 
-> This package lives inside [cortex-skills](https://github.com/mocaOS/cortex-skills). It is not published to npm — install from source (below).
-
-## Install
+## Run
 
 ```bash
-git clone https://github.com/mocaOS/cortex-skills.git
-cd cortex-skills/mcp-server
-npm install
-npm run build
-```
-
-The server binary is now at `<clone-path>/mcp-server/dist/index.js`.
-
-## Quick Start
-
-### Claude Desktop
-
-Add to your Claude Desktop config (`~/Library/Application Support/Claude/claude_desktop_config.json` on macOS, `%APPDATA%\Claude\claude_desktop_config.json` on Windows):
-
-```json
-{
-  "mcpServers": {
-    "cortex": {
-      "command": "node",
-      "args": ["/absolute/path/to/cortex-skills/mcp-server/dist/index.js"],
-      "env": {
-        "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "your_api_key_here"
-      }
-    }
-  }
-}
-```
-
-### Cursor / Windsurf
-
-Add to `.cursor/mcp.json` or equivalent:
-
-```json
-{
-  "mcpServers": {
-    "cortex": {
-      "command": "node",
-      "args": ["/absolute/path/to/cortex-skills/mcp-server/dist/index.js"],
-      "env": {
-        "CORTEX_BASE_URL": "http://localhost:8000",
-        "CORTEX_API_KEY": "your_api_key_here"
-      }
-    }
-  }
-}
+CORTEX_BASE_URL=http://localhost:8000 CORTEX_API_KEY=cortex_ro_… npx @mocaos/cortex-mcp
 ```
 
 ### Claude Code
 
 ```bash
-claude mcp add cortex \
-  --env CORTEX_BASE_URL=http://localhost:8000 \
-  --env CORTEX_API_KEY=your_api_key_here \
-  -- node /absolute/path/to/cortex-skills/mcp-server/dist/index.js
+claude mcp add cortex -e CORTEX_BASE_URL=http://localhost:8000 -e CORTEX_API_KEY=<key> -- npx @mocaos/cortex-mcp
 ```
 
-## Environment Variables
+### Claude Desktop / Cursor / Windsurf (JSON config)
 
-| Variable | Required | Description |
-|----------|----------|-------------|
-| `CORTEX_BASE_URL` | Yes | URL of your Cortex instance |
-| `CORTEX_API_KEY` | Yes | API key with `read` permission (or `manage` for uploads) — create one at `{BASE_URL}/admin` → API Keys |
+```json
+{
+  "mcpServers": {
+    "cortex": {
+      "command": "npx",
+      "args": ["@mocaos/cortex-mcp"],
+      "env": {
+        "CORTEX_BASE_URL": "http://localhost:8000",
+        "CORTEX_API_KEY": "cortex_ro_..."
+      }
+    }
+  }
+}
+```
+
+## Environment
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `CORTEX_BASE_URL` | yes | Cortex instance URL |
+| `CORTEX_API_KEY` | yes | API key (`cortex_ro_…` read-only, `cortex_rw_…` read/write) |
+| `CORTEX_STATE_DIR` | no | Where conversation threads persist (default `~/.cortex-mcp`). Point at `~/.hermes/skills/state/cortex` to share threads with the Hermes skill's `cortex.sh --thread`. |
 
 ## Tools
 
-| Tool | Description |
-|------|-------------|
-| `search_knowledge` | Hybrid search (vector + keyword + metadata, RRF-fused) across your knowledge base |
-| `ask_question` | RAG Q&A with source citations — `chat` (fast) or `deep_research` (agentic, minutes) mode |
-| `list_documents` | List documents, filter by collection or processing status |
-| `get_document` | Get document details and processing status |
-| `get_document_content` | Read a document's full extracted text |
-| `list_entities` | Browse knowledge graph entities with type filter and search |
-| `get_entity` | Get entity details and relationships (exact name) |
-| `search_entities` | Fuzzy entity name lookup — resolve names before `get_entity` |
-| `list_collections` | List document collections |
-| `list_communities` | View auto-detected entity communities with summaries |
-| `upload_document` | Upload a local file (requires `manage` key) |
-| `get_stats` | Knowledge base statistics and monthly usage |
+`search_knowledge` · `ask_question` (modes `chat`/`deep_research`, optional `thread` for multi-turn memory) · `list_documents` · `get_document` · `get_document_content` · `list_entities` · `get_entity` · `search_entities` · `list_collections` · `list_communities` · `upload_document` (manage keys) · `get_stats` — plus `cortex://stats` and `cortex://health` resources.
 
-## Resources
-
-| URI | Description |
-|-----|-------------|
-| `cortex://stats` | Live knowledge base statistics |
-| `cortex://health` | Instance health (Neo4j connectivity, schema, version) |
+Full reference: [cortexskills.org/mcp](https://cortexskills.org/mcp/SKILL.md).
 
 ## Development
 
 ```bash
-cd mcp-server
-npm install
-npm run dev  # watch mode
+npm install && npm run build   # from the cortex-skills repo root (npm workspaces)
+node mcp-server/dist/index.js
 ```
-
-## License
-
-MIT

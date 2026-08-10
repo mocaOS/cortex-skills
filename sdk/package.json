@@ -1,0 +1,45 @@
+{
+  "name": "@mocaos/cortex-client",
+  "version": "0.1.0",
+  "description": "Official TypeScript client for the Cortex knowledge base API \u2014 unified ask (fast/standard/deep), SSE streaming, conversation threads with server-curated memory, uploads, collections, webhooks.",
+  "license": "MIT",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "npm run build && node --test \"dist-test/test/*.test.js\"",
+    "pretest": "tsc -p tsconfig.test.json",
+    "prepublishOnly": "npm run build"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/mocaOS/cortex-skills.git",
+    "directory": "sdk"
+  },
+  "keywords": [
+    "cortex",
+    "knowledge-base",
+    "rag",
+    "knowledge-graph",
+    "sse",
+    "agent-memory"
+  ],
+  "devDependencies": {
+    "@types/node": "^22",
+    "typescript": "^5"
+  }
+}
