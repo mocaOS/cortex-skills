@@ -98,4 +98,4 @@ Inspired by [ethskills.com](https://ethskills.com/).
 
 ## License
 
-MIT
+Apache-2.0 — see [LICENSE](LICENSE).

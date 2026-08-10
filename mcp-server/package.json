@@ -1,6 +1,6 @@
 {
   "name": "@mocaos/cortex-mcp",
-  "version": "0.3.0",
+  "version": "0.3.1",
   "description": "MCP server for the Cortex knowledge base \u2014 search, unified ask (chat/deep research) with conversation threads, documents, knowledge graph, collections, uploads.",
   "type": "module",
   "bin": {
@@ -25,11 +25,12 @@
     "url": "git+https://github.com/mocaOS/cortex-skills.git",
     "directory": "mcp-server"
   },
-  "license": "MIT",
+  "license": "Apache-2.0",
+  "author": "mocaOS",
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.12.1",
     "zod": "^4.3.6",
-    "@mocaos/cortex-client": "^0.1.0"
+    "@mocaos/cortex-client": "^0.1.1"
   },
   "devDependencies": {
     "@types/node": "^22",

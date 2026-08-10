@@ -152,8 +152,8 @@
       "files": [
         {
           "path": "/cortex/SKILL.md",
-          "sha256": "6c660779108d4e9ae5e73001f7c25737aa194d9bad441f49fe3e181ad7dce939",
-          "bytes": 13951
+          "sha256": "a801418b6a8dfa76659de9343e5737901efda487aaebcf120924795a1ec59e0d",
+          "bytes": 13958
         },
         {
           "path": "/cortex/references/API.md",
@@ -220,8 +220,8 @@
       "files": [
         {
           "path": "/hermes/SKILL.md",
-          "sha256": "f907768e4ca039842dbc36be2585ee7d2b6eda6add7f3a205b91205b494f8bff",
-          "bytes": 40694
+          "sha256": "cab92cba7a12407ad57af8f3ec3ccacfa7e804e2e72868cb70138a5da6ec8da6",
+          "bytes": 40701
         },
         {
           "path": "/hermes/plugin/README.md",
@@ -306,8 +306,8 @@
       "files": [
         {
           "path": "/memory-hygiene/SKILL.md",
-          "sha256": "c6b2db43478bde2de09062303be92a631cbe603322707a335814a5e5ae342ac3",
-          "bytes": 7744
+          "sha256": "0915e1b4bb734c48688f7d02ec72c608d2841abcebda1e911c970722c0dc7e0c",
+          "bytes": 7751
         },
         {
           "path": "/memory-hygiene/references/ANCHOR-EDITING.md",
@@ -333,8 +333,8 @@
       "files": [
         {
           "path": "/openclaw/SKILL.md",
-          "sha256": "449f6b9a9b2a62551cdafc3a4678ebc50cf218d406feac583f9b1e46e78021de",
-          "bytes": 6798
+          "sha256": "6340b436b16a3d8fc3c503b231180d8e44fa6f304aa8c86bb611ff860e252348",
+          "bytes": 6805
         }
       ]
     },

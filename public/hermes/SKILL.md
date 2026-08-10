@@ -12,7 +12,7 @@ description: >
   (migrate MEMORY.md overflow into your cortex). Built for the Hermes agent
   (nousresearch.com).
 version: 1.3.0
-license: MIT
+license: Apache-2.0
 platforms: [macos, linux]
 metadata:
   hermes:

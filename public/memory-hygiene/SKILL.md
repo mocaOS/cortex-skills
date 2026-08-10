@@ -10,7 +10,7 @@ description: >
   Triggers on "memory is full", "free up memory", "move stuff to long-term",
   "archive old memory", "clean up my memory file", or whenever the local
   memory file exceeds ~85% of its size budget.
-license: MIT
+license: Apache-2.0
 compatibility: >
   Requires curl, jq (or python3 as fallback), and network access to a Cortex
   instance. Works with any agent that can execute shell commands and has a

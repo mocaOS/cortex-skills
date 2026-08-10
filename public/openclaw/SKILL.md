@@ -7,7 +7,7 @@ description: >
   CORTEX_* env via openclaw.json, how to replace the Hermes heartbeat with an
   OpenClaw cron job, and which Hermes-only extras don't apply.
 version: 1.0.0
-license: MIT
+license: Apache-2.0
 platforms: [macos, linux]
 ---
 

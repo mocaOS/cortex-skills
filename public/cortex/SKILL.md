@@ -5,7 +5,7 @@ description: >
   hybrid search (vector + keyword + graph), AI-powered Q&A with agentic deep research,
   and knowledge graph exploration. Use when uploading documents, searching knowledge,
   asking questions about accumulated memories, or syncing memory files to a knowledge base.
-license: MIT
+license: Apache-2.0
 compatibility: >
   Requires curl, jq (or python3 as fallback), and network access to a Cortex instance.
   Works with any agent that can execute shell commands.

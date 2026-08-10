@@ -1,8 +1,9 @@
 {
   "name": "@mocaos/cortex-client",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Official TypeScript client for the Cortex knowledge base API \u2014 unified ask (fast/standard/deep), SSE streaming, conversation threads with server-curated memory, uploads, collections, webhooks.",
-  "license": "MIT",
+  "license": "Apache-2.0",
+  "author": "mocaOS",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
