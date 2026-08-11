@@ -84,7 +84,7 @@ The flag works on any verb (`npx --min-release-age=0 @mocaos/cortex status`). np
 CORTEX_ADMIN_EMAIL=you@example.com \
 CORTEX_OPENAI_API_KEY=sk-... \
 CORTEX_OPENAI_API_BASE=https://api.venice.ai/api/v1 \
-CORTEX_OPENAI_MODEL=google-gemma-4-26b-a4b-it \
+CORTEX_OPENAI_MODEL=qwen3-6-35b-a3b \
 CORTEX_EMBEDDING_MODEL=text-embedding-3-small \
 CORTEX_EMBEDDING_DIMENSION=1536 \
 npx @mocaos/cortex --yes
@@ -116,7 +116,7 @@ nano .env
 docker compose up -d
 ```
 
-`.env.recommended` is the bench-validated starting point: secrets at the top, the recommended model stack below, and everything else running on production-tuned code defaults. Any model from any OpenAI-compatible API works, but the recommendation is **Gemma4 26B A4B** (`google-gemma-4-26b-a4b-it`) as the primary agent model and **Qwen3.6 27B** (`qwen3-6-27b`) for knowledge-graph generation (extraction + vision). Use `.env.example` only when you need the full 160+ variable reference.
+`.env.recommended` is the bench-validated starting point: secrets at the top, the recommended model stack below, and everything else running on production-tuned code defaults. Any model from any OpenAI-compatible API works, but the recommendation is **Qwen3.6 35B A3B** (`qwen3-6-35b-a3b`) as the primary agent model and **Qwen3.6 27B** (`qwen3-6-27b`) for knowledge-graph generation (extraction + vision). Use `.env.example` only when you need the full 160+ variable reference.
 
 ### Autonomous install (for an agent self-hosting on its own VM)
 
@@ -151,7 +151,7 @@ echo "Cortex is up at http://localhost:8000"
 grep '^ADMIN_API_KEY=' .env
 ```
 
-> `.env.recommended` already carries the recommended model stack (Venice API base, Gemma4 26B A4B primary, Qwen3.6 27B extraction + vision) and leaves every other knob on production-tuned code defaults; only the secrets above are required to boot. Using a different provider? Also append `OPENAI_API_BASE=` (and `OPENAI_MODEL=` / `OPENAI_MAX_CONTEXT=` for a different primary). After it's healthy, drive the instance with the `cortex` + feature skills against `http://localhost:8000`.
+> `.env.recommended` already carries the recommended model stack (Venice API base, Qwen3.6 35B A3B primary, Qwen3.6 27B extraction + vision) and leaves every other knob on production-tuned code defaults; only the secrets above are required to boot. Using a different provider? Also append `OPENAI_API_BASE=` (and `OPENAI_MODEL=` / `OPENAI_MAX_CONTEXT=` for a different primary). After it's healthy, drive the instance with the `cortex` + feature skills against `http://localhost:8000`.
 
 ### Release install by hand — prebuilt images, no build step (v1.0.0+) {#release-install}
 
@@ -230,7 +230,7 @@ NEO4J_PASSWORD=your-secure-password-here
 # LLM Provider (at least one required — any OpenAI-compatible endpoint)
 OPENAI_API_KEY=sk-your-api-key-here
 OPENAI_API_BASE=https://api.openai.com/v1
-OPENAI_MODEL=google-gemma-4-26b-a4b-it
+OPENAI_MODEL=qwen3-6-35b-a3b
 
 # Admin Authentication
 ADMIN_EMAIL=admin@example.com
@@ -249,10 +249,10 @@ openssl rand -base64 32
 This is exactly what `.env.recommended` ships — a 2-model setup where relationship analysis + vision inherit from the extraction model, api_base/api_key cascade from `OPENAI_*`, and the token budgets run on production-tuned code defaults:
 
 ```bash
-# Primary — agentic Q&A / researcher (Gemma4 26B A4B: fast MoE, 256K window)
+# Primary — agentic Q&A / researcher (Qwen3.6 35B A3B: fast MoE, 256K window)
 OPENAI_API_KEY=your-venice-api-key
 OPENAI_API_BASE=https://api.venice.ai/api/v1
-OPENAI_MODEL=google-gemma-4-26b-a4b-it
+OPENAI_MODEL=qwen3-6-35b-a3b
 OPENAI_MAX_CONTEXT=256000            # set to YOUR primary model's input window
 
 # Embeddings — text-embedding-3-small (1536-dim; both are code defaults)
@@ -274,8 +274,8 @@ GRAPH_EXTRACTION_MODEL=qwen3-6-27b
 ### LLM Configuration
 
 ```bash
-OPENAI_MODEL=google-gemma-4-26b-a4b-it       # Primary model (Q&A, research, chat)
-OPENAI_MODEL_FAST_MODE=google-gemma-4-26b-a4b-it   # Faster/cheaper model for Fast Mode
+OPENAI_MODEL=qwen3-6-35b-a3b       # Primary model (Q&A, research, chat)
+OPENAI_MODEL_FAST_MODE=qwen3-6-35b-a3b   # Faster/cheaper model for Fast Mode
 OPENAI_API_BASE=https://api.openai.com/v1
 OPENAI_MAX_OUTPUT_TOKENS=8000         # Floor of the output-token budget chain
 OPENAI_MAX_CONTEXT=256000             # Floor of the input-context budget chain (code default; set to your primary model's window)

@@ -440,9 +440,9 @@ case "$cmd" in
                  curl -sf -m 5 "$OLL/api/tags" | jq -e --arg m "$m" '.models[]|select(.name==$m or (.name|startswith($m)))' >/dev/null 2>&1 \
                    || die "setup: model '$m' not pulled yet — run: ollama pull $m   (then re-run setup)"
                done;;
-      venice)  # matches the repo's .env.recommended stack: Gemma4 26B A4B primary,
+      venice)  # matches the repo's .env.recommended stack: Qwen3.6 35B A3B primary,
                # qwen3-6-27b for graph extraction + vision, 1536-dim embeddings.
-               BASE="${BASE:-https://api.venice.ai/api/v1}"; MODEL="${MODEL:-google-gemma-4-26b-a4b-it}"
+               BASE="${BASE:-https://api.venice.ai/api/v1}"; MODEL="${MODEL:-qwen3-6-35b-a3b}"
                EMODEL="${EMODEL:-text-embedding-3-small}"; EDIM="${EDIM:-1536}"
                GMODEL="qwen3-6-27b"; VMODEL="qwen3-6-27b";;
       openai)  BASE="${BASE:-https://api.openai.com/v1}"; MODEL="${MODEL:-gpt-4o-mini}"
