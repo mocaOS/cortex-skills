@@ -250,8 +250,8 @@
         },
         {
           "path": "/hermes/scripts/cortex.sh",
-          "sha256": "db2a440431e5797a28cf9978cf3d518d3c6f099f47c7ae2011691adaa06575f9",
-          "bytes": 43638
+          "sha256": "47baf9c20d080a5f783ff2c274a6f4691119d1b60989b15725ed60fe0865f7e2",
+          "bytes": 43629
         }
       ]
     },
@@ -362,8 +362,8 @@
       "files": [
         {
           "path": "/setup/SKILL.md",
-          "sha256": "a5a738d62aab3d02226d715e1788ba53ea2a26dabaca1d2f98c873bdbd41136d",
-          "bytes": 53616
+          "sha256": "f6cfd510333dbacfc923226120971ffddd9704546234e3f11009ef95b9d8af8a",
+          "bytes": 55436
         },
         {
           "path": "/setup/references/CONFIGURATION.md",

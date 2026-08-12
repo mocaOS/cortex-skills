@@ -178,7 +178,7 @@ cp .env.example .env && chmod 600 .env
 docker compose up -d
 ```
 
-Needs `git`, `jq`, and `openssl` on the host (a minimal server image has none of them), Docker Engine 24+ with the Compose **v2 plugin**, ~20 GB disk and ~8 GB RAM. Images are `ghcr.io/mocaos/cortex-backend`, `-frontend`, `-chat`, pinned by the three `CORTEX_*_IMAGE` lines in `.env`. This stack ships **Cortex Chat** alongside Cortex; both share one identity (`ADMIN_EMAIL`/`ADMIN_PASSWORD`), and Chat mints its own scoped backend keys using `ADMIN_API_KEY` — which also powers its personality generator via the backend's `POST /api/llm/completions`. Chat is a full team workspace (AI personalities as portable SOUL.md files, shared projects with realtime multi-user conversations, voice dictation/read-aloud, per-user history); the feature tour lives at [docs.cortex.eco/features/cortex-chat](https://docs.cortex.eco/features/cortex-chat).
+Needs `git`, `jq`, and `openssl` on the host (a minimal server image has none of them), Docker Engine 24+ with the Compose **v2 plugin**, ~20 GB disk and ~8 GB RAM. Images are `ghcr.io/mocaos/cortex-backend`, `-frontend`, `-chat`, pinned by the three `CORTEX_*_IMAGE` lines in `.env`. This stack ships **Cortex Chat** alongside Cortex; both share one identity (`ADMIN_EMAIL`/`ADMIN_PASSWORD`), and Chat mints its own scoped backend keys using `ADMIN_API_KEY` — which also powers its personality generator via the backend's `POST /api/llm/completions`. Chat is a full team workspace (AI personalities as portable SOUL.md files, shared projects with realtime multi-user conversations, voice dictation/read-aloud, per-user history, SSO via OpenID Connect, and an env-gated public demo mode — see "Cortex Chat Demo Mode" below); the feature tour lives at [docs.cortex.eco/features/cortex-chat](https://docs.cortex.eco/features/cortex-chat).
 
 `COMPOSE_FILE` picks the topology — and this is where the `NEXT_PUBLIC_API_URL` and cookie traps listed below are already solved for you:
 
@@ -574,6 +574,22 @@ OIDC_ONLY=false                           # true = password login + self-registr
 ```
 
 Rules that bite: `CHAT_BASE_URL` is REQUIRED when the issuer is set (it builds the redirect URI — chat refuses to boot without it); the issuer must be `https://` (plain http only for localhost dev); existing password accounts are auto-linked on first SSO login ONLY when the IdP marks the email verified (Entra ID never emits `email_verified`, so pre-existing password accounts won't auto-link there — provision via SSO from the start); the chat superadmin (`ADMIN_EMAIL`) is excluded from SSO entirely and always keeps password login. LDAP/SAML-only stacks: bridge with Authentik or Dex in front and point `OIDC_ISSUER_URL` at the bridge.
+
+### Cortex Chat Demo Mode (Optional)
+
+Flip a chat deployment into a public "try the product" instance without touching other accounts — this is how the live demo at [chat-support.cortex.eco](https://chat-support.cortex.eco) runs. A shared demo user is bootstrapped at boot; the login form comes prefilled with its published credentials; the demo user's chats are stored in the visitor's **browser** (localStorage), never on the server; every per-user mutation for it (password, profile, avatar, personal personalities, projects, directory search) answers 403; and its chat turns are throttled per visitor IP (5/min) on top of the backend's own rate limits. All other accounts — superadmin, team members, SSO users — keep working unchanged on the same instance.
+
+```bash
+DEMO_MODE=true          # presence enables; unset/false = feature invisible
+# Optional:
+DEMO_EMAIL=test@test.com   # default; must NOT equal the superadmin email (boot refuses)
+DEMO_PASSWORD=test         # default; re-hashed from env on every boot, so the published creds self-heal
+DEMO_GROUP=                # chat group NAME the demo user is pinned to — decides which
+                           # collections the demo can search; unset = keep current, else
+                           # first group ever created
+```
+
+Rules that bite: incompatible with `OIDC_ONLY` (chat refuses to boot — the demo signs in with the password form); set `ENABLE_REGISTRATION=false` on a public demo or strangers can self-register real accounts; turning `DEMO_MODE` off disarms the demo login on the next boot (password disabled, sessions evicted) — flipping the env back on re-arms it. The demo user is created with role `user` and no upload key, so document ingestion and admin surfaces fail closed automatically.
 
 ### x402 Payments (Optional)
 
