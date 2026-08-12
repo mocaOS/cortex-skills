@@ -30,6 +30,8 @@
 #            [base=<url>] [model=<id>] [emb_key=] [emb_base=] [emb_model=] [emb_dim=] [offset=<N>]
 #                                                  # self-host a NEW Cortex from scratch (detached boot)
 #   cortex.sh setup-status dir=<path>              # poll the boot; when healthy, mint key + connect
+#   cortex.sh --version                            # helper version (drift check vs
+#                                                  # https://cortexskills.org/index.json)
 #
 # The DEFAULT source is env (CORTEX_BASE_URL / CORTEX_API_KEY / CORTEX_COLLECTION)
 # if set, else the source marked default in sources.json. The personal/env cortex
@@ -58,10 +60,16 @@ SRCFILE="$STATE/sources.json"
 mkdir -p "$STATE"
 die(){ echo "cortex: $*" >&2; exit 1; }
 
+# Tracks the skill version in SKILL.md frontmatter (and index.json). Lets an
+# installed copy report what it is, so update/drift checks don't depend on a
+# byte-identical re-fetch of this script.
+CORTEX_SH_VERSION="1.3.1"
+
 # ---- source resolution -------------------------------------------------------
 SRC=""; THREAD=""
 while :; do
   case "${1:-}" in
+    --version|version) echo "cortex.sh $CORTEX_SH_VERSION"; exit 0;;
     --source) SRC="${2:-}"; shift 2 || true;;
     --thread) THREAD="${2:-}"; shift 2 || true;;
     *) break;;
