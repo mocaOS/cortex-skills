@@ -339,25 +339,27 @@ Your human doesn't see the API calls; they see what you say back. Cortex should 
 
 ## Alternative: native MCP access
 
-Hermes speaks MCP. Instead of these curl calls you can wire the Cortex MCP server into Hermes and get first-class `search` / `ask` / `upload` tools (they appear as an `mcp-cortex` toolset). Build it once, then add it to `~/.hermes/config.yaml`:
-
-```bash
-git clone https://github.com/mocaOS/cortex-skills.git ~/cortex-skills
-cd ~/cortex-skills/mcp-server && npm install && npm run build
-```
+Hermes speaks MCP. Instead of these curl calls you can wire the Cortex MCP server into Hermes and get first-class `search` / `ask` / `upload` tools (they appear as an `mcp-cortex` toolset). The server is published on npm — no clone or build step:
 
 ```yaml
 # ~/.hermes/config.yaml
 mcp_servers:
   cortex:
-    command: node
-    args: ["/home/YOU/cortex-skills/mcp-server/dist/index.js"]
+    command: npx
+    args: ["@mocaos/cortex-mcp"]
     env:
       CORTEX_BASE_URL: "http://localhost:8000"
       CORTEX_API_KEY: "cortex_rw_…"   # same creds as this skill
+      CORTEX_STATE_DIR: "/home/YOU/.hermes/skills/state/cortex"   # share threads with cortex.sh --thread
 ```
 
 Details and the full tool list: [mcp skill](https://cortexskills.org/mcp/SKILL.md). The REST path in this file needs nothing but `curl` + `jq`, so it stays the zero-dependency default — MCP is worth it when you want Cortex calls as first-class tool calls instead of terminal round-trips.
+
+### CLI vs SDK vs MCP — when to use which
+
+- **`cortex.sh` (this skill):** save, ask/check, search, list/show/forget, threads, multi-source routing. Zero dependencies beyond `curl` + `jq`. The right choice for driving Cortex from an agent.
+- **TypeScript SDK ([`@mocaos/cortex-client`](https://www.npmjs.com/package/@mocaos/cortex-client)):** everything above **plus** things the CLI can't express — `getContext()` (token-budgeted retrieval bundles for your own prompts), webhook subscriptions (`document.processed` push instead of polling), typed SSE frame handling, structured JSON answers. Graduate to it when you're *building software on* Cortex rather than talking to it.
+- **MCP server (`@mocaos/cortex-mcp`):** the same capabilities as first-class tool calls for external MCP clients (Claude Desktop, Cursor, Hermes itself — above).
 
 ## Alternative: go ambient — the memory-provider plugin
 

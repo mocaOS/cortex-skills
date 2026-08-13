@@ -73,21 +73,23 @@ Retrieve system-wide statistics: document counts, entity counts, relationship co
 **Returns:**
 ```python
 {
-    "total_documents": 42,
-    "total_chunks": 1580,
-    "total_entities": 312,
-    "total_relationships": 876,
-    "total_communities": 8,
-    "total_collections": 3
+    "document_count": 42,
+    "chunk_count": 1580,
+    "entity_count": 312,
+    "relationship_count": 876,
+    "community_count": 8,
+    "collection_count": 3
 }
 ```
+
+Field names are `*_count` — there is no `total_documents`, `total_docs`, or `documents_count` key. `{BASE_URL}/openapi.json` is the source of truth for all response schemas.
 
 **Example:**
 ```python
 stats = client.stats()
-print(f"Knowledge base: {stats['total_documents']} docs, "
-      f"{stats['total_entities']} entities, "
-      f"{stats['total_relationships']} relationships")
+print(f"Knowledge base: {stats['document_count']} docs, "
+      f"{stats['entity_count']} entities, "
+      f"{stats['relationship_count']} relationships")
 ```
 
 ---
@@ -142,11 +144,13 @@ import time
 result = client.upload("large_report.pdf")
 doc_id = result["doc_id"]
 
-# Poll until processing finishes
+# Poll until processing finishes — document objects use `id` and
+# `processing_status` (upload responses use `doc_id` and `status`; the
+# key names differ between the two).
 while True:
     docs = client.documents()
-    doc = next((d for d in docs if d.get("doc_id") == doc_id), None)
-    if doc and doc.get("status") == "completed":
+    doc = next((d for d in docs if d.get("id") == doc_id), None)
+    if doc and doc.get("processing_status") == "completed":
         print(f"Done: {doc['chunk_count']} chunks, {doc['entity_count']} entities")
         break
     time.sleep(2)
@@ -164,24 +168,26 @@ List all documents in the library.
 ```python
 [
     {
-        "doc_id": "abc123-def456",
+        "id": "abc123-def456",
         "filename": "report.pdf",
-        "status": "completed",        # "processing" | "completed" | "error"
+        "processing_status": "completed",  # "pending" | "processing" | "completed" | "failed"
         "chunk_count": 47,
         "entity_count": 23,
         "collection_id": "default",
-        "uploaded_at": "2025-03-15T10:30:00Z"
+        "upload_date": "2026-03-15T10:30:00Z"
     }
 ]
 ```
+
+**Field-name trap:** document objects carry **`processing_status`**, not `status` (`d["status"]` is always missing on a document — only upload/reprocess *responses* use `status`), the ID key is **`id`** (upload responses call it `doc_id`/`document_id`), and the timestamp is **`upload_date`**.
 
 **Example:**
 ```python
 docs = client.documents()
 
-# Filter by status
-completed = [d for d in docs if d["status"] == "completed"]
-processing = [d for d in docs if d["status"] == "processing"]
+# Filter by processing status
+completed = [d for d in docs if d["processing_status"] == "completed"]
+processing = [d for d in docs if d["processing_status"] == "processing"]
 
 print(f"Completed: {len(completed)}, Processing: {len(processing)}")
 
@@ -728,13 +734,13 @@ for f in files:
     doc_ids.append(result["doc_id"])
     print(f"Uploaded {f} -> {result['doc_id']}")
 
-# 4. Wait for processing
+# 4. Wait for processing (documents carry `id` + `processing_status`)
 print("Waiting for processing...")
 for doc_id in doc_ids:
     while True:
         docs = client.documents()
-        doc = next((d for d in docs if d.get("doc_id") == doc_id), None)
-        if doc and doc.get("status") == "completed":
+        doc = next((d for d in docs if d.get("id") == doc_id), None)
+        if doc and doc.get("processing_status") == "completed":
             break
         time.sleep(3)
 print("All documents processed.")

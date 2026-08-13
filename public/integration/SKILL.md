@@ -71,7 +71,7 @@ class CortexClient:
 
     def documents(self) -> list:
         r = requests.get(f"{self.base_url}/api/documents", headers=self.headers)
-        return r.json()
+        return r.json().get("documents", [])  # response is {documents: [...], total: N}
 
     def delete_document(self, doc_id: str) -> dict:
         r = requests.delete(f"{self.base_url}/api/documents/{doc_id}", headers=self.headers)
@@ -266,14 +266,14 @@ For skill installation, configuration, and management, see the [Admin skill](../
 
 ## MCP (Model Context Protocol) for Claude
 
-Cortex ships an MCP server in the [`mcp-server/`](https://github.com/mocaOS/cortex-skills/tree/main/mcp-server) directory of the cortex-skills repo (not on npm — build it from source with `npm install && npm run build`). Configure for Claude Desktop:
+Cortex ships an MCP server, published on npm as [`@mocaos/cortex-mcp`](https://www.npmjs.com/package/@mocaos/cortex-mcp) (source lives in [`mcp-server/`](https://github.com/mocaOS/cortex-skills/tree/main/mcp-server) in the cortex-skills repo; building from source is only needed for development). Configure for Claude Desktop:
 
 ```json
 {
   "mcpServers": {
     "cortex": {
-      "command": "node",
-      "args": ["/absolute/path/to/cortex-skills/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["@mocaos/cortex-mcp"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
         "CORTEX_API_KEY": "cortex_rw_your_key"

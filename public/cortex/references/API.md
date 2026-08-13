@@ -193,21 +193,23 @@ curl "{BASE_URL}/api/documents/{doc_id}" -H "X-API-Key: {API_KEY}"
 {
   "id": "doc_abc123",
   "filename": "document.pdf",
-  "status": "completed",
+  "processing_status": "completed",
   "chunk_count": 42,
   "entity_count": 18,
-  "created_at": "2024-01-15T10:30:00Z",
-  "processed_at": "2024-01-15T10:32:15Z",
+  "upload_date": "2026-01-15T10:30:00Z",
   "collection_id": "default",
+  "collection_name": "Default",
   "image_progress_current": 3,
   "image_progress_total": 67,
   "image_progress_message": "Analyzed 3/67 images"
 }
 ```
 
-**Status values:** `pending` | `processing` | `completed` | `failed`
+**`processing_status` values:** `pending` | `processing` | `completed` | `failed`
 
-A document with `status: "completed"` may still have background image analysis running. Check `image_progress_current` vs `image_progress_total` to confirm.
+> **Field names — the one trap.** Document objects carry **`processing_status`**, not `status` — `d["status"]` on a document is always empty (only *action* responses like upload/reprocess use a `status` key, and the list endpoint's `status` *query parameter* filters on it). The timestamp is **`upload_date`**; there is no `created_at` or `processed_at`. Stats uses **`document_count`**, not `total_docs` or `documents_count`. When in doubt, `GET {BASE_URL}/openapi.json` is the source of truth.
+
+A document with `processing_status: "completed"` may still have background image analysis running. Check `image_progress_current` vs `image_progress_total` to confirm.
 
 ### Sessions (`ENABLE_SESSIONS`, opt-in)
 

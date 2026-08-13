@@ -12,7 +12,7 @@ Most integration issues with the upload system come from the same handful of mis
 
 1. **You sent JSON instead of multipart/form-data.** The upload endpoint exclusively accepts `multipart/form-data` with the file in a field named `"file"`. Sending `application/json` with a base64 body will return a 400.
 
-2. **You assumed the document is ready immediately after upload returns.** It is not. Upload returns a document ID with status `pending` or `processing`. You must poll `GET /api/documents/{id}` until the status reaches `completed`. The processing pipeline has 9 stages and they are asynchronous.
+2. **You assumed the document is ready immediately after upload returns.** It is not. Upload returns a document ID with status `pending` or `processing`. You must poll `GET /api/documents/{id}` until **`processing_status`** reaches `completed` — that is the field name on document objects; they have no `status` key (only the upload response itself uses `status`). The processing pipeline has 9 stages and they are asynchronous.
 
 3. **You forgot `start_processing=true`.** If you pass `start_processing=false` (or explicitly set it), the document will sit in `pending` forever until you trigger processing manually via `/api/documents/{id}/reprocess` or the batch endpoint.
 
@@ -142,14 +142,15 @@ Response:
 {
   "id": "abc-123",
   "filename": "report.pdf",
-  "status": "completed",
+  "processing_status": "completed",
   "chunk_count": 47,
   "entity_count": 23,
   "collection_id": "my-collection",
-  "created_at": "2025-01-15T10:30:00Z",
-  "processed_at": "2025-01-15T10:31:12Z"
+  "upload_date": "2026-01-15T10:30:00Z"
 }
 ```
+
+Note the field is **`processing_status`** — document objects have no `status` key (only the upload/reprocess *responses* use `status`), and the timestamp is `upload_date` (no `created_at`/`processed_at`).
 
 ---
 
@@ -425,10 +426,10 @@ RESPONSE=$(curl -s -X POST "{BASE_URL}/api/upload?start_processing=true" \
 
 DOC_ID=$(echo "$RESPONSE" | jq -r '.document_id')
 
-# 2. Poll until processing completes
+# 2. Poll until processing completes (documents carry processing_status, not status)
 while true; do
   STATUS=$(curl -s -X GET "{BASE_URL}/api/documents/$DOC_ID" \
-    -H "X-API-Key: {API_KEY}" | jq -r '.status')
+    -H "X-API-Key: {API_KEY}" | jq -r '.processing_status')
 
   echo "Status: $STATUS"
 

@@ -42,7 +42,7 @@ curl http://localhost:8000/api/documents/{document_id} \
   -H "X-API-Key: cortex_ro_your_key"
 ```
 
-`status` moves `pending` → `processing` → `extracting` → `completed` (or `failed`, with an `error` field). A `completed` document can still be **degraded** — check `entity_count == 0` or `unembedded_chunk_count > 0` and reprocess if so.
+The field is **`processing_status`** (documents have no `status` key) and it moves `pending` → `processing` → `extracting` → `completed` (or `failed`, with an `error` field). A `completed` document can still be **degraded** — check `entity_count == 0` or `unembedded_chunk_count > 0` and reprocess if so.
 
 ### Polling Rules of Thumb
 
@@ -72,7 +72,7 @@ def upload_and_wait(path: str, timeout_s: int = 600) -> dict:
     while time.time() < deadline:
         doc = requests.get(f"{BASE_URL}/api/documents/{doc_id}",
                            headers=HEADERS).json()
-        if doc["status"] in ("completed", "failed"):
+        if doc["processing_status"] in ("completed", "failed"):
             return doc
         time.sleep(delay)
         delay = min(delay * 1.5, 30)
@@ -161,7 +161,7 @@ Use the **HTTP Request** node with multipart form:
                [HTTP Request: Check document status]
                        |
                        v
-                  [IF: status == "completed"]
+             [IF: processing_status == "completed"]
                    /           \
                   Yes           No
                   |             |

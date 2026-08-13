@@ -1,7 +1,7 @@
 ---
 version: 1.3.0
 name: mcp
-description: Use this skill when setting up or configuring the Cortex MCP server for Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, or any MCP-compatible client. Covers installation from source, tool descriptions, configuration examples, and troubleshooting.
+description: Use this skill when setting up or configuring the Cortex MCP server for Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, or any MCP-compatible client. Covers installation (npm or from source), tool descriptions, configuration examples, and troubleshooting.
 ---
 
 # MCP — Cortex as a Model Context Protocol Server
@@ -14,7 +14,7 @@ The Cortex MCP server gives any MCP-compatible AI client native access to your C
 
 ## What You Probably Got Wrong
 
-1. **The server is NOT on npm.** There is no published `@cortex/mcp-server` package — `npx -y @cortex/mcp-server` will fail (the `cortex-mcp` package on npm is an unrelated third-party project). Install from source (below).
+1. **The npm package is `@mocaos/cortex-mcp` — get the name right.** It IS published to npm (`npx @mocaos/cortex-mcp` just works); building from source is only for development. But guessing other names fails: there is no `@cortex/mcp-server`, and the unscoped `cortex-mcp` package on npm is an unrelated third-party project.
 2. **The MCP server is a separate process, not part of Cortex.** It is a lightweight stdio bridge that calls the Cortex REST API. You need a running Cortex instance first.
 3. **You need an API key with at least `read` permission.** Create one at `{YOUR_BASE_URL}/admin` → API Keys (`cortex_ro_...`). Use a `cortex_rw_...` key (includes `manage`) if you want the `upload_document` tool to work.
 4. **The server communicates via stdio, not HTTP.** MCP uses JSON-RPC over stdin/stdout. You do not need to expose any ports.
@@ -79,8 +79,8 @@ Add to `.cursor/mcp.json` in your project root:
 {
   "mcpServers": {
     "cortex": {
-      "command": "node",
-      "args": ["/absolute/path/to/cortex-skills/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["@mocaos/cortex-mcp"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
         "CORTEX_API_KEY": "cortex_ro_your_key_here"
@@ -102,8 +102,8 @@ Add to `.vscode/mcp.json` (note: `servers`, not `mcpServers`):
 {
   "servers": {
     "cortex": {
-      "command": "node",
-      "args": ["/absolute/path/to/cortex-skills/mcp-server/dist/index.js"],
+      "command": "npx",
+      "args": ["@mocaos/cortex-mcp"],
       "env": {
         "CORTEX_BASE_URL": "http://localhost:8000",
         "CORTEX_API_KEY": "cortex_ro_your_key_here"
@@ -120,8 +120,8 @@ Add to `~/.hermes/config.yaml` (YAML, key is `mcp_servers`):
 ```yaml
 mcp_servers:
   cortex:
-    command: node
-    args: ["/absolute/path/to/cortex-skills/mcp-server/dist/index.js"]
+    command: npx
+    args: ["@mocaos/cortex-mcp"]
     env:
       CORTEX_BASE_URL: "http://localhost:8000"
       CORTEX_API_KEY: "cortex_rw_your_key_here"
@@ -170,6 +170,11 @@ Once the MCP server is connected, try these prompts in your AI client:
 |----------|----------|-------------|
 | `CORTEX_BASE_URL` | Yes | Full URL to your Cortex instance (e.g., `http://localhost:8000`) |
 | `CORTEX_API_KEY` | Yes | API key with at least `read` permission; `manage` needed for `upload_document` |
+| `CORTEX_STATE_DIR` | No | Where conversation threads persist (default `~/.cortex-mcp`) — see below |
+
+### Cross-tool thread sharing (`CORTEX_STATE_DIR`)
+
+Conversation threads are plain files, and every Cortex tool that has threads reads the same format. Point the MCP server's `CORTEX_STATE_DIR` at `~/.hermes/skills/state/cortex` and its threads become the *same* threads the Hermes skill's `cortex.sh --thread <name>` uses (the TypeScript SDK joins in via `FileThreadStore` on the same path). Start a conversation in Claude Desktop, continue it from a Hermes agent in the terminal — one thread, three tools.
 
 ## Troubleshooting
 

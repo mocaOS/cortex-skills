@@ -194,7 +194,7 @@ Image analysis activates only when `VISION_MODEL` is set. Without it, images use
 - Concurrency controlled by `VISION_MAX_CONCURRENT` (default 2, system-wide semaphore)
 - Thread pool sizes scale automatically with `VISION_MAX_CONCURRENT`
 - The default of 2 is deliberate: each in-flight image spawns a multi-call chain, and ~20 concurrent slots per provider key is the binding limit (not RPM) — raising this saturates the key's slots rather than speeding things up
-- Image analysis runs asynchronously after text processing completes; document may show `status: "completed"` while images are still being analyzed
+- Image analysis runs asynchronously after text processing completes; document may show `processing_status: "completed"` while images are still being analyzed
 
 ---
 
