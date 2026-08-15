@@ -317,7 +317,7 @@ def slack_search():
 
 Current instances emit **outbound webhooks** when the operator sets `ENABLE_WEBHOOKS=true`: register an endpoint with the admin key (`POST /api/admin/webhooks`, the signing secret is returned once) and receive HMAC-signed POSTs for `document.processed`, `document.failed`, `task.completed`, `task.failed`. Verify with `X-Cortex-Signature: t=<unix>,v1=hex(hmac_sha256(secret, "<t>.<body>"))`. There is also `GET /api/ingestion/status` — one call for the whole pipeline backlog (counts, active docs with progress, an `idle` flag).
 
-On older instances (or when webhooks are disabled), poll: `GET /api/tasks/{id}` for background tasks (records survive restarts; an interrupted task reports `failed` with "interrupted by server restart"), and `GET /api/documents/{id}` until `status` settles at `completed`/`failed`:
+On older instances (or when webhooks are disabled), poll: `GET /api/tasks/{id}` for background tasks (records survive restarts; an interrupted task reports `failed` with "interrupted by server restart"), and `GET /api/documents/{id}` until **`processing_status`** settles at `completed`/`failed` (documents have no `status` key — only task and upload *responses* use that name):
 
 ```python
 import time, requests
@@ -327,11 +327,15 @@ def wait_for_document(doc_id, timeout_s=600):
     while time.time() < deadline:
         doc = requests.get(f"{BASE_URL}/api/documents/{doc_id}",
                            headers={"X-API-Key": API_KEY}).json()
-        if doc["status"] in ("completed", "failed"):
+        if doc["processing_status"] in ("completed", "failed"):
             return doc
         time.sleep(delay)
         delay = min(delay * 1.5, 30)
     raise TimeoutError(doc_id)
+
+# `completed` + a `content_status` of "empty"/"encrypted" means the file held
+# nothing to ingest (0 chunks, never searchable). Terminal — report
+# doc["content_note"] instead of reprocessing.
 ```
 
 See [references/WEBHOOKS.md](references/WEBHOOKS.md) for polling patterns and the automation-platform recipes.

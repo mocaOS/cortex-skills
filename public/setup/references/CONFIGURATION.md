@@ -191,7 +191,8 @@ Force reasoning OFF so reasoning-capable models (GPT-5/5.1, Claude 4.x, Qwen3, D
 | `EXTRACTION_REASONING_MODE` | `string` | `off` | Reasoning for entity extraction, summaries, communities, query-entity extraction. |
 | `RELATIONSHIP_REASONING_MODE` | `string` | `off` | Reasoning for candidate scan, gleaning, per-chunk + batch relationship extraction. |
 | `VISION_REASONING_MODE` | `string` | `off` | Reasoning for the vision-model image-description call (e.g. Qwen3-VL). |
-| `DEFAULT_REASONING_MODE` | `string` | `auto` | Reasoning for the chat/answer path. Researcher/deep-research stays AUTO to preserve parallel tool calls. |
+| `DEFAULT_REASONING_MODE` | `string` | `off` | Reasoning for the chat/answer path (speed researcher loop + writer + non-agentic/fast streaming). `off` cuts time-to-first-token to <1s and avoids empty/timeout answers. |
+| `RESEARCH_REASONING_MODE` | `string` | `off` | Reasoning for the deep-research (quality) researcher loop. `off` because that loop reflects explicitly via its `reasoning` tool, which persists in the message history — hidden thinking is discarded between turns yet competes for the same output budget. `auto` restores provider-default thinking. |
 | `REASONING_MODEL_OVERRIDES` | `string` | -- | Per-model override. Format: `model1:mode1,model2:mode2` (e.g. `gpt-5.8:none,custom:minimal`). |
 
 > Caveats: `gpt-5-pro` is pinned to `high`; `gpt-5-codex` downgrades `minimal`→`low`; Anthropic Opus 4.7+ uses adaptive thinking (manual `thinking` returns 400). On OpenAI GPT-5/o-series, `DEFAULT_REASONING_MODE=off` can disable parallel tool calls — set `auto` there.

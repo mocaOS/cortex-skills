@@ -181,6 +181,8 @@ List all documents in the library.
 
 **Field-name trap:** document objects carry **`processing_status`**, not `status` (`d["status"]` is always missing on a document — only upload/reprocess *responses* use `status`), the ID key is **`id`** (upload responses call it `doc_id`/`document_id`), and the timestamp is **`upload_date`**.
 
+**"Completed" does not always mean ingested:** a file that held nothing to extract (zero bytes, a PDF with no pages, a password-protected PDF) reaches `completed` with **`content_status`** = `"empty"` or `"encrypted"`, `content_note` explaining why, and `chunk_count == 0`. It is terminal — no reprocess can put content into a file that has none — so report `content_note` instead of retrying (for `"encrypted"`, the user needs to upload a decrypted copy).
+
 **Example:**
 ```python
 docs = client.documents()

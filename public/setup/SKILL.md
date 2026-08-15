@@ -423,9 +423,12 @@ Force reasoning OFF so reasoning-capable models (GPT-5/5.1, Claude 4.x, Qwen3, D
 EXTRACTION_REASONING_MODE=off        # extraction, summaries, communities, query-entity extraction
 RELATIONSHIP_REASONING_MODE=off      # candidate scan, gleaning, per-chunk + batch relationships
 VISION_REASONING_MODE=off            # vision-model image descriptions (e.g. Qwen3-VL)
-DEFAULT_REASONING_MODE=off           # chat/answer path; deep-research stays AUTO
+DEFAULT_REASONING_MODE=off           # chat/answer path (speed researcher loop + writer)
+RESEARCH_REASONING_MODE=off          # deep-research (quality) researcher loop
 # REASONING_MODEL_OVERRIDES=gpt-5.8:none,custom-llm:minimal   # escape hatch
 ```
+
+> Deep research loses nothing by running non-thinking: that loop reflects **explicitly** through its `reasoning` tool (forced after any round that searched without pausing to think), and that thought persists in the message history to steer the next round — while hidden chain-of-thought is discarded between turns yet still charged against the same output budget as the answer. It matters most on thinking-by-default models: Qwen3.8 ships `reasoning_effort=xhigh` and can spend an entire completion cap on a trace. Set `RESEARCH_REASONING_MODE=auto` if a model's tool-calling regresses without it.
 
 > Caveats: `gpt-5-pro` is pinned to `high`; `gpt-5-codex` downgrades `minimal`→`low`; Anthropic Opus 4.7+ uses adaptive thinking. On OpenAI GPT-5/o-series, `DEFAULT_REASONING_MODE=off` can disable parallel tool calls — set `auto` there.
 

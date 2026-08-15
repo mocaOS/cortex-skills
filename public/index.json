@@ -215,12 +215,12 @@
     },
     {
       "slug": "hermes",
-      "version": "1.3.1",
+      "version": "1.3.2",
       "entry": "/hermes/SKILL.md",
       "files": [
         {
           "path": "/hermes/SKILL.md",
-          "sha256": "26723e5ce980a864cfbd2e1ec8a5b720e8badf5c5e0fb2da2d15d205b09c00df",
+          "sha256": "f2b78494bd72bd8a0f050ea1b58df27d7a56196e84dc5fd862f9e1c09db8a2d5",
           "bytes": 41482
         },
         {
@@ -250,8 +250,8 @@
         },
         {
           "path": "/hermes/scripts/cortex.sh",
-          "sha256": "7b2d97e43262ab6c7b173fdfa6cf534e4b1d613e3ac4fa803f372257c51f703d",
-          "bytes": 44095
+          "sha256": "66065012e14134c4d14712c9a7dfb6fdc910dff251e25d70749977b9a3576f5f",
+          "bytes": 44446
         }
       ]
     },
@@ -262,8 +262,8 @@
       "files": [
         {
           "path": "/integration/SKILL.md",
-          "sha256": "50023f58c11da8b2f80dae649ca02b95c6994b556590265552fbfd0c552cde4d",
-          "bytes": 15065
+          "sha256": "0bba0b60ff683e86c38c02f9ab2ce1c4836078e40c8e869bda0fb3f23f481bfd",
+          "bytes": 15371
         },
         {
           "path": "/integration/references/LANGCHAIN.md",
@@ -272,13 +272,13 @@
         },
         {
           "path": "/integration/references/PYTHON.md",
-          "sha256": "a7a13cf8cc9de68537f6f524eb3ef9ef20eff6f816033cce70b6ba64cf9e5e65",
-          "bytes": 22511
+          "sha256": "2030015c90d1bb8b7af2f05162f12810f4796afd5b6067b49130dd8321c32846",
+          "bytes": 22973
         },
         {
           "path": "/integration/references/WEBHOOKS.md",
-          "sha256": "da7a151d4afef5c189d319a87dc619786147ec3384243fc073318f5e790efe0e",
-          "bytes": 9109
+          "sha256": "0240087f3716928bd9064430a7d724d220df0c11f093297310e1dde3222d9df5",
+          "bytes": 9622
         }
       ]
     },
@@ -362,13 +362,13 @@
       "files": [
         {
           "path": "/setup/SKILL.md",
-          "sha256": "f6cfd510333dbacfc923226120971ffddd9704546234e3f11009ef95b9d8af8a",
-          "bytes": 55436
+          "sha256": "53b951ef5e602bbc5a8e95957db89993f824f2a0a263698c68821ff64c9e2c28",
+          "bytes": 56124
         },
         {
           "path": "/setup/references/CONFIGURATION.md",
-          "sha256": "d5bc3c0cf623be70093d819756d35d594501a19ef8ee84ce9e5c4e75bd33effa",
-          "bytes": 43518
+          "sha256": "7795f97e009463caae3f75a614679594816c3c6522f423457e93ee806437be8e",
+          "bytes": 43931
         }
       ]
     },
@@ -408,8 +408,8 @@
       "files": [
         {
           "path": "/upload/SKILL.md",
-          "sha256": "3a78e95d0ddaacd3db7425342e2daabacff419da55831d6d3ec109c657e1ae49",
-          "bytes": 19497
+          "sha256": "244975136320e6d1f5f030a750e372c1d679c3f0494d324cb76246345b76382b",
+          "bytes": 20012
         },
         {
           "path": "/upload/references/API.md",

@@ -44,6 +44,8 @@ curl http://localhost:8000/api/documents/{document_id} \
 
 The field is **`processing_status`** (documents have no `status` key) and it moves `pending` → `processing` → `extracting` → `completed` (or `failed`, with an `error` field). A `completed` document can still be **degraded** — check `entity_count == 0` or `unembedded_chunk_count > 0` and reprocess if so.
 
+A `completed` document can also carry **`content_status`** (`"empty"` or `"encrypted"`, absent on normal documents) with a human-readable `content_note`. That means the file itself held nothing to ingest — zero bytes, a PDF with no pages, or a password-protected PDF — so the document has no chunks and will never appear in search results. **Do not reprocess these**: the outcome is identical every time. Report `content_note` to the user instead; for `"encrypted"` the fix is re-uploading a decrypted copy.
+
 ### Polling Rules of Thumb
 
 - Poll every 5–10 seconds with backoff; document processing takes seconds to minutes depending on size and the configured models.

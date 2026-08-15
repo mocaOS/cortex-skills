@@ -152,6 +152,8 @@ Response:
 
 Note the field is **`processing_status`** — document objects have no `status` key (only the upload/reprocess *responses* use `status`), and the timestamp is `upload_date` (no `created_at`/`processed_at`).
 
+**Check `content_status` before declaring success.** A file with nothing to extract — zero bytes, a PDF with no pages, or a password-protected PDF — still reaches `completed`, but carries `content_status` (`"empty"` or `"encrypted"`), a `content_note`, and `chunk_count: 0`. Nothing was ingested and nothing will be searchable, so don't report the upload as done: relay `content_note`, and for `"encrypted"` ask the user for a decrypted copy. Reprocessing is pointless — the outcome is identical every time.
+
 ---
 
 ## Chunking Configuration
