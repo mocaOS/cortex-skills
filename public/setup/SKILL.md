@@ -323,6 +323,11 @@ KEYWORD_WEIGHT=0.3
 GRAPH_WEIGHT=0.2
 ENABLE_RERANKING=true
 RERANKING_MODEL=cross-encoder/ms-marco-MiniLM-L-6-v2
+RERANK_TOP_K=15                        # kept per search; per-query fetch depth ≈ 2× this, deduped before reranking
+ENABLE_QUERY_ENTITY_RESOLUTION=true    # query entity names → stored entities incl. aliases before traversal
+ENABLE_RANKED_GRAPH_TRAVERSAL=true     # entity-to-entity neighbors, passages ranked by mentioned query entities
+VECTOR_SCOPED_OVERFETCH=10             # collection-scoped vector search over-fetch (cap 200); 1 = off
+ENABLE_PARALLEL_SEARCH_LEGS=true       # vector/keyword/graph legs run concurrently
 ```
 
 ### RAG Configuration

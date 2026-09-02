@@ -226,6 +226,10 @@ OUTPUT TOKENS:                          INPUT CONTEXT:
 | `VECTOR_WEIGHT` | `float` | `0.5` | Weight for vector (semantic) search in hybrid fusion. Must sum to 1.0 with the other two weights. |
 | `KEYWORD_WEIGHT` | `float` | `0.3` | Weight for keyword (full-text) search in hybrid fusion. |
 | `GRAPH_WEIGHT` | `float` | `0.2` | Weight for graph traversal search in hybrid fusion. |
+| `ENABLE_QUERY_ENTITY_RESOLUTION` | `boolean` | `true` | Resolve entity names in a query to stored entities before graph traversal: exact name, then case-insensitive name or alias, then a fulltext match on the name field. `false` = exact-name matching only (the graph leg then rarely fires). |
+| `ENABLE_RANKED_GRAPH_TRAVERSAL` | `boolean` | `true` | Graph leg follows entity-to-entity relationships only and ranks passages by how many of the query's entities they mention. `false` = legacy traversal (slower, unranked passages). Scheduled for removal after the 2026-09 rollout. |
+| `VECTOR_SCOPED_OVERFETCH` | `integer` | `10` | For collection-scoped searches, fetch this many × the requested candidates from the vector index (cap 200) before filtering — the index cannot pre-filter. `1` disables. |
+| `ENABLE_PARALLEL_SEARCH_LEGS` | `boolean` | `true` | Run the vector, keyword and graph legs of one query concurrently. `false` = sequential (lighter on a small Neo4j). |
 
 ### Re-ranking
 
@@ -233,6 +237,7 @@ OUTPUT TOKENS:                          INPUT CONTEXT:
 |----------|------|---------|-------------|
 | `ENABLE_RERANKING` | `boolean` | `true` | Enable cross-encoder re-ranking after initial retrieval for improved precision. |
 | `RERANKING_MODEL` | `string` | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Cross-encoder model for re-ranking. Runs locally on CPU. |
+| `RERANK_TOP_K` | `integer` | `15` | Candidates kept per `knowledge_search` after re-ranking. Also sets the per-query fetch depth so the pooled, deduplicated candidate set is about twice this value (3 queries → 10 each, floor 5, cap 12). Lower on a remote reranker to trade recall for latency. |
 
 ### Agentic RAG
 

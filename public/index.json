@@ -350,8 +350,8 @@
         },
         {
           "path": "/search/references/API.md",
-          "sha256": "d151fdc4cf036f6aeb5c01ffafdd6d3315b627744929a41cca97390af1289ae3",
-          "bytes": 9292
+          "sha256": "6a0c48e1bcf4fe8bc653cf8f1b451b5e88330a442647a1d614511102274edef0",
+          "bytes": 10445
         }
       ]
     },
@@ -362,13 +362,13 @@
       "files": [
         {
           "path": "/setup/SKILL.md",
-          "sha256": "53b951ef5e602bbc5a8e95957db89993f824f2a0a263698c68821ff64c9e2c28",
-          "bytes": 56124
+          "sha256": "12cd29e4df0d194ce019abbb93cc4f5a6940ba207b1c7c8c2448d1a270f172cf",
+          "bytes": 56654
         },
         {
           "path": "/setup/references/CONFIGURATION.md",
-          "sha256": "7795f97e009463caae3f75a614679594816c3c6522f423457e93ee806437be8e",
-          "bytes": 43931
+          "sha256": "e2ef6d3baaad7b22cce0c0f8c259d2b573899d70df969ada4e3f48cf5a4fbcd3",
+          "bytes": 45207
         }
       ]
     },

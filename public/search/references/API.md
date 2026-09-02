@@ -165,11 +165,11 @@ After RRF fusion produces a candidate list, a cross-encoder model re-scores each
 
 ### Graph Traversal
 
-- Named entities in the query are identified and matched against the knowledge graph
-- Follows `RELATED_TO` and `MENTIONS` edges
-- Traversal depth: up to `MAX_GRAPH_HOPS` (default 2) hops from matched entities
+- Named entities in the query are identified and **resolved** to stored entities: exact name, then case-insensitive name or alias (aliases accumulate through deduplication, merges and renames), then a fulltext match on the name that only accepts a stored name containing every word of the mention ("Polygon" → "Polygon Network")
+- Follows the typed entity-to-entity relationships (`RELATED_TO`, `USES`, `LOCATED_IN`, …) one hop, plus a capped second ring when `MAX_GRAPH_HOPS` ≥ 2 — not co-occurrence in text
+- Chunks are collected through `MENTIONS` edges and **ranked** by how many of the query's entities they mention (a named entity weighs 3, a neighbor 1), so a chunk naming two query entities outranks one naming a single neighbor
 - Entity-aware: "the CEO" can resolve to a specific person entity
-- Returns chunks that are semantically connected through entity relationships
+- Returns chunks that are connected through entity relationships, with their real `chunk_index`
 
 ---
 
@@ -210,6 +210,11 @@ Latency depends on corpus size and graph density.
 | `ENABLE_RERANKING`    | `true`                               | Enable cross-encoder re-ranking                     |
 | `RERANKING_MODEL`     | `cross-encoder/ms-marco-MiniLM-L-6-v2` | Cross-encoder model for re-ranking              |
 | `MAX_GRAPH_HOPS`      | `2`                                  | Maximum graph traversal depth                       |
+| `RERANK_TOP_K`        | `15`                                 | Candidates kept per search; fetch depth ≈ 2× this   |
+| `ENABLE_QUERY_ENTITY_RESOLUTION` | `true`                    | Resolve query entities incl. aliases before traversal |
+| `ENABLE_RANKED_GRAPH_TRAVERSAL` | `true`                     | Entity-only neighbors, passages ranked by mentions  |
+| `VECTOR_SCOPED_OVERFETCH` | `10`                             | Scoped vector over-fetch factor (cap 200); 1 = off  |
+| `ENABLE_PARALLEL_SEARCH_LEGS` | `true`                       | Run the three legs concurrently                     |
 | `SHOW_RETRIEVAL_STATS`| `true`                               | Include `retrieval_stats` in response               |
 | `EMBEDDING_MODEL`     | `openai/text-embedding-3-small`      | Model used to embed queries (must match ingestion)  |
 | `EMBEDDING_DIMENSION` | `1536`                               | Embedding vector dimensions                         |
