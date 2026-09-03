@@ -63,7 +63,7 @@ die(){ echo "cortex: $*" >&2; exit 1; }
 # Tracks the skill version in SKILL.md frontmatter (and index.json). Lets an
 # installed copy report what it is, so update/drift checks don't depend on a
 # byte-identical re-fetch of this script.
-CORTEX_SH_VERSION="1.3.2"
+CORTEX_SH_VERSION="1.3.3"
 
 # ---- source resolution -------------------------------------------------------
 SRC=""; THREAD=""
@@ -283,6 +283,14 @@ case "$cmd" in
     cid=$(read_collection_id)
     resp=$(api -X POST "$BASE_URL/api/ask" -H "Content-Type: application/json" -d "$(ask_body "$q" "$cid" false)")
     jq -r '.answer // .detail.message // "cortex: no answer in response"' <<<"$resp"
+    # Answer-quality flags (backends newer than v1.2.1). Older backends: a
+    # refusal is recognisable by its text — match it so it is never quoted as fact.
+    refused=""
+    if jq -e '.refused == true' >/dev/null 2>&1 <<<"$resp" || jq -r '.answer // ""' <<<"$resp" | grep -qi "^\W*I.m here to help with questions about your documents"; then
+      refused=1
+      echo "hint: that was the prompt-injection filter's canned refusal, NOT an answer — rephrase as a plain question about the content (no \"you are…\", no output-format contracts) and ask again"
+    fi
+    jq -e '.truncated == true' >/dev/null 2>&1 <<<"$resp" && echo "hint: the answer was cut at the fast-chat token cap (1200) — for the full report use deep research: cortex.sh ask \"$q\""
     if [ -n "$THREAD" ]; then
       ans=$(jq -r '.answer // empty' <<<"$resp")
       if [ -n "$ans" ]; then
@@ -291,10 +299,10 @@ case "$cmd" in
     fi
     # A busy/slow LLM backend trips the non-streaming endpoint's server deadline;
     # the streaming path has none — tell the agent the right next move.
-    grep -q "deadline" <<<"$resp" && echo "hint: the backend LLM is busy/slow — use the streaming path instead: cortex.sh ask \"$q\""
+    grep -q "deadline\|ask_failed" <<<"$resp" && echo "hint: the backend LLM is busy/slow — use the streaming path instead: cortex.sh ask \"$q\""
     # Empty sources = retrieval matched nothing. Don't let the agent stop here:
     # reformulate, probe with raw search, or escalate to deep research.
-    if jq -e '(.sources // [])|length==0' >/dev/null 2>&1 <<<"$resp" && ! grep -q "deadline" <<<"$resp"; then
+    if [ -z "$refused" ] && jq -e '(.sources // [])|length==0' >/dev/null 2>&1 <<<"$resp" && ! grep -q "deadline" <<<"$resp"; then
       echo "hint: retrieval matched nothing in $(read_scope) — do NOT report 'not found' yet. Reformulate (entity names, synonyms): cortex.sh search \"<terms>\" — check the scope (cortex.sh status) or another connected source (cortex.sh sources) — or run deep research: cortex.sh ask \"$q\""
     fi
     jq -r 'if (.sources|length)>0 then "\nsources (matches [src_N] in the answer):\n" + ([.sources|to_entries[]|"  [\(.key+1)] \(.value.metadata.filename // .value.document_title // .value.document_id) — score \((.value.score // .value.metadata.rerank_score // 0)|tostring|.[0:5]) — doc \(.value.document_id[0:8])"]|join("\n")) else empty end' <<<"$resp"
@@ -319,6 +327,14 @@ case "$cmd" in
             printf '%s' "$tok"; printf '%s' "$tok" >> "$ANSF"
           elif jq -e 'has("error")' >/dev/null 2>&1 <<<"$json"; then
             printf '\n[cortex error] %s' "$(jq -r '.error|tostring' <<<"$json")"
+          fi
+          # done-frame flags (backends newer than v1.2.1): a refusal is a canned
+          # line, not knowledge — never quote it as the answer; a truncation
+          # means the report was cut at the writer's token cap.
+          if jq -e 'has("done") and .refused == true' >/dev/null 2>&1 <<<"$json"; then
+            printf '\n[cortex: that was the prompt-injection filter\x27s canned refusal, NOT an answer — rephrase as a plain question about the content (no "you are…", no output-format contracts) and ask again]'
+          elif jq -e 'has("done") and .truncated == true' >/dev/null 2>&1 <<<"$json"; then
+            printf '\n[cortex: answer was cut at the output-token cap — ask a narrower question, or raise WRITER_MAX_TOKENS_QUALITY on the instance]'
           fi
           jq -e 'has("sources")' >/dev/null 2>&1 <<<"$json" && printf '%s' "$json" > "$SRCF"
           jq -e 'has("memory_update")' >/dev/null 2>&1 <<<"$json" && printf '%s' "$json" > "$MEMF"

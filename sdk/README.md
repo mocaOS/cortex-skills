@@ -111,6 +111,10 @@ console.log(hook.secret); // shown ONCE — verify deliveries with it
 
 Deliveries are signed `X-Cortex-Signature: t=<unix>,v1=hex(hmac_sha256(secret, "<t>.<body>"))`.
 
+## Answer flags
+
+Every `AskResult` may carry `refused` (the backend returned its canned prompt-injection refusal instead of knowledge — rephrase as a plain question about the content) and `truncated` (the answer hit the writer's output-token cap). Both default to absent/false and need a backend newer than v1.2.1; on older backends detect a refusal by its text (`"I'm here to help with questions about your documents…"`).
+
 ## Errors
 
 Every non-2xx response throws `CortexApiError` with `status`, `errorCode` (the backend's machine-readable code, e.g. `agentic_requires_streaming`, `depth_conflict`), and the raw `body`. Stream failures throw `CortexStreamError`; a graceful server restart mid-stream throws `CortexServerRestart` (safe to retry).

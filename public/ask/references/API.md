@@ -22,7 +22,7 @@ Primary streaming endpoint. Returns answer tokens, sources, and graph context vi
 
 ### POST /api/ask
 
-Non-streaming endpoint. Returns the complete answer in a single JSON response. Quick single-shot chat answers only, for callers that cannot consume SSE: bounded by a ~28s server-side deadline (`504 deadline_exceeded` on expiry) and rejects `use_agentic: true` with `400 agentic_requires_streaming`.
+Non-streaming endpoint. Returns the complete answer in a single JSON response. Quick single-shot chat answers only, for callers that cannot consume SSE: bounded by a ~28s server-side deadline (`504 deadline_exceeded` on expiry), capped at 1,200 output tokens, and rejects `use_agentic: true` with `400 agentic_requires_streaming`. Best-effort under load — agents should aggregate `/api/ask/stream` instead (see [Python -- Deep Research aggregated](#python----deep-research-aggregated-to-answer-sources-recommended-for-agents)). On backends newer than v1.2.1 the response carries `finish_reason`, `truncated` and `refused` (see below).
 
 ### POST /api/ask/stream/thinking
 
@@ -101,7 +101,11 @@ The backend keeps the most recent messages (configured by `MAX_CONVERSATION_HIST
     "total_unique": 15,
     "after_reranking": 10
   },
-  "collection_id": null
+  "collection_id": null,
+  "structured": null,
+  "finish_reason": "stop",
+  "truncated": false,
+  "refused": false
 }
 ```
 
@@ -116,7 +120,11 @@ The backend keeps the most recent messages (configured by `MAX_CONVERSATION_HIST
 | `sub_questions` | `string[] \| null` | Decomposed sub-questions (only when `use_agentic: true`) |
 | `communities_used` | `number[]` | Community IDs (integers) used during retrieval |
 | `retrieval_stats` | `object` | Counts of results from each retrieval method |
-| `collection_id` | `string \| null` | The collection scope used, if any |
+| `collection_id` | `string \| null` | The collection scope actually applied (request or key restriction) |
+| `structured` | `object \| null` | Parsed JSON answer when `response_format` was set and parsing succeeded |
+| `finish_reason` | `string \| null` | Provider finish reason of the answer (`stop`, `length`, ...). Backends newer than v1.2.1 |
+| `truncated` | `boolean` | `true` when the answer hit the 1,200-token cap (`finish_reason == "length"`) and is cut short. Backends newer than v1.2.1; older backends return the clipped text unflagged |
+| `refused` | `boolean` | `true` when `answer` is the canned prompt-injection refusal rather than knowledge -- rephrase as a plain question. Backends newer than v1.2.1 |
 
 ---
 
@@ -133,7 +141,7 @@ The response is an HTTP stream with `Content-Type: text/event-stream`. Each even
 | `sub_questions` | `string[]` | Deep Research | The decomposed research sub-questions |
 | `retrieval` | `string` | Deep Research | Per-search retrieval progress (e.g., "Found 8 sources") |
 | `retrieval_stats` | `object` | Deep Research | Summary: `total_sources_considered`, `unique_sources`, `search_calls`, `communities_used` |
-| `done` | `boolean` | All modes | `true` when the stream is complete. When conversation memory is active it also carries `pending_memory: true`, signalling that one more `memory_update` frame follows |
+| `done` | `boolean` | All modes | `true` when the stream is complete. When conversation memory is active it also carries `pending_memory: true`, signalling that one more `memory_update` frame follows. On backends newer than v1.2.1 it also carries `refused: true` (the stream was a prompt-injection refusal) or `truncated: true` (the writer hit its output-token cap) when applicable |
 | `memory_update` | `object` | When `conversation_memory` sent | Updated memory blob to replay next turn. Emitted **after** the `done` frame (default `EMIT_DONE_BEFORE_MEMORY=true`) |
 | `error` | `string` | All modes | Error message if something went wrong |
 | `communities_used` | `number[]` | Deep Research | Community IDs (integers) used (included in the `done` event) |
@@ -250,9 +258,11 @@ When `use_agentic: true`, the system uses a **researcher/writer agent architectu
 | `ENABLE_AGENT_RESEARCH` | `true` | Use agent pipeline for deep research (set `false` for legacy) |
 | `ENABLE_AGENT_CHAT` | `false` | Use agent pipeline for standard chat (opt-in) |
 | `RESEARCHER_MAX_ITERATIONS_SPEED` | `3` | Agent iterations for chat mode (5 when skills are active) |
-| `RESEARCHER_MAX_ITERATIONS_QUALITY` | `8` | Agent iterations for deep research |
-| `WRITER_MAX_TOKENS_SPEED` | `1200` | Max output tokens for chat answers |
-| `WRITER_MAX_TOKENS_QUALITY` | `4000` | Max output tokens for deep research answers |
+| `RESEARCHER_MAX_ITERATIONS_QUALITY` | `5` | Agent iterations for deep research (`8` on v1.2.1 and older) |
+| `RESEARCHER_WALL_CLOCK_SECONDS` | `60` | Research time budget; on expiry the writer answers from what was gathered (`120` in v1.0.1–v1.2.1, `0` = unlimited in v1.0.0) |
+| `WRITER_MAX_TOKENS_SPEED` | `1200` | Max output tokens for chat answers (also the non-streaming `/api/ask` cap) |
+| `WRITER_MAX_TOKENS_QUALITY` | `8000` | Max output tokens for deep research answers (`4000` on v1.0.0) |
+| `ASK_DEADLINE_SECONDS` | `28` | Server-side deadline of the non-streaming `POST /api/ask` (`504 deadline_exceeded`); the SSE endpoints have none |
 | `MAX_CONVERSATION_HISTORY` | `6` | Messages to keep for multi-turn context |
 | `STREAM_REASONING_STEPS` | `true` | Show thinking steps in deep research |
 | `SHOW_RETRIEVAL_STATS` | `true` | Include retrieval_stats events |
@@ -339,6 +349,24 @@ Two distinct limits return 429 on `/api/ask`, `/api/ask/stream`, `/api/ask/strea
 
 The quota is checked before streaming starts -- a request that passes the gate runs to completion, and an in-flight stream is never cut off mid-answer by the quota.
 
+### Server Errors on POST /api/ask (5xx)
+
+The non-streaming endpoint buffers the whole answer and so is the one that fails under load. Whatever the body, the right reaction is the same: **retry on `POST /api/ask/stream`**.
+
+**Deadline** -- `504 Gateway Timeout` (~28s, `ASK_DEADLINE_SECONDS`)
+
+```json
+{"detail": {"error": "deadline_exceeded", "message": "...", "deadline_seconds": 28}, "request_id": "..."}
+```
+
+**Any other failure** -- `500 Internal Server Error`. On backends newer than v1.2.1 the body is structured (the `exception` text is included outside production only):
+
+```json
+{"detail": {"error": "ask_failed", "message": "The non-streaming ask failed before an answer was produced. Retry, or use POST /api/ask/stream ...", "use_endpoint": "/api/ask/stream"}, "request_id": "..."}
+```
+
+Older backends (and, on them, the 504 as well in production) return the sanitized generic body `{"detail": "Internal server error. Check server logs for details.", "request_id": "..."}`. Quote the `request_id` when reporting.
+
 ### Streaming Errors
 
 During an SSE stream, errors are delivered as an event rather than an HTTP status code:
@@ -347,11 +375,58 @@ During an SSE stream, errors are delivered as an event rather than an HTTP statu
 data: {"error": "LLM request failed: connection timeout"}
 ```
 
+A prompt-injection refusal is **not** an error: see [Injection Refusals](#injection-refusals-look-like-normal-streams).
+
 ---
 
 ## Code Examples
 
-### cURL -- Non-Streaming
+### Python -- Deep Research aggregated to {answer, sources} (Recommended for agents)
+
+The one function an agent needs: stream Deep Research, return the answer text, the `sources` list and the two quality flags.
+
+```python
+import json, requests
+
+def ask(base_url, api_key, question, collection_id=None):
+    r = requests.post(
+        f"{base_url}/api/ask/stream", stream=True, timeout=(10, 600),
+        headers={"X-API-Key": api_key, "Content-Type": "application/json",
+                 "Accept": "text/event-stream"},
+        json={"question": question, "use_agentic": True, "collection_id": collection_id},
+    )
+    r.raise_for_status()
+    out = {"answer": "", "sources": [], "refused": False, "truncated": False}
+    for line in r.iter_lines(decode_unicode=True):
+        if not line.startswith("data: "):
+            continue
+        ev = json.loads(line[6:])
+        if "error" in ev:
+            raise RuntimeError(ev["error"])
+        if "content" in ev:
+            out["answer"] += ev["content"]
+        if "sources" in ev:
+            out["sources"] = ev["sources"]
+        out["refused"] |= bool(ev.get("refused"))
+        out["truncated"] |= bool(ev.get("truncated"))
+        if ev.get("done") and not ev.get("pending_memory"):
+            break
+    if out["answer"].strip().strip('"').lower().startswith(
+        "i'm here to help with questions about your documents"
+    ):
+        out["refused"] = True  # older backends carry no flag
+    return out
+```
+
+### cURL -- Fetch a whole document
+
+```bash
+curl -s "$CORTEX_URL/api/documents/$DOC_ID/content" -H "X-API-Key: $CORTEX_API_KEY" | jq -r .full_content
+```
+
+Returns `{id, filename, file_type, file_size, upload_date, chunk_count, collection_id, chunks: [{id, content, chunk_index}], full_content}`; `full_content` is empty while the document is still processing.
+
+### cURL -- Non-Streaming (fast chat only)
 
 ```bash
 export CORTEX_URL="http://localhost:8000"
@@ -709,7 +784,7 @@ When `PROMPT_SECURITY=true` (default), the system:
 
 ### Injection Refusals Look Like Normal Streams
 
-A question flagged by the query-time injection detector (or the optional Prompt Guard classifier, when enabled) returns a normal-looking SSE stream: a safe-refusal `content` frame followed by `done`. It is **not** an `error` frame, not an HTTP error, and carries no special field -- do not treat refusals as failures. Each Prompt-Guard-screened question costs one extra unit against the monthly quota.
+A question flagged by the query-time injection detector (or the optional Prompt Guard classifier, when enabled) returns a normal-looking SSE stream: a safe-refusal `content` frame followed by `done`. It is **not** an `error` frame and not an HTTP error -- do not treat refusals as failures. On backends newer than v1.2.1 both frames carry `refused: true` (and the non-streaming response a top-level `refused: true`); older backends carry no field, so match the canned text, which begins `I'm here to help with questions about your documents`. Instruction-shaped phrasing trips the filter ("you are...", "respond only with...", output contracts such as "N examples with names, ids and quirks") -- rephrase as a plain question about the content. Each Prompt-Guard-screened question costs one extra unit against the monthly quota.
 
 ---
 

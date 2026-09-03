@@ -86,6 +86,8 @@ export async function collectAskStream(
     if (event.sub_questions) result.sub_questions = event.sub_questions;
     if (event.communities_used) result.communities_used = event.communities_used;
     if (event.memory_update) result.memory_update = event.memory_update;
+    if (event.refused === true) result.refused = true;
+    if (event.truncated === true) result.truncated = true;
     if (typeof event.thinking === "string") steps.push(event.thinking);
     if (typeof event.retrieval === "string") steps.push(event.retrieval);
   }

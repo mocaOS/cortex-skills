@@ -18,6 +18,8 @@ description: Use this skill when organizing documents into collections in Cortex
 
 5. **`MAX_COLLECTIONS` is an environment variable**, not an API setting. Set to 0 for unlimited.
 
+6. **Descriptions are optional, so on most instances they are `null` — and a bare name ("Default", "Collective", "Youtube") tells an agent nothing about scope.** Operators: fill them (`PATCH /api/collections/{id}` with `description`, ≤500 chars) — agents read them to decide whether scoping is worth it. Agents on an undocumented instance: peek instead of guessing — `GET /api/documents?collection_id={id}&limit=10` lists a collection's filenames (documents carry `collection_id`), and `GET /api/collections` gives `document_count`/`entity_count`. Scoping is a pre-filter, so a wrong guess silently hides the answer.
+
 ## API Endpoints
 
 ### List all collections

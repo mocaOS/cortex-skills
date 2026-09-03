@@ -70,6 +70,12 @@ export interface AskResult {
   structured?: Record<string, unknown> | null;
   /** Updated conversation-memory blob (streaming asks that sent one). */
   memory_update?: Record<string, unknown>;
+  /** Provider finish_reason of the answer ("stop", "length", …); non-streaming only. */
+  finish_reason?: string | null;
+  /** The answer hit the writer's output-token cap and is cut short (backends newer than v1.2.1). */
+  truncated?: boolean;
+  /** The answer is the canned prompt-injection refusal, not knowledge — rephrase as a plain question (backends newer than v1.2.1). */
+  refused?: boolean;
 }
 
 /** One SSE frame from /api/ask/stream. Current backends stamp `type`; the
@@ -89,6 +95,10 @@ export interface AskStreamEvent {
   done?: boolean;
   /** On the done frame: a memory_update frame still follows — keep reading. */
   pending_memory?: boolean;
+  /** On refusal content/done frames: the stream is a canned injection refusal, not an answer. */
+  refused?: boolean;
+  /** On the done frame: the writer hit its output-token cap. */
+  truncated?: boolean;
   memory_update?: Record<string, unknown>;
   error?: string;
   [k: string]: unknown;

@@ -12,7 +12,7 @@ description: Use this skill when importing web pages into Cortex as clean markdo
 
 2. **The feature is hidden unless both the switch AND the service URL are set.** The Web Import option appears in the split **Upload** button dropdown on the **Documents** page only when `ENABLE_WEB_CRAWL=true` AND `CRAWL_SERVICE_URL` is set.
 
-3. **Imported pages become real documents — one per site, not one per URL.** All pages crawled from the same domain in a job are aggregated into a single markdown document (titled and filed by the domain, e.g. `example.com.md`), each page a `## section` with its own `> Source:` line. That whole document is chunked, embedded, and run through entity/relationship extraction like any uploaded file, so a site's subpages read as one related work in Search, Ask AI, the knowledge graph, and communities. A job spanning several domains yields one document per domain.
+3. **Imported pages become real documents — one per site, not one per URL.** All pages crawled from the same domain in a job are aggregated into a single markdown document (titled and filed by the domain, e.g. `example.com.md`; a one-page job with a real page title is filed as `example.com - Page Title.md` on backends newer than v1.2.1), each page a `## section` with its own `> Source:` line. That whole document is chunked, embedded, and run through entity/relationship extraction like any uploaded file, so a site's subpages read as one related work in Search, Ask AI, the knowledge graph, and communities. A job spanning several domains yields one document per domain.
 
 4. **You printed a web page to PDF and uploaded that instead.** Don't. Web Import lands the page as clean markdown that ingests instantly; a print-to-PDF of the same page goes through per-page ML layout analysis (~1 s/page) and produces worse structure. If Web Import isn't enabled, save the page as HTML or Markdown and upload that — still no ML pipeline involved.
 
@@ -88,7 +88,7 @@ Each per-domain document is titled by its domain and opens with a site header, t
 …clean markdown…
 ```
 
-A single-page import uses a simpler header (`# example.com` + `> Source: …`) but is still filed by the domain. **Contributor attribution:** `POST /api/web-import` accepts an optional `submitted_by` — when set, each document's `source` becomes `crawl:<domain> community:<id>` (otherwise just `crawl:<domain>`).
+A single-page import uses a simpler header and is still filed under its domain — on backends newer than v1.2.1 with the page title appended when the crawl yields a real one (`# example.com - Page Title` and `example.com - Page Title.md`), so repeated one-page imports from the same site stay distinguishable in search results; a URL-fallback "title" such as `o.html` keeps the plain `example.com.md`. On v1.2.1 and older every single-page import from a host shares the `example.com.md` name and the page title lives only in the first heading of the body. **Contributor attribution:** `POST /api/web-import` accepts an optional `submitted_by` — when set, each document's `source` becomes `crawl:<domain> community:<id>` (otherwise just `crawl:<domain>`).
 
 ## Configuration
 

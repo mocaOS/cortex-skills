@@ -11,7 +11,7 @@ compatibility: >
   Works with any agent that can execute shell commands.
 metadata:
   author: Cortex
-  version: "2.4.0"
+  version: "2.5.0"
   category: knowledge
   emoji: "\U0001F4DA"
 allowed-tools: Bash Read Write
@@ -184,6 +184,8 @@ curl -X POST "$API_BASE/api/documents/process-pending" \
 
 ## Search & Ask
 
+Three calls, three jobs: **search** when you need passages and document ids, **`GET /api/documents/{id}/content`** when you need a whole document (`full_content`), **streaming Deep Research** when you need a synthesized, cited answer. The non-streaming `/api/ask` is a short-answer convenience, not a research path.
+
 ### Hybrid Search
 
 Combines vector (0.5), keyword (0.3), and graph traversal (0.2) with cross-encoder reranking.
@@ -197,11 +199,13 @@ curl -X POST "$API_BASE/api/search" \
 
 **Collection-scoped search** - add `"collection_id": "col_xxx"` to search within a specific collection.
 
+**Whole document** - every hit carries a `document_id`; `GET "$API_BASE/api/documents/$DOC_ID/content"` returns `full_content` (all chunks in order), `chunks[]` and metadata. Chunks are for finding, the document is for reading.
+
 ### Ask AI (RAG Query)
 
 Two modes, selected with the `use_agentic` boolean (there is no `mode` field):
 - **Chat mode** (`use_agentic: false`, the default): up to 3 research iterations, ~1200-token answers — fast.
-- **Deep Research mode** (`use_agentic: true`): up to 8 agentic iterations with reasoning, ~8000-token answers bounded by a 120s research budget after which the answer is written from whatever was gathered (`WRITER_MAX_TOKENS_QUALITY` / `RESEARCHER_WALL_CLOCK_SECONDS`; on v1.0.0 these are 4000 tokens and no budget). **Only on the streaming endpoint** — `use_agentic: true` on non-streaming `POST /api/ask` returns `400 agentic_requires_streaming`; use `POST /api/ask/stream`.
+- **Deep Research mode** (`use_agentic: true`): up to 5 agentic iterations with reasoning (8 on v1.2.1 and older), ~8000-token answers bounded by a 60s research budget (120s in v1.0.1–v1.2.1) after which the answer is written from whatever was gathered (`WRITER_MAX_TOKENS_QUALITY` / `RESEARCHER_WALL_CLOCK_SECONDS`; on v1.0.0 these are 4000 tokens and no budget). **Only on the streaming endpoint** — `use_agentic: true` on non-streaming `POST /api/ask` returns `400 agentic_requires_streaming`; use `POST /api/ask/stream`.
 
 **Retrieving knowledge starts with streaming Deep Research** — "ask the cortex about X" / "find X in the cortex" means:
 
@@ -213,7 +217,7 @@ curl -N -X POST "$API_BASE/api/ask/stream" \
   -d '{"question": "What do I know about topic X?", "use_agentic": true}'
 ```
 
-**Quick chat answer** (non-streaming; ~28s server deadline, no Deep Research):
+**Quick chat answer** (non-streaming; ~28s server deadline, 1200-token cap, no Deep Research — best-effort under load, so fall back to the stream on any 5xx; backends newer than v1.2.1 flag a cut-off answer with `truncated: true` and a canned injection refusal with `refused: true`):
 ```bash
 curl -X POST "$API_BASE/api/ask" \
   -H "X-API-Key: $API_KEY" \
@@ -221,7 +225,7 @@ curl -X POST "$API_BASE/api/ask" \
   -d '{"question": "What do I know about topic X?", "use_agentic": false}'
 ```
 
-SSE events are flat-keyed JSON objects (switch on which key is present, there is no `type` field): `content` (answer tokens), `status`, `thinking`, `reasoning`, `retrieval`, `sources`, `graph_context`, `done` (carries `pending_memory: true` when memory compaction follows), `memory_update` (emitted after `done`), `error`.
+SSE events are flat-keyed JSON objects (switch on which key is present; current backends also stamp `type`): `content` (answer tokens), `status`, `thinking`, `reasoning`, `retrieval`, `sources`, `graph_context`, `done` (carries `pending_memory: true` when memory compaction follows; on backends newer than v1.2.1 also `refused: true` for a prompt-injection refusal or `truncated: true` for a token-capped answer), `memory_update` (emitted after `done`), `error`. Ready-made aggregators (bash helper, Python, TypeScript) live in the [ask skill](../ask/SKILL.md#aggregate-the-stream-into-answer-sources).
 
 ---
 
@@ -323,6 +327,7 @@ See [references/SYNC.md](references/SYNC.md) for the full sync workflow, QMD sup
 
 ## Version History
 
+- **2.5.0** - Search & Ask decision line, whole-document content endpoint, refusal/truncation flags, deep-research defaults for backends newer than v1.2.1
 - **2.0.0** - Rewritten for AgentSkills open standard; renamed to Cortex; added deep research, collections, communities, custom inputs, image analysis, streaming, entity dedup
 - **1.3.0** - Added QMD (Quick Memory Daemon) support
 - **1.2.0** - Clarified API parameter format (URL query params)

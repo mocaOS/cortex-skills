@@ -11,7 +11,7 @@ description: >
   "ask the community cortex about X", and "free up / clean up your memory"
   (migrate MEMORY.md overflow into your cortex). Built for the Hermes agent
   (nousresearch.com).
-version: 1.3.2
+version: 1.3.3
 license: Apache-2.0
 platforms: [macos, linux]
 metadata:

@@ -1,5 +1,5 @@
 ---
-version: 1.1.0
+version: 1.2.0
 name: search
 description: Perform hybrid search combining vector similarity, keyword matching, and graph traversal with cross-encoder re-ranking. Use this skill when searching documents, finding relevant chunks, or retrieving knowledge from the Cortex knowledge base.
 ---
@@ -19,6 +19,10 @@ description: Perform hybrid search combining vector similarity, keyword matching
 5. **Weights are configurable, not fixed.** The default 0.5/0.3/0.2 split can be overridden via environment variables (`VECTOR_WEIGHT`, `KEYWORD_WEIGHT`, `GRAPH_WEIGHT`). If your use case is heavily semantic, you can shift weight toward vector. If you need exact phrase matches, shift toward keyword.
 
 6. **Collection scoping changes the search space entirely.** When you pass `filters: {"collection_id": "..."}`, all three retrieval strategies are scoped to that collection's documents and subgraph. This isn't a post-filter — it's a pre-filter that limits the search index itself.
+
+7. **`document_title` is just the filename.** It mirrors `metadata.filename`; there is no separate title field. Web-imported documents are filed by domain, so on backends up to v1.2.1 fifteen essays crawled one at a time from the same site all show `museumofcrypto.substack.com.md` — the real title is the first heading of chunk 0 (newer backends name single-page imports `host - Page Title.md`). To triage look-alike hits, read `content` of the `chunk_index: 0` hit or fetch the document (next point).
+
+8. **Search returns chunks; when you need the source, fetch the document.** Every hit carries a `document_id` — `GET /api/documents/{id}/content` returns `full_content` (all chunks in order) plus `chunks[]` and metadata, with a read key. Chunks are for finding; the document is for reading. And when you need a synthesized, cited answer rather than passages, switch to streaming Deep Research (`POST /api/ask/stream`, `use_agentic: true`) — the [ask skill](../ask/SKILL.md) has the decision tree.
 
 ---
 
@@ -159,6 +163,17 @@ curl -X POST {BASE_URL}/api/search \
 
 ---
 
+## From a Hit to the Whole Document
+
+```bash
+curl -s "{BASE_URL}/api/documents/{document_id}/content" \
+  -H "X-API-Key: {API_KEY}" | jq -r .full_content
+```
+
+Response: `{id, filename, file_type, file_size, upload_date, chunk_count, collection_id, chunks: [{id, content, chunk_index}], full_content}`. `full_content` is empty while a document is still processing; `GET /api/documents/{id}/file` serves the original upload. Typical loop: search with `top_k: 20`, group hits by `document_id`, fetch the two or three documents that matter, quote from `full_content`.
+
+---
+
 ## Metadata Filters
 
 The `filters` object supports exact-match filtering on any metadata field attached to documents at upload time. Filters are applied before retrieval (pre-filter), not after.
@@ -186,7 +201,7 @@ Latency depends on corpus size and graph density.
 ## Tips for Better Results
 
 - **Use natural language queries.** "How does the system handle failed payments?" outperforms "failed payment handler" because the vector and graph components benefit from context.
-- **Increase `top_k` for RAG pipelines.** When feeding results into `/api/ask`, use `top_k: 20` or higher. The re-ranker will sort the best to the top.
+- **Increase `top_k` for triage.** Use `top_k: 20` or higher, then group by `document_id` — the re-ranker sorts the best to the top and the grouping shows which documents carry the topic. (Ask AI does its own retrieval; you don't feed it search results.)
 - **Use collection scoping for multi-tenant data.** Pass `filters: {"collection_id": "..."}` — collection scoping is architecturally isolated and faster.
 - **The graph component shines on entity-heavy queries.** Queries about people, organizations, products, or named concepts get a significant boost from graph traversal.
 

@@ -46,7 +46,17 @@ Search always runs the hybrid strategy (vector + keyword + graph, fused via RRF,
 
 The response has exactly three top-level fields: `query` (echo of the request), `results` (an array of `SearchResult`), and `total_results` (count of returned results).
 
-Each `SearchResult` carries `document_id`, `chunk_id`, `content`, `score`, and `metadata`. The `metadata` object contains `filename` and `chunk_index`; some retrieval paths also add `rerank_score`. The `score` field reflects the final re-ranked relevance score (not raw cosine similarity) when re-ranking is active.
+Each `SearchResult` carries `document_id`, `chunk_id`, `content`, `score`, and `metadata` (plus `document_title`, an alias of `metadata.filename`). The `metadata` object contains `filename` and `chunk_index`; some retrieval paths also add `rerank_score`. The `score` field reflects the final re-ranked relevance score (not raw cosine similarity) when re-ranking is active.
+
+### Fetching the Whole Document
+
+Hits are chunks. To read a source end to end, follow `document_id`:
+
+```
+GET {BASE_URL}/api/documents/{document_id}/content
+```
+
+Returns `{id, filename, file_type, file_size, upload_date, chunk_count, collection_id, chunks: [{id, content, chunk_index}], full_content}` — `full_content` is every chunk concatenated in order (empty while still processing). Requires `read`; `404` when the id is unknown or outside the key's collections. The original file: `GET /api/documents/{document_id}/file`.
 
 ### Errors
 
