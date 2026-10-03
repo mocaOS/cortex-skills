@@ -23,6 +23,7 @@ Curated skill files that teach AI agents how to build on the Cortex intelligence
 - `cortexskills.org/git-integration/SKILL.md` — Connect GitHub/GitLab/Gitea repos; agent opens PRs.
 - `cortexskills.org/web-import/SKILL.md` — Harvest web pages into markdown via crawl4ai (MDHarvest).
 - `cortexskills.org/tasks/SKILL.md` — Background task polling, cancellation, cleanup.
+- `cortexskills.org/x402/SKILL.md` — Pay-per-query x402 micropayments: the 402 → EIP-3009 → receipt handshake for paying agents, and config/verification/earnings for operators monetizing an instance.
 
 ### Ecosystem
 - `cortexskills.org/hermes/SKILL.md` — Long-term memory for the Hermes agent (recommended integration): install as /cortex, "dump your session into your cortex" / "check your cortex for X". Cloud or self-host on existing OpenRouter/Venice keys. Ships a native memory-provider plugin (`hermes/plugin/`) for ambient recall + first-class tools.
@@ -33,6 +34,7 @@ Curated skill files that teach AI agents how to build on the Cortex intelligence
 - `cortexskills.org/apps/SKILL.md` — Web apps that run INSIDE a Cortex instance: registry installs (sha256-verified), sandbox/proxy model, platform capabilities, share links, first-party apps.
 - `cortexskills.org/builder/SKILL.md` — Build ON Cortex: docs → installable skill (builder/skill), idea → in-instance web app (builder/app). Task-DSL reference for background/scheduled app work: builder/app/tasks.md.
 - `cortexskills.org/trainings/SKILL.md` — Cortex Trainings: standalone app turning a knowledge base into interactive courses. Researched cited curriculum → human approval → video/voiceover/animations → one offline HTML file. Read-only key; ENABLE_AGENTIC_RAG + ENABLE_AGENT_RESEARCH required.
+- `cortexskills.org/videogen/SKILL.md` — Cortex Videogen: standalone app generating marketing videos (16:9/9:16 MP4) from a knowledge base — storyboard and cost gates before anything is spent.
 
 ### Design
 - `cortexskills.org/cortex-design/SKILL.md` — The Bold Typography design system for Cortex UIs.

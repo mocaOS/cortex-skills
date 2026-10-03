@@ -1,0 +1,39 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install
+        run: npm ci
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Manifest is up to date and idempotent
+        run: |
+          npm run manifest
+          git diff --exit-code -- public/index.json
+
+      - name: SDK contract suite (hermetic)
+        run: npm test
+        working-directory: sdk
+
+      - name: MCP server contract suite (hermetic)
+        run: npm test
+        working-directory: mcp-server
+
+      - name: Site build
+        run: npm run build
