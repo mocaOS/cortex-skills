@@ -37,7 +37,7 @@ RAG-powered Q&A using the knowledge graph and document chunks. When the task is 
 
 **Response:** Answer text with a source list (filenames + document IDs + scores), graph-context entity summary, and — in deep research mode — the researched sub-questions. With `thread`, a footer confirms the thread was updated.
 
-**Maps to:** `chat` → `POST /api/ask` (`use_agentic: false`). `deep_research` → `POST /api/ask/stream` with `use_agentic: true`, aggregated server-side from the SSE stream (the non-streaming endpoint rejects agentic requests with `400 agentic_requires_streaming`).
+**Maps to:** `chat` → `POST /api/ask` (`use_agentic: false`). `deep_research` → `POST /api/ask/stream` with `use_agentic: true`, aggregated server-side from the SSE stream (on default `ENABLE_AGENT_RESEARCH=true` deployments the non-streaming endpoint rejects agentic requests with `400 agentic_requires_streaming`).
 
 **Threads:** state lives in `$CORTEX_STATE_DIR/threads/` (default `~/.cortex-mcp/threads/`), file shape `{history, memory, updated_at}` — shared with the Hermes skill's `cortex.sh --thread`, so point `CORTEX_STATE_DIR` at `~/.hermes/skills/state/cortex` to interoperate. The memory blob only updates on `deep_research` (the streaming path); `chat` threads carry history only.
 

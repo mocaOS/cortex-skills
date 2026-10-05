@@ -40,13 +40,13 @@ curl "{BASE_URL}/health"
   "status": "healthy",
   "neo4j_connected": true,
   "schema_initialized": true,
-  "version": "1.0.0"
+  "version": "<instance release>"
 }
 ```
 
 A degraded instance — Neo4j unreachable, or the schema (constraints/indexes) not yet confirmed at startup — answers **HTTP 503** with `"status": "degraded"`, not 200 with a degraded body, so healthchecks and health-aware proxies can key off the status code.
 
-`version` is meant to be the product release, but it is a hardcoded `"1.0.0"` on every release so far — a verified `cortex-backend:1.0.1` image still answers `1.0.0`. It starts reflecting the running release in the first release after v1.0.1, where a release-time guard holds it in step with the published version. **Never use it for feature detection**; read the image tag instead. It is also unrelated to the `2.0.0` in the OpenAPI schema, which versions the API contract rather than the product.
+`version` reports the instance's product release and changes release to release — it is not a feature flag. **Never use it for feature detection**; read the image tag instead. It is also unrelated to the `2.0.0` in the OpenAPI schema, which versions the API contract rather than the product.
 
 ### GET /api/stats
 
@@ -78,7 +78,7 @@ The response also carries the monthly unit quota meter — `monthly_usage_used`,
 
 ### POST /api/upload
 
-Upload a single file. Parameters `collection_id` and `start_processing` MUST be URL query parameters, NOT form fields.
+Upload a single file. Parameters `collection_id`, `start_processing`, and `source` work as URL query parameters **or** multipart form fields — use one placement consistently and avoid conflicting values. When both placements are sent: a nonempty query `collection_id`/`source` takes precedence, but a form `start_processing=true` overrides a query `false` (the server cannot distinguish an explicit `false` from the unset default). Older instances accept query params only.
 
 ```bash
 curl -X POST "{BASE_URL}/api/upload?collection_id={COLLECTION_ID}&start_processing=true" \
@@ -89,7 +89,7 @@ curl -X POST "{BASE_URL}/api/upload?collection_id={COLLECTION_ID}&start_processi
 | Query Parameter | Type | Default | Description |
 |----------------|------|---------|-------------|
 | `collection_id` | string | default collection | Target collection |
-| `start_processing` | boolean | `true` | Whether to begin processing immediately |
+| `start_processing` | boolean | `false` | Whether to begin processing immediately |
 
 **Response:**
 
@@ -382,7 +382,7 @@ curl -X POST "{BASE_URL}/api/custom-input" \
 
 ### POST /api/search
 
-Hybrid search combining vector (0.5), keyword (0.3), and graph traversal (0.2) with cross-encoder reranking.
+Hybrid search fusing vector (0.5), keyword (0.3), and metadata matching (0.2) with Reciprocal Rank Fusion. This endpoint does not re-rank — the `score` is the RRF fusion score (small values; a chunk ranked first in all three legs scores ≈ 1/61 ≈ 0.016). The Ask AI retrieval path adds a graph-traversal leg and cross-encoder re-ranking.
 
 ```bash
 curl -X POST "{BASE_URL}/api/search" \
@@ -398,7 +398,7 @@ curl -X POST "{BASE_URL}/api/search" \
 | `filters` | object | null | Filter criteria. Scope to a collection with `{"collection_id": "coll_abc123"}`. |
 | `collection_id` | string | null | Top-level alternative to `filters.collection_id` (same effect; don't pass both with different values — that's a 400). |
 
-**Response** (actual shape — `document_title` mirrors `metadata.filename`; `total` and `total_results` are aliases):
+**Response** (actual shape — `document_title` mirrors `metadata.filename`; `total` and `total_results` are aliases; no `graph_context` or timing field on this endpoint):
 
 ```json
 {
@@ -407,7 +407,7 @@ curl -X POST "{BASE_URL}/api/search" \
     {
       "chunk_id": "chunk_abc123",
       "content": "Machine learning algorithms can be categorized...",
-      "score": 0.92,
+      "score": 0.0164,
       "document_id": "doc_xyz789",
       "document_title": "ML Fundamentals.pdf",
       "metadata": {
@@ -417,16 +417,7 @@ curl -X POST "{BASE_URL}/api/search" \
     }
   ],
   "total_results": 5,
-  "total": 5,
-  "query_time_ms": 127,
-  "graph_context": {
-    "entities": [
-      {"name": "Neural Networks", "type": "Concept"}
-    ],
-    "relationships": [
-      {"source": "Neural Networks", "target": "Deep Learning", "type": "PART_OF"}
-    ]
-  }
+  "total": 5
 }
 ```
 
@@ -447,7 +438,7 @@ curl -N "{BASE_URL}/api/ask/stream" \
 
 ### POST /api/ask
 
-Non-streaming RAG query — quick chat answers only. Bounded by a ~28s server deadline (`504 deadline_exceeded`) and rejects `use_agentic: true` with `400 agentic_requires_streaming`.
+Non-streaming RAG query — quick chat answers. Bounded by a ~28s server deadline (`504 deadline_exceeded`). On default configurations (`ENABLE_AGENT_RESEARCH=true`) it rejects `use_agentic: true` with `400 agentic_requires_streaming`; with the flag `false` the legacy deep-research fallback runs here within the deadline — streaming `POST /api/ask/stream` remains the recommended Deep Research path either way.
 
 ```bash
 curl -X POST "{BASE_URL}/api/ask" \

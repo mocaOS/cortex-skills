@@ -100,6 +100,8 @@ for await (const event of cortex.askStream("question", { depth: "deep" })) {
 
 `collectAskStream()` aggregates a stream into one result and always reads to stream end — the `memory_update` frame may arrive **after** the `done` frame.
 
+Streams are parsed with LF framing; spec-legal CRLF line endings are accepted identically at the same frame boundary.
+
 ## Webhooks (admin key)
 
 ```ts

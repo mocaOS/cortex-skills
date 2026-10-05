@@ -11,7 +11,7 @@ compatibility: >
   Works with any agent that can execute shell commands.
 metadata:
   author: Cortex
-  version: "2.5.0"
+  version: "2.5.3"
   category: knowledge
   emoji: "\U0001F4DA"
 allowed-tools: Bash Read Write
@@ -45,7 +45,7 @@ This skill is memory sync + search + ask. Cortex does far more. Fetch the **root
 | Auth | `cortexskills.org/auth/SKILL.md` | API keys, collection scoping, injection defense |
 | Admin | `cortexskills.org/admin/SKILL.md` | Instance management, registry, export/import, reset |
 | Upload | `cortexskills.org/upload/SKILL.md` | Document ingestion (PDF, EPUB, DOCX, audio, images…) |
-| Search | `cortexskills.org/search/SKILL.md` | Hybrid vector + keyword + graph search |
+| Search | `cortexskills.org/search/SKILL.md` | Hybrid vector + keyword + metadata search |
 | Ask | `cortexskills.org/ask/SKILL.md` | RAG Q&A, streaming SSE, agentic deep research |
 | Graph | `cortexskills.org/graph/SKILL.md` | Entities, relationships, subgraph queries |
 | Collections | `cortexskills.org/collections/SKILL.md` | Scope documents and graphs by project or tenant |
@@ -100,11 +100,11 @@ fi
 curl -s "$API_BASE/health" -H "X-API-Key: $API_KEY"
 ```
 
-Expected: `{"status": "healthy", "neo4j_connected": true, "schema_initialized": true, "version": "1.0.0"}`
+Expected: `{"status": "healthy", "neo4j_connected": true, "schema_initialized": true, "version": "<instance release>"}`
 
 A degraded instance (Neo4j unreachable, or the schema not yet confirmed at startup) answers **HTTP 503** with `"status": "degraded"` — check the status code, not just the body.
 
-> Don't branch on `version`. It is a hardcoded `"1.0.0"` on every release so far, 1.0.1 included, and only becomes the real release version in the first release after that. Treat a healthy `200` as the signal, not the version string.
+> Don't branch on `version`. It reports the instance's product release and changes release to release — it is not a feature flag. Treat a healthy `200` as the signal, not the version string.
 
 ### Step 4: Find or Create Collection
 
@@ -145,17 +145,19 @@ Default memory locations scanned for sync:
 
 ## Upload API
 
-**CRITICAL:** Upload parameters (`collection_id`, `start_processing`) MUST be URL query parameters, NOT form fields:
+**Recommended:** pass upload parameters (`collection_id`, `start_processing`, `source`) as URL query parameters. Current backends also accept them as multipart form fields — use one placement consistently and avoid conflicting query/form values (their resolution differs per parameter). Older instances accept query parameters only:
 
 ```bash
-# CORRECT:
+# Preferred (query parameters — works on every instance):
 curl -X POST "$API_BASE/api/upload?collection_id=$COLLECTION_ID&start_processing=true" \
   -H "X-API-Key: $API_KEY" \
   -F "file=@/path/to/file.md"
 
-# WRONG (will not work):
+# Also accepted on current backends (form fields):
 # curl -X POST "$API_BASE/api/upload" -F "collection_id=$COLLECTION_ID" -F "file=@..."
 ```
+
+Note: the upload endpoint's `start_processing` defaults to `false` — a document uploaded without `start_processing=true` stays `pending` until you call `/api/documents/process-pending` or the reprocess endpoint.
 
 ### Single File Upload
 
@@ -188,7 +190,7 @@ Three calls, three jobs: **search** when you need passages and document ids, **`
 
 ### Hybrid Search
 
-Combines vector (0.5), keyword (0.3), and graph traversal (0.2) with cross-encoder reranking.
+Fuses vector (0.5), keyword (0.3), and metadata matching (0.2) with Reciprocal Rank Fusion. This endpoint does not re-rank — the `score` is the RRF fusion score. (The Ask AI retrieval path adds a graph-traversal leg and cross-encoder re-ranking.)
 
 ```bash
 curl -X POST "$API_BASE/api/search" \
@@ -205,7 +207,7 @@ curl -X POST "$API_BASE/api/search" \
 
 Two modes, selected with the `use_agentic` boolean (there is no `mode` field):
 - **Chat mode** (`use_agentic: false`, the default): up to 3 research iterations, ~1200-token answers — fast.
-- **Deep Research mode** (`use_agentic: true`): up to 5 agentic iterations with reasoning (8 on v1.2.1 and older), ~8000-token answers bounded by a 60s research budget (120s in v1.0.1–v1.2.1) after which the answer is written from whatever was gathered (`WRITER_MAX_TOKENS_QUALITY` / `RESEARCHER_WALL_CLOCK_SECONDS`; on v1.0.0 these are 4000 tokens and no budget). **Only on the streaming endpoint** — `use_agentic: true` on non-streaming `POST /api/ask` returns `400 agentic_requires_streaming`; use `POST /api/ask/stream`.
+- **Deep Research mode** (`use_agentic: true`): up to 5 agentic iterations with reasoning (8 on v1.2.1 and older), ~8000-token answers bounded by a 60s research budget (120s in v1.0.1–v1.2.1) after which the answer is written from whatever was gathered (`WRITER_MAX_TOKENS_QUALITY` / `RESEARCHER_WALL_CLOCK_SECONDS`; on v1.0.0 these are 4000 tokens and no budget). **Streaming is the Deep Research endpoint** — on default `ENABLE_AGENT_RESEARCH=true` deployments, `use_agentic: true` on non-streaming `POST /api/ask` returns `400 agentic_requires_streaming`; use `POST /api/ask/stream` (recommended regardless of the flag).
 
 **Retrieving knowledge starts with streaming Deep Research** — "ask the cortex about X" / "find X in the cortex" means:
 
@@ -327,6 +329,7 @@ See [references/SYNC.md](references/SYNC.md) for the full sync workflow, QMD sup
 
 ## Version History
 
+- **2.5.1** - `/health` version is release-dependent (not a fixed string); upload params accepted as query or multipart form fields; upload `start_processing` default corrected to `false`
 - **2.5.0** - Search & Ask decision line, whole-document content endpoint, refusal/truncation flags, deep-research defaults for backends newer than v1.2.1
 - **2.0.0** - Rewritten for AgentSkills open standard; renamed to Cortex; added deep research, collections, communities, custom inputs, image analysis, streaming, entity dedup
 - **1.3.0** - Added QMD (Quick Memory Daemon) support

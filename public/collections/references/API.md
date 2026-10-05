@@ -378,7 +378,7 @@ curl -X POST "http://localhost:8000/api/search" \
 | `collection_id` | `string \| null` | `null` | Scope to collection |
 | `search_type` | `string` | `"hybrid"` | One of: `hybrid`, `vector`, `keyword`, `graph` |
 
-When `collection_id` is provided, vector search, keyword search, and graph traversal are all filtered to that collection's data.
+When `collection_id` is provided, vector search, keyword search, and metadata matching are all filtered to that collection's data.
 
 ---
 

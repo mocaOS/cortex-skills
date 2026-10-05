@@ -1,5 +1,5 @@
 ---
-version: 1.1.0
+version: 1.1.1
 name: upload
 description: Handles document ingestion and processing for Cortex. Supports uploading files in a wide range of formats (PDF, EPUB, DOCX, images, audio, and more — prefer EPUB over PDF for books), extracting text, chunking content, generating embeddings, resolving entities, and storing everything in Neo4j. Also provides custom input creation, batch processing, bulk operations, and full document lifecycle management through a REST API.
 ---
@@ -14,7 +14,7 @@ Most integration issues with the upload system come from the same handful of mis
 
 2. **You assumed the document is ready immediately after upload returns.** It is not. Upload returns a document ID with status `pending` or `processing`. You must poll `GET /api/documents/{id}` until **`processing_status`** reaches `completed` — that is the field name on document objects; they have no `status` key (only the upload response itself uses `status`). The processing pipeline has 9 stages and they are asynchronous.
 
-3. **You forgot `start_processing=true`.** If you pass `start_processing=false` (or explicitly set it), the document will sit in `pending` forever until you trigger processing manually via `/api/documents/{id}/reprocess` or the batch endpoint.
+3. **You forgot `start_processing=true`.** The upload endpoint's default is `false`: if you omit the parameter or pass `start_processing=false`, the document will sit in `pending` until you trigger processing manually via `/api/documents/{id}/reprocess` or the batch endpoint.
 
 4. **You tried to upload a 200 MB file.** The default max file size is 50 MB, controlled by `MAX_FILE_SIZE_MB`. If you need larger files, change the environment variable — do not try to work around it client-side.
 
@@ -70,7 +70,9 @@ Content-Type: multipart/form-data
 | Parameter          | Type    | Default | Description                                      |
 |--------------------|---------|---------|--------------------------------------------------|
 | `collection_id`    | string  | none    | Assign the document to a specific collection      |
-| `start_processing` | boolean | `true`  | Begin processing immediately after upload         |
+| `start_processing` | boolean | `false` | Begin processing immediately after upload         |
+
+`collection_id`, `start_processing`, and `source` also work as multipart form fields — use one placement consistently and avoid conflicting query/form values (their resolution differs per parameter). Older instances accept query parameters only.
 
 ### Response
 
@@ -85,6 +87,8 @@ Returns the created document ID and upload metadata:
   "source": "upload"
 }
 ```
+
+With the default `start_processing=false`, `status` is `pending` and the message points at `/api/documents/process-pending`.
 
 ### Example: Upload a File
 
@@ -331,7 +335,7 @@ POST /api/custom-input
 Content-Type: application/json
 
 {
-  "input_type": "qa_pair",
+  "input_type": "qa",
   "content": "What is the refund policy?",
   "answer": "Full refund within 30 days of purchase.",
   "title": "Refund Policy",
@@ -342,9 +346,9 @@ Content-Type: application/json
 
 | Field              | Type    | Required | Description                                       |
 |--------------------|---------|----------|---------------------------------------------------|
-| `input_type`       | string  | Yes      | One of: `qa_pair`, `text`, `markdown`              |
+| `input_type`       | string  | Yes      | One of: `qa`, `text`, `markdown`                   |
 | `content`          | string  | Yes      | The main content (or question for Q&A pairs)       |
-| `answer`           | string  | No       | The answer (required when `input_type` is `qa_pair`)|
+| `answer`           | string  | No       | The answer (required when `input_type` is `qa`)    |
 | `title`            | string  | No       | Display title for the input                        |
 | `collection_id`    | string  | No       | Assign to a specific collection                    |
 | `start_processing` | boolean | No       | Begin processing immediately (default: `true`)     |
@@ -356,7 +360,7 @@ curl -X POST "{BASE_URL}/api/custom-input" \
   -H "X-API-Key: {API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{
-    "input_type": "qa_pair",
+    "input_type": "qa",
     "content": "What regions do you operate in?",
     "answer": "We operate in North America, Europe, and APAC.",
     "title": "Operating Regions",

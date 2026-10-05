@@ -24,9 +24,9 @@ Content-Type: multipart/form-data
 | Parameter          | Type    | Default | Description                                 |
 |--------------------|---------|---------|---------------------------------------------|
 | `collection_id`    | string  | none    | Assign the document to a collection         |
-| `start_processing` | boolean | `true`  | Begin processing immediately after upload   |
+| `start_processing` | boolean | `false` | Begin processing immediately after upload   |
 
-`collection_id`, `start_processing`, and `source` work as query parameters **or** multipart form fields (query wins when both are set). Older instances accept query params only.
+`collection_id`, `start_processing`, and `source` work as query parameters **or** multipart form fields — use one placement consistently and avoid conflicting values. When both placements are sent: a nonempty query `collection_id`/`source` takes precedence, but a form `start_processing=true` overrides a query `false` (the server cannot distinguish an explicit `false` from the unset default). Older instances accept query params only.
 
 ### Response `200`
 
@@ -307,7 +307,7 @@ Content-Type: application/json
 
 ```json
 {
-  "input_type": "qa_pair",
+  "input_type": "qa",
   "content": "What is the refund policy?",
   "answer": "Full refund within 30 days of purchase.",
   "title": "Refund Policy",
@@ -320,9 +320,9 @@ Content-Type: application/json
 
 | Field              | Type    | Required | Description                                           |
 |--------------------|---------|----------|-------------------------------------------------------|
-| `input_type`       | string  | Yes      | One of: `qa_pair`, `text`, `markdown`                 |
-| `content`          | string  | Yes      | Main content body (or question for `qa_pair`)         |
-| `answer`           | string  | No       | Required when `input_type` is `qa_pair`               |
+| `input_type`       | string  | Yes      | One of: `qa`, `text`, `markdown`                      |
+| `content`          | string  | Yes      | Main content body (or question for `qa`)              |
+| `answer`           | string  | No       | Required when `input_type` is `qa`                    |
 | `title`            | string  | No       | Display title                                         |
 | `collection_id`    | string  | No       | Assign to a collection                                |
 | `start_processing` | boolean | No       | Begin processing immediately (default: `true`)        |
@@ -424,6 +424,5 @@ There is no `degraded` status value. A **degraded** document is derived client-s
 | `CONCURRENT_RELATIONS`          | `3`         | Per-chunk relationship extractions per document   |
 | `VISION_MAX_CONCURRENT`         | `2`         | Max concurrent vision API calls system-wide       |
 | `ENABLE_GRAPH_EXTRACTION`       | `true`      | Enable entity/relationship extraction             |
-| `START_PROCESSING` (default)    | `true`      | Default for the query parameter                   |
 | `PAGE_CHUNK_SIZE`               | varies      | Chunked PDF processing page count                 |
 | `MAX_PAGES_PER_CHUNK`           | varies      | Max pages per processing chunk for large PDFs     |

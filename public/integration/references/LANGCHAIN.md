@@ -124,7 +124,7 @@ cortex_search_tool = StructuredTool.from_function(
     func=cortex_search_func,
     name="cortex_search",
     description=(
-        "Search the Cortex knowledge base using hybrid search (vector + keyword + graph). "
+        "Search the Cortex knowledge base using hybrid search (vector + keyword + metadata). "
         "Use this to find specific information, facts, or passages from uploaded documents."
     ),
     args_schema=SearchInput,

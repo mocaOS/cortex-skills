@@ -1,5 +1,5 @@
 ---
-version: 1.3.0
+version: 1.3.1
 name: mcp
 description: Use this skill when setting up or configuring the Cortex MCP server for Claude Desktop, Claude Code, Cursor, Windsurf, VS Code, or any MCP-compatible client. Covers installation (npm or from source), tool descriptions, configuration examples, and troubleshooting.
 ---
@@ -18,7 +18,7 @@ The Cortex MCP server gives any MCP-compatible AI client native access to your C
 2. **The MCP server is a separate process, not part of Cortex.** It is a lightweight stdio bridge that calls the Cortex REST API. You need a running Cortex instance first.
 3. **You need an API key with at least `read` permission.** Create one at `{YOUR_BASE_URL}/admin` → API Keys (`cortex_ro_...`). Use a `cortex_rw_...` key (includes `manage`) if you want the `upload_document` tool to work.
 4. **The server communicates via stdio, not HTTP.** MCP uses JSON-RPC over stdin/stdout. You do not need to expose any ports.
-5. **Deep research runs over SSE internally — and is the first choice for retrieval.** The Cortex API only honors `use_agentic: true` on its streaming endpoint — the MCP server handles this for you: `ask_question` with `mode: "deep_research"` consumes `/api/ask/stream` and returns the aggregated answer. When the task is "ask the cortex" / "find something in the cortex", start with `mode: "deep_research"`; reserve `chat` for quick lookups. Expect deep research calls to take minutes.
+5. **Deep research runs over SSE internally — and is the first choice for retrieval.** On default configurations the Cortex API honors `use_agentic: true` only on its streaming endpoint (with `ENABLE_AGENT_RESEARCH=false` the legacy fallback also runs on the non-streaming endpoint) — the MCP server handles this for you: `ask_question` with `mode: "deep_research"` consumes `/api/ask/stream` and returns the aggregated answer. When the task is "ask the cortex" / "find something in the cortex", start with `mode: "deep_research"`; reserve `chat` for quick lookups. Expect deep research calls to take minutes.
 6. **AgentSkills are not MCP tools.** The AgentSkills system (installing skills from the skills.sh registry) is a separate admin feature that extends the built-in researcher agent. See the [Admin skill](../admin/SKILL.md).
 
 ## Two ways to connect

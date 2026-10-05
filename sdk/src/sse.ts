@@ -36,6 +36,14 @@ export async function* parseSSEStream(
       const { value, done } = await reader.read();
       if (done) break;
       buffer += decoder.decode(value, { stream: true });
+      // CRLF line endings are normalized in the ACCUMULATED buffer (not per
+      // chunk): a "\r\n" pair split across chunk boundaries is joined here
+      // before splitting, and a lone trailing "\r" is preserved because its
+      // "\n" may arrive with the next chunk. This is the minimal alternate-
+      // line-ending accommodation at the same frame boundary — not a general
+      // SSE rewrite (no CR-only, bare-CR terminator or multi-line field
+      // merging semantics).
+      buffer = buffer.replace(/\r\n/g, "\n");
       const frames = buffer.split("\n\n");
       buffer = frames.pop() ?? "";
       for (const frame of frames) {

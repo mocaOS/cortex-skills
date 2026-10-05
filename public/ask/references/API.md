@@ -22,7 +22,7 @@ Primary streaming endpoint. Returns answer tokens, sources, and graph context vi
 
 ### POST /api/ask
 
-Non-streaming endpoint. Returns the complete answer in a single JSON response. Quick single-shot chat answers only, for callers that cannot consume SSE: bounded by a ~28s server-side deadline (`504 deadline_exceeded` on expiry), capped at 1,200 output tokens, and rejects `use_agentic: true` with `400 agentic_requires_streaming`. Best-effort under load — agents should aggregate `/api/ask/stream` instead (see [Python -- Deep Research aggregated](#python----deep-research-aggregated-to-answer-sources-recommended-for-agents)). On backends newer than v1.2.1 the response carries `finish_reason`, `truncated` and `refused` (see below).
+Non-streaming endpoint. Returns the complete answer in a single JSON response. Quick single-shot chat answers, for callers that cannot consume SSE: bounded by a ~28s server-side deadline (`504 deadline_exceeded` on expiry) and capped at 1,200 output tokens (2,000 on the flag-off legacy deep-research synthesis path). On default configurations (`ENABLE_AGENT_RESEARCH=true`) it rejects `use_agentic: true` with `400 agentic_requires_streaming`; with `ENABLE_AGENT_RESEARCH=false` the legacy deep-research pipeline runs here within the deadline — streaming `/api/ask/stream` remains the recommended Deep Research path either way (see the legacy pipeline scope note below). Best-effort under load — agents should aggregate `/api/ask/stream` instead (see [Python -- Deep Research aggregated](#python----deep-research-aggregated-to-answer-sources-recommended-for-agents)). On backends newer than v1.2.1 the response carries `finish_reason`, `truncated` and `refused` (see below).
 
 ### POST /api/ask/stream/thinking
 
@@ -93,14 +93,8 @@ The backend keeps the most recent messages (configured by `MAX_CONVERSATION_HIST
   "reranked": true,
   "reasoning_steps": null,
   "sub_questions": null,
-  "communities_used": [3, 7],
-  "retrieval_stats": {
-    "vector_results": 10,
-    "keyword_results": 8,
-    "graph_results": 5,
-    "total_unique": 15,
-    "after_reranking": 10
-  },
+  "communities_used": null,
+  "retrieval_stats": null,
   "collection_id": null,
   "structured": null,
   "finish_reason": "stop",
@@ -117,14 +111,29 @@ The backend keeps the most recent messages (configured by `MAX_CONVERSATION_HIST
 | `graph_context` | `object` | Entities, relationships, and communities from the knowledge graph |
 | `reranked` | `boolean` | Whether cross-encoder reranking was applied |
 | `reasoning_steps` | `string[] \| null` | Reasoning steps (only when `use_agentic: true`) |
-| `sub_questions` | `string[] \| null` | Decomposed sub-questions (only when `use_agentic: true`) |
-| `communities_used` | `number[]` | Community IDs (integers) used during retrieval |
-| `retrieval_stats` | `object` | Counts of results from each retrieval method |
+| `sub_questions` | `string[] \| null` | Decomposed sub-questions (string list). Populated only on the flag-off legacy deep-research path (`ENABLE_AGENT_RESEARCH=false` — local unreleased projection; earlier inspected handler snapshots omitted the values — check version/capability). Nonempty and literal `[]` lists are preserved. Null on the standard chat path, the no-key fallback, and the input-screen refusals (constructed before retrieval); a model refusal runs the real helper, so the populated values are projected alongside `refused: true`/`refusal_source: "model"` |
+| `communities_used` | `number[] \| null` | Integer community IDs used during retrieval; same branch and null rules as `sub_questions` (including the model-refusal projection) |
+| `retrieval_stats` | `object \| null` | On the flag-off legacy deep path exactly four keys: `total_sources_considered`, `unique_sources`, `sub_questions_researched`, `communities_referenced` (the schema accepts `{}`, but the real helper always returns all four populated). Null on the standard chat path, the no-key fallback and input-screen refusals; projected populated on model refusals (see `sub_questions`). Distinct from the SSE `retrieval_stats` events of the streaming endpoints |
 | `collection_id` | `string \| null` | The collection scope actually applied (request or key restriction) |
 | `structured` | `object \| null` | Parsed JSON answer when `response_format` was set and parsing succeeded |
 | `finish_reason` | `string \| null` | Provider finish reason of the answer (`stop`, `length`, ...). Backends newer than v1.2.1 |
-| `truncated` | `boolean` | `true` when the answer hit the 1,200-token cap (`finish_reason == "length"`) and is cut short. Backends newer than v1.2.1; older backends return the clipped text unflagged |
+| `truncated` | `boolean` | `true` when the answer hit its output-token cap (`finish_reason == "length"`) and is cut short — 1,200 tokens on the standard chat path, 2,000 on the flag-off legacy deep-research synthesis call. Backends newer than v1.2.1; older backends return the clipped text unflagged |
 | `refused` | `boolean` | `true` when `answer` is the canned prompt-injection refusal rather than knowledge -- rephrase as a plain question. Backends newer than v1.2.1 |
+
+On the flag-off legacy deep-research path (`ENABLE_AGENT_RESEARCH=false` with `use_agentic: true`/`depth: "deep"`, local unreleased projection) the same response instead carries populated values, for example:
+
+```json
+{
+  "sub_questions": ["Compare the methodologies in papers A and B"],
+  "communities_used": [1, 4],
+  "retrieval_stats": {
+    "total_sources_considered": 14,
+    "unique_sources": 11,
+    "sub_questions_researched": 1,
+    "communities_referenced": 2
+  }
+}
+```
 
 ---
 
@@ -141,7 +150,7 @@ The response is an HTTP stream with `Content-Type: text/event-stream`. Each even
 | `sub_questions` | `string[]` | Deep Research | The decomposed research sub-questions |
 | `retrieval` | `string` | Deep Research | Per-search retrieval progress (e.g., "Found 8 sources") |
 | `retrieval_stats` | `object` | Deep Research | Summary: `total_sources_considered`, `unique_sources`, `search_calls`, `communities_used` |
-| `done` | `boolean` | All modes | `true` when the stream is complete. When conversation memory is active it also carries `pending_memory: true`, signalling that one more `memory_update` frame follows. On backends newer than v1.2.1 it also carries `refused: true` (the stream was a prompt-injection refusal) or `truncated: true` (the writer hit its output-token cap) when applicable |
+| `done` | `boolean` | All modes | `true` when the stream is complete. When conversation memory is active it also carries `pending_memory: true`, signalling that one more `memory_update` frame follows. On backends newer than v1.2.1 it also carries `refused: true` (the stream was a prompt-injection refusal) or `truncated: true` (the answer hit its output-token cap) when applicable |
 | `memory_update` | `object` | When `conversation_memory` sent | Updated memory blob to replay next turn. Emitted **after** the `done` frame (default `EMIT_DONE_BEFORE_MEMORY=true`) |
 | `error` | `string` | All modes | Error message if something went wrong |
 | `communities_used` | `number[]` | Deep Research | Community IDs (integers) used (included in the `done` event) |
@@ -260,7 +269,7 @@ When `use_agentic: true`, the system uses a **researcher/writer agent architectu
 | `RESEARCHER_MAX_ITERATIONS_SPEED` | `3` | Agent iterations for chat mode (5 when skills are active) |
 | `RESEARCHER_MAX_ITERATIONS_QUALITY` | `5` | Agent iterations for deep research (`8` on v1.2.1 and older) |
 | `RESEARCHER_WALL_CLOCK_SECONDS` | `60` | Research time budget; on expiry the writer answers from what was gathered (`120` in v1.0.1–v1.2.1, `0` = unlimited in v1.0.0) |
-| `WRITER_MAX_TOKENS_SPEED` | `1200` | Max output tokens for chat answers (also the non-streaming `/api/ask` cap) |
+| `WRITER_MAX_TOKENS_SPEED` | `1200` | Max output tokens for the streamed speed-mode (chat) writers — the agent pipeline's writer and the legacy standard streaming writer |
 | `WRITER_MAX_TOKENS_QUALITY` | `8000` | Max output tokens for deep research answers (`4000` on v1.0.0) |
 | `ASK_DEADLINE_SECONDS` | `28` | Server-side deadline of the non-streaming `POST /api/ask` (`504 deadline_exceeded`); the SSE endpoints have none |
 | `MAX_CONVERSATION_HISTORY` | `6` | Messages to keep for multi-turn context |
@@ -281,6 +290,8 @@ When `use_agentic: true`, the system uses a **researcher/writer agent architectu
 | **Transparency** | Reasoning tool streams agent's thought process | Hard-coded status messages |
 
 Set `ENABLE_AGENT_RESEARCH=false` if your model does not support function calling, or if you prefer lower cost/latency with predictable behavior.
+
+**Legacy pipeline scope note:** With `ENABLE_AGENT_RESEARCH=false`, SSE uses `agentic_rag_stream`; non-streaming `POST /api/ask` uses `rag_query` → `_agentic_rag_query` under the ~28s deadline. Local unreleased forwarding repairs carry the effective scalar or allowlist (including `[]`) to sub-question chunk builders and community selection/summary access in both implementations. The non-streaming path also preserves scope through its no-LLM-key recursive fallback; streaming has no such fallback. Shared full summaries can mention inaccessible members once one is accessible. Global entity/relationship metadata, derived community IDs and `get_community`'s global relationships query remain broader limits; those relationships are not projected by these callers. Collection scoping is not complete graph-context privacy. A further local unreleased repair projects the legacy synthesis stream's provider `finish_reason` onto the public `done` frame as `truncated` — `length` → `truncated: true`; `stop`, a null reason, and a missing reason attribute never set it, and the decomposition call's reason is never used. The flag is additive — no new SSE field, no public `finish_reason` on SSE — and this legacy path appends no visible "cut short" note (unlike the agent writer); its synthesis call carries its own 2,000-token output cap. The standard chat streaming writer on `POST /api/ask/stream` (`ENABLE_AGENT_CHAT=false`, the default) does the same on its own path — its writer stream's provider `finish_reason` projects onto the `done` frame as `truncated` under the identical length-only rule (`stop`, a null reason, and a missing reason attribute never set it), with no new SSE field, no public `finish_reason` on SSE and no cut-short note; its cap is `WRITER_MAX_TOKENS_SPEED` (default 1200), distinct from the deep synthesis call's literal 2000. The fast streaming branch of `POST /api/ask/stream` (`depth: "fast"` / `use_fast_search: true` — its own branch regardless of the agent-chat flag) also projects its writer stream's provider `finish_reason` onto the `done` frame under the same length-only rule (`stop`, a null reason, and a missing reason attribute never set it), with no new SSE field, no public `finish_reason` on SSE and no cut-short note; its cap is a literal 600 tokens — not `WRITER_MAX_TOKENS_SPEED` — and its model is the Fast Mode model (`OPENAI_MODEL_FAST_MODE`, default `OPENAI_MODEL`), not the `WRITER_MODEL` override. Separately, a local unreleased projection adds the non-streaming legacy deep response's optional `sub_questions` (string list), `communities_used` (integer community IDs) and `retrieval_stats` (exactly the four keys `total_sources_considered`, `unique_sources`, `sub_questions_researched`, `communities_referenced`) — nonempty and literal empty lists are preserved; the standard chat path, the no-key fallback and the input-screen refusals (constructed before retrieval) leave all three null, while a model refusal still runs the real helper and projects the populated values alongside `refused: true`/`refusal_source: "model"`. Earlier inspected handler snapshots omitted these values; check version/capability rather than assuming. The streaming Deep Research events keep their own separate retrieval statistics.
 
 ---
 

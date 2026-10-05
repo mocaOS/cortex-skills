@@ -11,7 +11,7 @@ description: >
   "ask the community cortex about X", and "free up / clean up your memory"
   (migrate MEMORY.md overflow into your cortex). Built for the Hermes agent
   (nousresearch.com).
-version: 1.3.3
+version: 1.3.6
 license: Apache-2.0
 platforms: [macos, linux]
 metadata:
@@ -237,7 +237,7 @@ Add `--source NAME` right after the script path to target a named cortex. **Omit
 | (wait for a save to be searchable) | `cortex.sh wait <doc_id>` |
 | "set up a new cortex" | `cortex.sh setup dir=~/cortex-app provider=… key=…` then `cortex.sh setup-status dir=~/cortex-app` |
 
-`check` is the fast answer (non-streaming `/api/ask`); `ask` is deep agentic research — the helper uses the **streaming** endpoint because non-streaming `/api/ask` rejects `use_agentic:true` (`400 agentic_requires_streaming`). Credentials/collection resolve from the source (env for the default, `sources.json` for named). The exact REST calls live in `scripts/cortex.sh`.
+`check` is the fast answer (non-streaming `/api/ask`); `ask` is deep agentic research — the helper uses the **streaming** endpoint, where Deep Research belongs regardless of configuration (on default `ENABLE_AGENT_RESEARCH=true` deployments non-streaming `/api/ask` rejects `use_agentic:true` with `400 agentic_requires_streaming`). Credentials/collection resolve from the source (env for the default, `sources.json` for named). The exact REST calls live in `scripts/cortex.sh`.
 
 ## Save: dump a session
 
@@ -396,7 +396,7 @@ This skill wires Cortex up as Hermes' long-term memory. The same instance is a f
 | Auth | `cortexskills.org/auth/SKILL.md` | API keys, collection scoping, injection defense |
 | Admin | `cortexskills.org/admin/SKILL.md` | Instance management, registry, export/import, reset |
 | Upload | `cortexskills.org/upload/SKILL.md` | Document ingestion (PDF, EPUB, DOCX, audio, images…) |
-| Search | `cortexskills.org/search/SKILL.md` | Hybrid vector + keyword + graph search |
+| Search | `cortexskills.org/search/SKILL.md` | Hybrid vector + keyword + metadata search |
 | Ask | `cortexskills.org/ask/SKILL.md` | RAG Q&A, streaming SSE, agentic deep research |
 | Graph | `cortexskills.org/graph/SKILL.md` | Entities, relationships, subgraph queries |
 | Collections | `cortexskills.org/collections/SKILL.md` | Scope documents and graphs by project or tenant |

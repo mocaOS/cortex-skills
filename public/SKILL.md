@@ -1,5 +1,5 @@
 ---
-version: 1.0.0
+version: 1.0.2
 name: cortex-skills
 description: Root skill — the entry point for AI agents building on Cortex. Architecture overview, key endpoints, corrections for stale training data, and the index of all sub-skills. Machine-readable manifest with per-skill versions and file hashes at /index.json.
 ---
@@ -94,7 +94,7 @@ curl -N -X POST "{BASE_URL}/api/ask/stream" \
   -d '{"question": "What were the key findings?", "use_agentic": true}'
 ```
 
-Aggregate the `content` frames into the answer and keep the `sources` frame — the `ask` skill ships ready-made aggregators (bash helper, Python, TypeScript). Rule of thumb: **search** for passages and document ids, **`GET /api/documents/{id}/content`** for a whole document, **streaming Deep Research** for a cited answer. The non-streaming `POST /api/ask` is a short-answer convenience (~28s deadline, 1200-token cap, rejects `use_agentic: true`) and fails under load where the stream succeeds — not a research path.
+Aggregate the `content` frames into the answer and keep the `sources` frame — the `ask` skill ships ready-made aggregators (bash helper, Python, TypeScript). Rule of thumb: **search** for passages and document ids, **`GET /api/documents/{id}/content`** for a whole document, **streaming Deep Research** for a cited answer. The non-streaming `POST /api/ask` is a short-answer convenience (~28s deadline, 1200-token cap; on default `ENABLE_AGENT_RESEARCH=true` deployments it rejects `use_agentic: true` with `400 agentic_requires_streaming`) and fails under load where the stream succeeds — not a research path. Streaming stays the Deep Research choice regardless of that flag.
 
 ## Key Endpoints
 
@@ -107,7 +107,7 @@ Aggregate the `content` frames into the answer and keep the `sources` frame — 
 | `GET` | `/api/documents/{id}/content` | read | Whole document: `full_content` + `chunks[]` — read a source, not just its hits |
 | `POST` | `/api/search` | read | Hybrid search |
 | `POST` | `/api/ask/stream` | read | Streaming RAG Q&A (SSE) — **primary retrieval endpoint**; `use_agentic: true` = Deep Research |
-| `POST` | `/api/ask` | read | Non-streaming quick chat (28s deadline, 1200-token cap, rejects `use_agentic`; best-effort — fall back to the stream) |
+| `POST` | `/api/ask` | read | Non-streaming quick chat (28s deadline, 1200-token cap, rejects `use_agentic` on default `ENABLE_AGENT_RESEARCH=true` deployments; best-effort — fall back to the stream) |
 | `GET` | `/api/graph/entities` | read | List entities |
 | `GET` | `/api/collections` | read | List collections |
 | `POST` | `/api/collections` | manage | Create collection |
@@ -176,7 +176,7 @@ For the complete sync workflow, scripts, and troubleshooting, see the reference 
 ### Features
 
 - `cortexskills.org/upload/SKILL.md` — Document ingestion for PDF, EPUB, DOCX, images, audio, and more. Upload the source format, not a PDF rendering of it — native formats preserve structure and their embedded images reach vision analysis; only scanned/image-rich PDFs and standalone images pay per-page ML analysis, while text PDFs and office files convert in milliseconds (books → EPUB, office files → .docx/.pptx, web → HTML/Web Import).
-- `cortexskills.org/search/SKILL.md` — Hybrid search combining vector, keyword, and graph traversal.
+- `cortexskills.org/search/SKILL.md` — Hybrid search fusing vector, keyword, and metadata matching.
 - `cortexskills.org/ask/SKILL.md` — Retrieve knowledge: the search / whole-document / Deep Research decision tree, streaming aggregators for bash, Python and TypeScript, refusal and truncation flags, conversation memory.
 - `cortexskills.org/graph/SKILL.md` — Knowledge graph — entities, relationships, subgraph queries.
 - `cortexskills.org/collections/SKILL.md` — Scope documents and graphs by project or tenant.

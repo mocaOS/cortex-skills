@@ -1,5 +1,5 @@
 ---
-version: 1.0.0
+version: 1.0.1
 name: builder-app
 description: Recipe for building a web app that runs inside a Cortex instance — React/Tailwind by default, any framework works. Covers the app template, the hosting contract (manifest, sandboxing, token handshake, API proxy), streaming Q&A rendering, platform capabilities for background work, and both endings — private install or publishing to the registry.
 ---
@@ -144,8 +144,9 @@ Full JSON Schema: `schema/app.v1.json` in the template.
   | `done` | terminal frame |
 
   Render `[src_N]` markers in the answer as citation badges linked to the
-  `sources` entries. Deep Research = `use_agentic: true` (streaming only —
-  the non-streaming `/ask` rejects it).
+  `sources` entries. Deep Research = `use_agentic: true` (streaming — on
+  default `ENABLE_AGENT_RESEARCH=true` deployments the non-streaming `/ask`
+  rejects it with `400 agentic_requires_streaming`).
 - Entities: `GET …/cortex/graph/entities?search=…&limit=50`.
 - Deeper reference: fetch `cortexskills.org/{search,ask,graph}/SKILL.md`.
 

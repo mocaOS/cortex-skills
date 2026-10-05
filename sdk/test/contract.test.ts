@@ -53,11 +53,12 @@ function client(responder: (url: string, init: RequestInit) => Response, opts = 
 // ---------------------------------------------------------------------------
 
 test("SSE parser handles multi-line frames and comment keep-alives (LF framing)", async () => {
-  // Current contract: cortex-app emits LF-terminated frames ("...\n\n").
-  // NOTE (documented limitation, not asserted): a spec-legal CRLF-framed body
-  // ("data: {...}\r\n\r\n") is NOT parsed — parseSSEStream splits only on
-  // "\n\n", so such a stream yields zero events. Recorded as a finding for the
-  // runtime owner; changing the parser is out of this campaign's scope.
+  // Published baseline contract: cortex-app emits LF-terminated frames
+  // ("...\n\n"). The published baseline parser (sse.ts at sha256 42019a48…)
+  // splits only on "\n\n", so a spec-legal CRLF-framed body
+  // ("data: {...}\r\n\r\n") yields zero events. That baseline limitation is
+  // asserted and frozen by the CRLF acceptance delta tests below, which were
+  // added BEFORE any parser edit.
   const events = parseSSEStream(
     new Response(
       "data: {\"content\": \"a\"}\ndata: {\"content\": \"b\"}\n\n: ping\n\ndata: {\"done\": true}\n\n"
@@ -218,6 +219,16 @@ test("refused and truncated flags propagate from done frame", async () => {
   assert.equal(result.truncated, undefined);
 });
 
+test("deep research retains a positive truncation flag without changing answer content", async () => {
+  const answer = "A partial answer.";
+  const { c } = client(() =>
+    sseResponse([frame({ content: answer }), frame({ done: true, truncated: true })])
+  );
+  const result = await c.deepResearch("q");
+  assert.equal(result.truncated, true);
+  assert.equal(result.answer, answer);
+});
+
 test("reasoning steps accumulate from thinking and retrieval frames", async () => {
   const { c } = client(() =>
     sseResponse([
@@ -298,4 +309,271 @@ test("onContent fires before the source stream closes (incremental observation)"
     releaseSecondFrame();
     await collected.catch(() => {});
   }
+});
+
+// ---------------------------------------------------------------------------
+// CRLF acceptance delta (frozen gate, added BEFORE any parser edit)
+//
+// The SSE spec treats CRLF as a legal line terminator, so a CRLF-framed body
+// must parse identically to its LF twin: alternate line endings at the same
+// frame boundary. The published baseline parser (sse.ts at sha256 42019a48…)
+// splits only on "\n\n" and yields zero events for such bodies (the baseline
+// limitation noted in the LF framing test above). These gates freeze the
+// required acceptance BEFORE any parser edit: run against the unchanged
+// baseline parser they must FAIL on the CRLF assertions only, while the
+// embedded LF twins / byte-split controls pass, so
+// an observed failure isolates CRLF handling and cannot be produced by a
+// chunking or UTF-8 regression. Held-stream oracles follow the established
+// pattern (named AssertionError on a 250ms timer, unconditional release plus
+// consumer cleanup in finally), so a rejection is testCodeFailure — never a
+// runner "cancelled" outcome.
+// ---------------------------------------------------------------------------
+
+function crlf(s: string): string {
+  return s.replace(/\n/g, "\r\n");
+}
+
+function streamOf(chunks: Uint8Array[]): ReadableStream<Uint8Array> {
+  return new ReadableStream<Uint8Array>({
+    start(controller) {
+      for (const chunk of chunks) controller.enqueue(chunk);
+      controller.close();
+    },
+  });
+}
+
+function byteSlices(bytes: Uint8Array, cuts: number[]): Uint8Array[] {
+  const edges = [0, ...cuts, bytes.length];
+  const slices: Uint8Array[] = [];
+  for (let i = 0; i < edges.length - 1; i++) slices.push(bytes.slice(edges[i], edges[i + 1]));
+  return slices;
+}
+
+async function collectEvents(stream: ReadableStream<Uint8Array>): Promise<unknown[]> {
+  const seen: unknown[] = [];
+  for await (const e of parseSSEStream(stream)) seen.push(e);
+  return seen;
+}
+
+/** Index of a byte pattern inside an encoded body, or -1. */
+function byteIndexOf(bytes: Uint8Array, pattern: number[]): number {
+  outer: for (let i = 0; i <= bytes.length - pattern.length; i++) {
+    for (let j = 0; j < pattern.length; j++) {
+      if (bytes[i + j] !== pattern[j]) continue outer;
+    }
+    return i;
+  }
+  return -1;
+}
+
+test("control: LF framing tolerates arbitrary byte/chunk splits, including inside multi-byte UTF-8", async () => {
+  const encoder = new TextEncoder();
+  const body =
+    'data: {"content": "hällo"}\n\ndata: {"content": "wörld"}\n\n: ping\n\ndata: {"done": true}\n\n';
+  const bytes = encoder.encode(body);
+  // Cut before 'ä' (valid boundary), between the two UTF-8 bytes of 'ä'
+  // (0xC3 | 0xA4), and between the two \n of a frame boundary — every cut
+  // lands mid-token from the parser's viewpoint. The mid-'ä' offset is the
+  // prefix length up to 'h' PLUS ONE byte, not the '…hä' prefix length (that
+  // would include both bytes of 'ä' and cut after the complete character).
+  const cutBeforeUtf8 = encoder.encode('data: {"content": "h').length;
+  const cutMidUtf8 = cutBeforeUtf8 + 1;
+  const cutMidBoundary = encoder.encode('data: {"content": "hällo"}\n').length;
+  const chunks = byteSlices(bytes, [cutBeforeUtf8, cutMidUtf8, cutMidBoundary]);
+  // Prove the cut really is mid-character: chunk 2 is exactly the 0xC3 byte
+  // (first byte of 'ä') and chunk 3 starts with 0xA4 (second byte).
+  assert.equal(chunks[1].length, 1);
+  assert.equal(chunks[1][0], 0xc3);
+  assert.equal(chunks[2][0], 0xa4);
+  const seen = await collectEvents(streamOf(chunks));
+  assert.deepEqual(seen, [{ content: "hällo" }, { content: "wörld" }, { done: true }]);
+});
+
+test("CRLF framing parses identically to its LF twin (multi-line frame, comments, malformed lines)", async () => {
+  const lfBody =
+    'event: status\ndata: {"stage": "searching"}\n\n' +
+    frame({ content: "a" }) +
+    "data: not-json{{\n\n" +
+    ": ping\n\n" +
+    frame({ content: "b" }) +
+    frame({ done: true });
+  const expected = [
+    { stage: "searching" }, // the `event: status` line is skipped; its data line still yields
+    { content: "a" },
+    { content: "b" },
+    { done: true },
+  ];
+  const lfSeen = await collectEvents(new Response(lfBody).body!);
+  assert.deepEqual(lfSeen, expected); // healthy LF control
+
+  const crlfSeen = await collectEvents(new Response(crlf(lfBody)).body!);
+  assert.deepEqual(crlfSeen, expected); // FAILS against the unchanged parser: []
+});
+
+test("CRLF frames split across arbitrary byte boundaries (including between \\r and \\n) parse identically", async () => {
+  const encoder = new TextEncoder();
+  const lfBody = frame({ content: "hällo" }) + frame({ content: "b" }) + frame({ done: true });
+  const expected = [{ content: "hällo" }, { content: "b" }, { done: true }];
+
+  // LF control: the same splitting discipline (mid-'ä', inside the "\n\n"
+  // boundary) is already handled — the failure below is CRLF-specific. Cut
+  // offsets are located in the encoded bytes themselves so they cannot drift
+  // from the actual body: v1.1's spaced-prefix offsets never landed where the
+  // gate claimed (the frame() helper emits compact JSON), which the byte
+  // assertions introduced in v1.2 exposed.
+  const lfBytes = encoder.encode(lfBody);
+  const lfUtf8At = byteIndexOf(lfBytes, [0xc3]); // index of the first byte of 'ä'
+  const lfBoundaryCut = byteIndexOf(lfBytes, [0x0a, 0x0a]) + 1; // between the two \n
+  assert.equal(lfBytes[lfUtf8At], 0xc3);
+  assert.equal(lfBytes[lfUtf8At + 1], 0xa4);
+  // A cut offset k means chunk N ends at byte k-1: to end a chunk with the
+  // 0xC3 byte, cut at its index + 1.
+  const lfChunks = byteSlices(lfBytes, [lfUtf8At + 1, lfBoundaryCut]);
+  assert.equal(lfChunks[0][lfChunks[0].length - 1], 0xc3); // chunk 1 ends mid-'ä'
+  assert.equal(lfChunks[1][0], 0xa4); // chunk 2 starts with the second byte
+  const lfSeen = await collectEvents(streamOf(lfChunks));
+  assert.deepEqual(lfSeen, expected);
+
+  // CRLF: cut mid-'ä' and inside "\r\n\r\n" between \r and \n (both CRLFs of
+  // the pair are cut mid-boundary).
+  const crlfBytes = encoder.encode(crlf(lfBody));
+  const crlfUtf8At = byteIndexOf(crlfBytes, [0xc3]);
+  const firstBoundary = byteIndexOf(crlfBytes, [0x0d, 0x0a, 0x0d, 0x0a]); // first \r\n\r\n
+  assert.equal(crlfBytes[firstBoundary], 0x0d);
+  assert.equal(crlfBytes[firstBoundary + 1], 0x0a);
+  assert.equal(crlfBytes[firstBoundary + 2], 0x0d);
+  assert.equal(crlfBytes[firstBoundary + 3], 0x0a);
+  // Cut after the 0xC3 byte (mid-'ä'), and after each \r of the pair (\r|\n).
+  const crlfChunks = byteSlices(crlfBytes, [
+    crlfUtf8At + 1,
+    firstBoundary + 1,
+    firstBoundary + 3,
+  ]);
+  assert.equal(crlfChunks[0][crlfChunks[0].length - 1], 0xc3); // chunk 1 ends mid-'ä'
+  assert.equal(crlfChunks[1][0], 0xa4); // chunk 2 starts with the second byte
+  const crlfSeen = await collectEvents(streamOf(crlfChunks));
+  assert.deepEqual(crlfSeen, expected); // FAILS against the baseline parser: []
+});
+
+test("CRLF stream: onContent fires before close and late memory_update after done (held stream)", { timeout: 2_000 }, async () => {
+  const encoder = new TextEncoder();
+  let releaseContent: () => void = () => {};
+  let releaseDone: () => void = () => {};
+  const contentObserved = new Promise<void>((resolve) => {
+    releaseContent = resolve;
+  });
+  const doneObserved = new Promise<void>((resolve) => {
+    releaseDone = resolve;
+  });
+  const source = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(encoder.encode(crlf(frame({ content: "token1" }))));
+      // Hold everything else until token1 was observed incrementally.
+      await contentObserved;
+      controller.enqueue(encoder.encode(crlf(frame({ content: "token2" }))));
+      controller.enqueue(encoder.encode(crlf(frame({ done: true }))));
+      // Hold the late memory frame until done was delivered — memory_update
+      // must be captured while the stream is still open (EMIT_DONE_BEFORE_MEMORY).
+      await doneObserved;
+      controller.enqueue(encoder.encode(crlf(frame({ memory_update: { summary: "m" } }))));
+      controller.close();
+    },
+  });
+  const tokens: string[] = [];
+  const order: string[] = [];
+  const collected = collectAskStream(parseSSEStream(source), {
+    onContent: (t) => {
+      tokens.push(t);
+      if (t === "token1") releaseContent();
+    },
+    onEvent: (e) => {
+      if (e.content !== undefined) order.push("content");
+      else if (e.done === true) {
+        order.push("done");
+        releaseDone();
+      } else if (e.memory_update) order.push("memory_update");
+    },
+  });
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const result = await Promise.race([
+      collected,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          reject(
+            new assert.AssertionError({
+              message: "onContent must fire before the source stream closes (EOF) — CRLF framing",
+              actual: tokens,
+              expected: ["token1", "token2"],
+              operator: "deepStrictEqual",
+            })
+          );
+        }, 250);
+      }),
+    ]);
+    assert.deepEqual(tokens, ["token1", "token2"]);
+    assert.deepEqual(order, ["content", "content", "done", "memory_update"]);
+    assert.equal(result.answer, "token1token2");
+    assert.deepEqual(result.memory_update, { summary: "m" });
+  } finally {
+    if (timer) clearTimeout(timer);
+    releaseContent();
+    releaseDone();
+    await collected.catch(() => {});
+  }
+});
+
+test("CRLF stream: shutdown sentinel aborts, preserving preceding incremental content (held stream)", { timeout: 2_000 }, async () => {
+  const encoder = new TextEncoder();
+  let releaseContent: () => void = () => {};
+  const contentObserved = new Promise<void>((resolve) => {
+    releaseContent = resolve;
+  });
+  const source = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      controller.enqueue(encoder.encode(crlf(frame({ content: "token1" }))));
+      // Hold the sentinel until token1 was observed incrementally — the
+      // shutdown abort must not discard content delivered before it.
+      await contentObserved;
+      controller.enqueue(
+        encoder.encode(crlf('event: shutdown\ndata: {"reason": "server restarting"}\n\n'))
+      );
+      controller.close();
+    },
+  });
+  const tokens: string[] = [];
+  const collected = collectAskStream(parseSSEStream(source), {
+    onContent: (t) => {
+      tokens.push(t);
+      if (t === "token1") releaseContent();
+    },
+  });
+  // Bound the hold: against the unchanged parser onContent never fires, so
+  // without the oracle this would wait on an unresolvable promise.
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    await assert.rejects(
+      Promise.race([
+        collected,
+        new Promise<never>((_, reject) => {
+          timer = setTimeout(() => {
+            reject(
+              new assert.AssertionError({
+                message: "shutdown sentinel must abort after preceding incremental content — CRLF framing",
+                actual: tokens,
+                expected: ["token1"],
+                operator: "deepStrictEqual",
+              })
+            );
+          }, 250);
+        }),
+      ]),
+      (e: Error) => e instanceof CortexServerRestart
+    );
+  } finally {
+    if (timer) clearTimeout(timer);
+    releaseContent();
+    await collected.catch(() => {});
+  }
+  assert.deepEqual(tokens, ["token1"]);
 });

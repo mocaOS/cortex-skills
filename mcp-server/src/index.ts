@@ -3,6 +3,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
+import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { basename, join } from "node:path";
@@ -35,9 +36,15 @@ const client = new CortexClient({
 const stateDir = process.env.CORTEX_STATE_DIR?.trim() || join(homedir(), ".cortex-mcp");
 client.useThreadStore(new FileThreadStore(join(stateDir, "threads")));
 
+// The advertised server version is bound to this package's own version —
+// one source of truth (package.json), asserted by the contract suite.
+const { version } = createRequire(import.meta.url)("../package.json") as {
+  version: string;
+};
+
 const server = new McpServer({
   name: "cortex",
-  version: "0.2.0",
+  version,
 });
 
 // --- Formatting helpers ---

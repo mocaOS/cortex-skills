@@ -1,5 +1,5 @@
 ---
-version: 1.0.0
+version: 1.0.1
 name: collections
 description: Use this skill when organizing documents into collections in Cortex. Collections scope documents into independent knowledge graphs with isolated search indexes. Covers CRUD operations, document assignment, scoped search, scoped Ask AI, and resource limits.
 ---
@@ -12,7 +12,7 @@ description: Use this skill when organizing documents into collections in Cortex
 
 2. **Documents can only belong to one collection at a time.** Use the move endpoint to transfer documents between collections. Moving a document re-scopes its entities.
 
-3. **How you scope queries depends on the endpoint.** For `/api/ask` (and its streaming variants), pass `collection_id` as a top-level field in the request body. For `/api/search`, `collection_id` lives *inside* the `filters` object (`filters.collection_id`) — there is no top-level `collection_id` on the search request.
+3. **Ask and search both accept a top-level `collection_id`.** For `/api/ask` (and its streaming variants), pass `collection_id` as a top-level field in the request body. `/api/search` accepts it as a top-level body field or via the legacy `filters.collection_id`; both work, and passing both with different values is a 400.
 
 4. **The default collection is implicit.** Documents uploaded without a `collection_id` go into a default/uncategorized pool. They are searchable globally but not scoped to any collection.
 
@@ -107,7 +107,7 @@ curl -X POST "{BASE_URL}/api/upload?collection_id={collection_id}" \
 
 ## Search Within a Collection
 
-Pass `collection_id` inside the `filters` object in the search request body (not as a top-level field):
+Pass `collection_id` as a top-level field in the search request body, or via the legacy `filters` object — both work; they must agree when both are present:
 
 ```bash
 curl -X POST "{BASE_URL}/api/search" \

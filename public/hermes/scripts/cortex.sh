@@ -309,7 +309,10 @@ case "$cmd" in
     ;;
   ask)
     # deep agentic research — MUST use the streaming endpoint (non-streaming /api/ask
-    # rejects use_agentic:true with 400 agentic_requires_streaming). Reconstruct the
+    # rejects use_agentic:true with 400 agentic_requires_streaming only on default
+    # ENABLE_AGENT_RESEARCH=true deployments; with the flag off the legacy pipeline
+    # runs there under the ~28s server deadline — and any 504 deadline / 500
+    # ask_failed still means switch to the streaming path). Reconstruct the
     # answer from SSE "content" events, and capture the "sources" event for the footer.
     # With --thread NAME, also send/receive conversation memory: the memory_update
     # event may arrive AFTER the done frame — keep reading to stream end.

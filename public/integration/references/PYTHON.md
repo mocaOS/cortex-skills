@@ -228,7 +228,7 @@ print(f"Deleted. Cleaned up {result['orphaned_entities_removed']} orphaned entit
 
 ### `search(query, top_k=10, collection_id=None) -> list`
 
-Hybrid search combining vector similarity, keyword matching, and knowledge graph traversal.
+Hybrid search combining vector similarity, keyword matching, and metadata matching (filename, topic hints, custom-input content), fused with Reciprocal Rank Fusion.
 
 **Parameters:**
 

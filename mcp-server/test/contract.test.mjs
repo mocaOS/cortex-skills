@@ -13,10 +13,15 @@
 // - SSE aggregation through the SDK (deep_research mode, memory after done)
 // - error propagation (backend failure reaches the MCP client as isError)
 // - entry wiring (missing env -> process exit, nonzero)
+// - handshake version binding (advertised server.version == package.json version)
+// - thread persistence (history + opaque memory survive a REAL subprocess
+//   stop/restart on the same CORTEX_STATE_DIR; thread files keep the published
+//   Hermes-shared shape {history, memory, updated_at}); thread keys are
+//   name-scoped identities (no cross-thread leak) per the published contract
 
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { mkdtempSync, rmSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { test, before, after } from "node:test";
@@ -69,6 +74,16 @@ function route(method, path, body) {
     return jsonResponse({ answer: "short answer", sources: [] });
   }
   if (method === "POST" && path === "/api/ask/stream") {
+    // Sentinel route for the persistence gates: the curated blob carries the
+    // exact question it was minted for, so a later process can only replay it
+    // if the opaque memory really survived the restart through the file.
+    if (typeof body.question === "string" && body.question.startsWith("restart:")) {
+      return sseBody([
+        { content: "restart answer" },
+        { done: true, pending_memory: true },
+        { memory_update: { version: 9, facts: [`asked:${body.question}`] } },
+      ]);
+    }
     return sseBody([
       { content: "deep " },
       { content: "answer" },
@@ -115,7 +130,7 @@ after(() => {
 
 // --- Client harness ----------------------------------------------------------
 
-async function startClient() {
+async function startSession(env = {}) {
   const transport = new StdioClientTransport({
     command: process.execPath,
     args: [DIST_ENTRY],
@@ -123,11 +138,48 @@ async function startClient() {
       CORTEX_BASE_URL: baseUrl,
       CORTEX_API_KEY: API_KEY,
       CORTEX_STATE_DIR: stateDir,
+      ...env,
     },
+  });
+  // StdioClientTransport fires onclose only when the spawned server process
+  // has actually exited — awaiting it proves a real stop, not another client
+  // in the same process.
+  const exited = new Promise((resolve) => {
+    transport.onclose = resolve;
   });
   const client = new Client({ name: "contract-test", version: "0.0.0" });
   await client.connect(transport);
-  return client;
+  return { client, exited };
+}
+
+async function startClient() {
+  return (await startSession()).client;
+}
+
+// --- Persistence gate helpers -----------------------------------------------
+
+const threadFile = (name) => join(stateDir, "threads", `${name}.json`);
+const streamCallsFor = (question) =>
+  seen.filter((c) => c.url === "/api/ask/stream" && c.body.question === question);
+
+async function askDeep(client, question, thread) {
+  return client.callTool({
+    name: "ask_question",
+    arguments: { question, mode: "deep_research", thread },
+  });
+}
+
+async function stopSession(session) {
+  await session.client.close();
+  const closed = await Promise.race([
+    session.exited.then(() => true),
+    new Promise((resolve) => setTimeout(() => resolve(false), 15_000).unref()),
+  ]);
+  assert.ok(closed, "the MCP server subprocess actually exited on close");
+}
+
+function packageVersion() {
+  return JSON.parse(readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
 }
 
 const DOCUMENTED_TOOLS = [
@@ -271,4 +323,131 @@ test("missing env vars: entry refuses to start (nonzero exit)", async () => {
     });
   });
   assert.notEqual(exit, 0);
+});
+
+test("initialize advertises the package's own server version (frozen binding)", async () => {
+  const client = await startClient();
+  try {
+    const info = client.getServerVersion();
+    assert.ok(info, "initialize result carries serverInfo");
+    assert.equal(info.version, packageVersion());
+  } finally {
+    await client.close();
+  }
+});
+
+test("thread history + opaque memory survive a full MCP subprocess stop/restart", async () => {
+  const file = threadFile("restart-thread");
+  let session = await startSession();
+  try {
+    await askDeep(session.client, "restart: first question", "restart-thread");
+    await askDeep(session.client, "restart: follow-up", "restart-thread");
+    const turns = [
+      streamCallsFor("restart: first question")[0],
+      streamCallsFor("restart: follow-up")[0],
+    ];
+    assert.deepEqual(turns[0].body.conversation_memory, {});
+    assert.equal(turns[0].body.conversation_history.length, 0);
+    assert.deepEqual(turns[1].body.conversation_memory, {
+      version: 9,
+      facts: ["asked:restart: first question"],
+    });
+    assert.equal(turns[1].body.conversation_history.length, 2);
+  } finally {
+    await stopSession(session);
+  }
+
+  const beforeRestart = readFileSync(file);
+  session = await startSession(); // fresh subprocess, SAME owned CORTEX_STATE_DIR
+  try {
+    assert.ok(
+      beforeRestart.equals(readFileSync(file)),
+      "the restart itself must not rewrite the persisted thread file"
+    );
+    const result = await askDeep(session.client, "restart: after restart", "restart-thread");
+    assert.match(result.content[0].text, /restart answer/);
+  } finally {
+    await stopSession(session);
+  }
+
+  const resumed = streamCallsFor("restart: after restart")[0];
+  // The only way a brand-new process can replay turn 2's exact blob is the file.
+  assert.deepEqual(resumed.body.conversation_memory, {
+    version: 9,
+    facts: ["asked:restart: follow-up"],
+  });
+  assert.deepEqual(resumed.body.conversation_history, [
+    { role: "user", content: "restart: first question" },
+    { role: "assistant", content: "restart answer" },
+    { role: "user", content: "restart: follow-up" },
+    { role: "assistant", content: "restart answer" },
+  ]);
+});
+
+test("different thread keys are isolated identities; each resumes only its own state", async () => {
+  const alphaFile = threadFile("isolated-alpha");
+  const betaFile = threadFile("isolated-beta");
+  let session = await startSession();
+  try {
+    await askDeep(session.client, "restart: alpha one", "isolated-alpha");
+    await askDeep(session.client, "restart: beta one", "isolated-beta");
+    const betaFirst = streamCallsFor("restart: beta one")[0];
+    assert.deepEqual(betaFirst.body.conversation_memory, {}); // no leak from alpha
+    assert.equal(betaFirst.body.conversation_history.length, 0);
+    assert.ok(existsSync(alphaFile) && existsSync(betaFile), "one file per thread key");
+  } finally {
+    await stopSession(session);
+  }
+
+  const alphaBytes = readFileSync(alphaFile);
+  session = await startSession();
+  try {
+    assert.ok(
+      alphaBytes.equals(readFileSync(alphaFile)),
+      "an unrelated thread file is untouched across a restart"
+    );
+    const result = await askDeep(session.client, "restart: beta two", "isolated-beta");
+    assert.match(result.content[0].text, /restart answer/);
+  } finally {
+    await stopSession(session);
+  }
+
+  const resumed = streamCallsFor("restart: beta two")[0];
+  assert.deepEqual(resumed.body.conversation_memory, {
+    version: 9,
+    facts: ["asked:restart: beta one"],
+  });
+  assert.deepEqual(resumed.body.conversation_history, [
+    { role: "user", content: "restart: beta one" },
+    { role: "assistant", content: "restart answer" },
+  ]);
+});
+
+test("thread files keep the published Hermes-shared shape with sanitized keys", async () => {
+  const session = await startSession();
+  try {
+    const result = await askDeep(
+      session.client,
+      "restart: shape probe",
+      "session notes/2026-10-03"
+    );
+    const advertised = String(result.content[0].text).match(/thread '([^']+)' updated/);
+    assert.ok(advertised, "the tool reply advertises the canonical thread key");
+    assert.equal(advertised[1], "session-notes-2026-10-03");
+    const file = threadFile(advertised[1]);
+    const parsed = JSON.parse(readFileSync(file, "utf8"));
+    assert.deepEqual(parsed.memory, { version: 9, facts: ["asked:restart: shape probe"] });
+    assert.deepEqual(parsed.history, [
+      { role: "user", content: "restart: shape probe" },
+      { role: "assistant", content: "restart answer" },
+    ]);
+    assert.ok(
+      typeof parsed.updated_at === "string" && !Number.isNaN(Date.parse(parsed.updated_at))
+    );
+    if (process.platform !== "win32") {
+      assert.equal(statSync(file).mode & 0o777, 0o600); // Hermes-shared state promise
+    }
+  } finally {
+    await stopSession(session);
+  }
 });

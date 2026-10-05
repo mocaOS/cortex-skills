@@ -1,5 +1,5 @@
 ---
-version: 1.4.0
+version: 1.4.7
 name: ask
 description: Use this skill when retrieving knowledge from a Cortex ("ask the cortex", "find X in the cortex") or building RAG-powered Q&A on it. For agents there is one ask path — a streaming Deep Research query (POST /api/ask/stream with use_agentic true) aggregated into {answer, sources}; ready-made aggregators for bash, Python and TypeScript are included. Also covers the decision tree (search vs whole-document content vs ask), the SSE event schema, refusal/truncation flags, conversation history and memory, collection scoping, and the non-streaming fast-chat endpoint as an appendix.
 ---
@@ -29,7 +29,7 @@ Cortex answers from prose. Counts, per-item attributes and tables ("how many X p
 
 5. **Answers always include source citations.** The `sources` array in the response contains chunk references with document IDs, content, and scores — each carries a conversation-stable `sid`. Never present an answer without showing its sources.
 
-6. **Collection scoping applies to every endpoint.** Pass `collection_id` to restrict retrieval to documents in that collection. Pass a community id as `collection_id` (e.g. `"comm_1"`) to scope to a community.
+6. **Scope fresh retrieval with collection IDs.** Pass `collection_id` — a **collection** id — to restrict fresh retrieval to documents in that collection. Collection ids are not community ids: communities are separate (integer) ids on `Community` nodes, and `collection_id` is only ever matched against collections. It scopes retrieval, not client-provided context — conversation history and the conversation-memory blob are used as sent, never rewritten by the collection. Per principal: all-scope and admin keys have no collection-existence check (an id matching no collection retrieves no matching collection — results can come back empty); restricted keys get 403 for an id outside their allowlist and empty retrieval for an allowed-but-unknown id; omitting `collection_id` limits restricted keys to their permitted collections. Communities still inform answers through the researcher's `community_search` tool, scoped to the requested or permitted collections.
 
 7. **Conversation memory is opt-in and client-carried — the backend stays stateless.** Send an opaque `conversation_memory` blob, read the updated blob back from the `memory_update` SSE event, and replay it next turn. Follow-ups answerable from memory can skip retrieval entirely (memory fast-path).
 
@@ -39,7 +39,7 @@ Cortex answers from prose. Counts, per-item attributes and tables ("how many X p
 
 10. **Don't use `/api/ask` as a raw LLM.** It always retrieves, always answers in RAG voice, and the injection defenses will deflect instruction-shaped meta-prompts ("You are a…", output contracts) with a canned response. For plain completions on the instance's configured model there is `POST /api/llm/completions` — **admin-key-only** (it bypasses prompt security, so user keys can never reach it), OpenAI-style chunks over SSE terminated by `data: [DONE]`, body `{messages, temperature?, max_tokens?, stream}`, metered against the monthly quota like every other completion. Built for trusted first-party services (Cortex Chat's personality generator is the reference consumer).
 
-11. **Non-streaming `/api/ask` is best-effort — never your research path.** It buffers the whole answer behind a ~28s deadline (`504 deadline_exceeded`), caps the answer at 1,200 tokens, and rejects `use_agentic: true`. Under load it fails where the stream succeeds. On backends newer than v1.2.1 a cut-off answer carries `truncated: true` (+ `finish_reason: "length"`) and a failure returns a structured `500 {"detail": {"error": "ask_failed", "use_endpoint": "/api/ask/stream"}}`; on older backends a truncated answer looks complete and a failure is a bare `500 Internal server error` with a `request_id`. Treat **any** 5xx from `/api/ask` as "switch to `/api/ask/stream`".
+11. **Non-streaming `/api/ask` is best-effort — never your research path.** It buffers the whole answer behind a ~28s deadline (`504 deadline_exceeded`), caps the answer at 1,200 tokens, and rejects `use_agentic: true` on default `ENABLE_AGENT_RESEARCH=true` deployments. Under load it fails where the stream succeeds. On backends newer than v1.2.1 a cut-off answer carries `truncated: true` (+ `finish_reason: "length"`) and a failure returns a structured `500 {"detail": {"error": "ask_failed", "use_endpoint": "/api/ask/stream"}}`; on older backends a truncated answer looks complete and a failure is a bare `500 Internal server error` with a `request_id`. Treat **any** 5xx from `/api/ask` as "switch to `/api/ask/stream`".
 
 12. **When a hit is not enough, fetch the document.** `GET /api/documents/{id}/content` returns `full_content` (every chunk concatenated, in order) plus `chunks[]` and metadata. Chunks are fragments; for a whole essay, transcript or spec, read the document — it is one cheap GET, and it works with a read-only key. See [Reading a whole document](#reading-a-whole-document).
 
@@ -175,7 +175,7 @@ The streaming endpoint emits these event keys. Current instances additionally st
 | `sub_questions` | Deep Research | Decomposed sub-questions |
 | `retrieval` | Deep Research | Per-sub-question retrieval progress |
 | `retrieval_stats` | Deep Research | `total_sources`, `unique_sources`, `communities_used` |
-| `done` | All | `{"done": true}` when complete. Deep Research adds `communities_used`. When memory is active, this frame carries `pending_memory: true` to signal one more frame follows. On backends newer than v1.2.1: `refused: true` when the stream was a refusal, `truncated: true` when the writer hit its token cap |
+| `done` | All | `{"done": true}` when complete. Deep Research adds `communities_used`. When memory is active, this frame carries `pending_memory: true` to signal one more frame follows. On backends newer than v1.2.1: `refused: true` when the stream was a refusal, `truncated: true` when the answer hit its output-token cap (on the flag-off legacy streaming paths the flag comes from the writer stream's provider reason — `length` only; no visible cut-short note is appended there; the deep synthesis call has a fixed 2,000-token cap and the standard chat writer's cap is `WRITER_MAX_TOKENS_SPEED`, default 1,200. The fast streaming writer on `/api/ask/stream` (`depth: "fast"`/`use_fast_search: true` — its own branch regardless of the agent-chat flag) sets the flag the same way, with a literal 600-token cap and the Fast Mode model) |
 | `memory_update` | When `conversation_memory` sent | Updated memory blob to replay next turn — emitted **after** the `done` frame |
 | `error` | All | Error message |
 
@@ -198,7 +198,7 @@ The streaming endpoint emits these event keys. Current instances additionally st
 | `use_agentic` | boolean | false | Legacy flag ≡ `depth: "deep"` (permanently supported) |
 | `depth` | string | null | **The unified dial**: `fast` (vector-only) \| `standard` (default) \| `deep` (agentic research, streaming only). Authoritative when present — contradicting legacy flags → `400 depth_conflict`. Older instances ignore it, so send agreeing legacy flags too |
 | `use_fast_search` | boolean | false | Vector-only search (skip graph + reranking) |
-| `collection_id` | string | null | Scope to a specific collection or community id |
+| `collection_id` | string | null | Scope retrieval to a collection — collection ids only, never a community id (see gotcha 6) |
 | `session_id` | string | null | Server-side session (from `POST /api/sessions`; requires `ENABLE_SESSIONS`). Backend keeps history + memory — mutually exclusive with `conversation_history`/`conversation_memory` (`400 session_conflict`); not with fast search. Older instances 422/ignore |
 | `response_format` | object | null | JSON Schema (root `type: "object"`) for a structured answer — **non-streaming `POST /api/ask` only** (streaming endpoints 400; incompatible with `use_agentic`). The parsed object returns in the `structured` response field; raw text stays in `answer` |
 
@@ -280,7 +280,7 @@ When `use_agentic: true`, the system uses a **researcher/writer agent architectu
    - `git_repo` — act on a connected repository. Since v1.0.1 it is offered only when a repo is connected **read/write** (`RESEARCHER_GIT_TOOL=auto`, the default): a read-only connection's files are already ingested, so `knowledge_search` is the read path. On v1.0.0 it is offered for any connection. See the `git-integration` skill.
 2. A **Writer LLM** synthesizes the gathered context into a streamed answer
 
-The researcher decides dynamically how many searches to perform and when to stop (up to `RESEARCHER_MAX_ITERATIONS_QUALITY` iterations — default 5 on backends newer than v1.2.1, 8 before). This is fundamentally different from legacy fixed-step reasoning. Deep Research requires `ENABLE_AGENTIC_RAG=true` AND `ENABLE_AGENT_RESEARCH=true`.
+The researcher decides dynamically how many searches to perform and when to stop (up to `RESEARCHER_MAX_ITERATIONS_QUALITY` iterations — default 5 on backends newer than v1.2.1, 8 before). This is fundamentally different from legacy fixed-step reasoning. The default researcher pipeline requires `ENABLE_AGENTIC_RAG=true` AND `ENABLE_AGENT_RESEARCH=true`; with `ENABLE_AGENT_RESEARCH=false` the legacy fixed pipeline still serves Deep Research on the streaming endpoints (also gated by `ENABLE_AGENTIC_RAG=true`).
 
 Best for complex, multi-part questions that span multiple documents or require cross-referencing.
 
@@ -431,10 +431,11 @@ Response (fields marked † exist on backends newer than v1.2.1):
 (`finish_reason`, `truncated`, `refused` are the † fields.)
 
 - **Deadline:** ~28s server-side (`ASK_DEADLINE_SECONDS`) → `504 {"detail": {"error": "deadline_exceeded", ...}}`. Retry on the stream, not here.
-- **Cap:** 1,200 output tokens (`WRITER_MAX_TOKENS_SPEED`). Newer backends flag a cut with `truncated: true` + `finish_reason: "length"`; older ones return the clipped text as if complete.
+- **Cap:** 1,200 output tokens (a literal request cap on this path — `WRITER_MAX_TOKENS_SPEED` configures the streamed agent writer, not this endpoint). Newer backends flag a cut with `truncated: true` + `finish_reason: "length"`; older ones return the clipped text as if complete.
 - **Refusals:** `refused: true` on newer backends; otherwise the canned text starting `I'm here to help with questions about your documents`.
 - **Failures:** newer backends `500 {"detail": {"error": "ask_failed", "message": "...", "use_endpoint": "/api/ask/stream"}, "request_id": "..."}`; older ones a bare `500 {"detail": "Internal server error...", "request_id": "..."}`. Either way, fall back to `/api/ask/stream`.
-- **`use_agentic: true` is rejected** with `400 {"detail": {"error": "agentic_requires_streaming", "use_endpoint": "/api/ask/stream"}}`.
+- **`use_agentic: true` on default deployments** (`ENABLE_AGENT_RESEARCH=true`) is rejected with `400 {"detail": {"error": "agentic_requires_streaming", "use_endpoint": "/api/ask/stream"}}`; with `ENABLE_AGENT_RESEARCH=false` the legacy deep-research pipeline runs here inside the ~28s deadline. Streaming remains the recommended Deep Research path either way (see the API reference's legacy pipeline scope note).
+- **Optional research metadata (local unreleased repair):** on that flag-off legacy deep path the response additionally projects `sub_questions` (string list), `communities_used` (integer community IDs) and `retrieval_stats` (exactly four keys: `total_sources_considered`, `unique_sources`, `sub_questions_researched`, `communities_referenced` — the schema accepts `{}`, but the real helper always returns all four populated). Nonempty and literal `[]` lists are preserved. The standard chat path and the no-key fallback leave all three null, and so do the input-screen refusals (answered before any retrieval); a model refusal — the writer emitted the canned deflection itself — still runs the real helper, so the populated values come back alongside `refused: true`. Earlier inspected handler snapshots omitted these values; check the version/capability rather than assuming. The streaming Deep Research events keep their own separate retrieval statistics.
 - `response_format` (structured JSON answers) works only here — see [Structured Answers](#structured-answers-response_format-non-streaming-only).
 
 ## Skill Files

@@ -2,11 +2,11 @@
   "$schema": "https://cortexskills.org/index.json",
   "manifest_version": 1,
   "root": {
-    "version": "1.0.0",
+    "version": "1.0.2",
     "entry": "/SKILL.md",
     "path": "/SKILL.md",
-    "sha256": "56252dbbc432eac3bd92d83a8a37397138a01ab8b6eeea175d56910c627514e4",
-    "bytes": 14588
+    "sha256": "d41bd880c5cba0747254b507684dd3becd0601627b5a15516c55554522d65b01",
+    "bytes": 14798
   },
   "skills": [
     {
@@ -40,18 +40,18 @@
     },
     {
       "slug": "ask",
-      "version": "1.4.0",
+      "version": "1.4.7",
       "entry": "/ask/SKILL.md",
       "files": [
         {
           "path": "/ask/SKILL.md",
-          "sha256": "4d7ad1fc7cdefec940575a769ae85a3985e6271d7f55a8ef3119c08e6fc11c50",
-          "bytes": 31682
+          "sha256": "3b25a0133146a0f1eefc35a78880b52682b4c8eef68ac4fc4a214b78af322fbc",
+          "bytes": 34580
         },
         {
           "path": "/ask/references/API.md",
-          "sha256": "45729f34335044407e077f718861aa5d4d35356631abb41951e7fb1406d1fd9b",
-          "bytes": 29526
+          "sha256": "2145519acdc5c01e0309090830c69ccea0e6060cd722b206eb03ba93bf69b6bd",
+          "bytes": 34654
         }
       ]
     },
@@ -84,8 +84,8 @@
         },
         {
           "path": "/builder/app/SKILL.md",
-          "sha256": "ce8a07ea1aa8d4c2b31a33a3829ab0b40d90229c2ef58ef654cd6d6b09e96953",
-          "bytes": 16749
+          "sha256": "8c444cb7f8609885549d2101570654f4c61beec245ff979b0e899770e9e0618f",
+          "bytes": 16836
         },
         {
           "path": "/builder/app/tasks.md",
@@ -101,7 +101,7 @@
       "sub_skills": [
         {
           "slug": "builder/app",
-          "version": "1.0.0",
+          "version": "1.0.1",
           "entry": "/builder/app/SKILL.md"
         },
         {
@@ -113,18 +113,18 @@
     },
     {
       "slug": "collections",
-      "version": "1.0.0",
+      "version": "1.0.1",
       "entry": "/collections/SKILL.md",
       "files": [
         {
           "path": "/collections/SKILL.md",
-          "sha256": "e199a8dd44546e371bcb5c57855d974e64a27fff229d599850af89864b473f66",
-          "bytes": 6377
+          "sha256": "031da1997adbb4e56bf7c3481d94c602dc0b79f5183e0f5e328557c6cebc765b",
+          "bytes": 6433
         },
         {
           "path": "/collections/references/API.md",
-          "sha256": "58666b47299796ce2cee4c4719b1daa1c105a5b10425d6689860d6ccb95d9893",
-          "bytes": 19304
+          "sha256": "be9ffc5d09b8427bb2f68888357ca5a53a53cc67802da06ec1fd701ea4fab3fb",
+          "bytes": 19306
         }
       ]
     },
@@ -147,23 +147,23 @@
     },
     {
       "slug": "cortex",
-      "version": "2.5.0",
+      "version": "2.5.3",
       "entry": "/cortex/SKILL.md",
       "files": [
         {
           "path": "/cortex/SKILL.md",
-          "sha256": "8b5fc43c835c044e789f572bdc0b355b6ce70db6b8aa84c934e2136ed7bd73be",
-          "bytes": 15195
+          "sha256": "5c0cb9e576c72322f20db9e7c4adbcb41fab160b721ede0eec0c618404bc156e",
+          "bytes": 16120
         },
         {
           "path": "/cortex/references/API.md",
-          "sha256": "eed83afcf49c29a0c0cfbfe48856306af703b1671d6479123786ab8bdc93b1b9",
-          "bytes": 33246
+          "sha256": "8f412371e3fe4b52cc71f3d48a96c0728ecf5cebe7180a479e765c9c5a5c534c",
+          "bytes": 33690
         },
         {
           "path": "/cortex/references/SYNC.md",
-          "sha256": "01f5ffcf8fe0934717cb0fefc9930167dd8ef0987ba43da7e30a09b964696fac",
-          "bytes": 9351
+          "sha256": "183e938fab15382c03483208febeb8c91cb8a889b1c19181bedd7e2eac747495",
+          "bytes": 9381
         }
       ]
     },
@@ -215,13 +215,13 @@
     },
     {
       "slug": "hermes",
-      "version": "1.3.3",
+      "version": "1.3.6",
       "entry": "/hermes/SKILL.md",
       "files": [
         {
           "path": "/hermes/SKILL.md",
-          "sha256": "02ac93356a48d4662c26e6a21f27449627a76d22449030b814ef16aed428891a",
-          "bytes": 41482
+          "sha256": "b8bd8a4423ebfc28478e3063ed577fa9a8313df59261bc6a785d99070864125f",
+          "bytes": 41591
         },
         {
           "path": "/hermes/plugin/README.md",
@@ -250,30 +250,30 @@
         },
         {
           "path": "/hermes/scripts/cortex.sh",
-          "sha256": "839d6ce529178da98c90b4fd054c32505bdc2ec246ed50f5e3ee8acadec6ed2c",
-          "bytes": 46024
+          "sha256": "529cf721775f6216910be2a09ebe4fa150e80d041503c826d65e51c9a5563f74",
+          "bytes": 46261
         }
       ]
     },
     {
       "slug": "integration",
-      "version": "1.2.0",
+      "version": "1.2.2",
       "entry": "/integration/SKILL.md",
       "files": [
         {
           "path": "/integration/SKILL.md",
-          "sha256": "0bba0b60ff683e86c38c02f9ab2ce1c4836078e40c8e869bda0fb3f23f481bfd",
-          "bytes": 15371
+          "sha256": "82726bf35100b12dd6272afe266fed782d321c60261ed5a0c8916a09e3fd4e68",
+          "bytes": 15541
         },
         {
           "path": "/integration/references/LANGCHAIN.md",
-          "sha256": "8af1c141877d7faa6cc15dc46bec7e6b9c647753ac7f223e5ebc4b642a603e2c",
-          "bytes": 18032
+          "sha256": "4258a7ef83afd0fb306419cda3ae1a7930bfbd6d22e3ae30e4c331ceb528d7ec",
+          "bytes": 18035
         },
         {
           "path": "/integration/references/PYTHON.md",
-          "sha256": "2030015c90d1bb8b7af2f05162f12810f4796afd5b6067b49130dd8321c32846",
-          "bytes": 22973
+          "sha256": "c84cdf552fbe4f2eb916abd08d9ac0eb2de54887bf63307fac556ec8110bb8f0",
+          "bytes": 23046
         },
         {
           "path": "/integration/references/WEBHOOKS.md",
@@ -284,18 +284,18 @@
     },
     {
       "slug": "mcp",
-      "version": "1.3.0",
+      "version": "1.3.1",
       "entry": "/mcp/SKILL.md",
       "files": [
         {
           "path": "/mcp/SKILL.md",
-          "sha256": "0d75f610a42ab73d11e01a8212a1bf5d38aeba4693135c8eb62b1b99f2f3a501",
-          "bytes": 9178
+          "sha256": "0557f4d57f0be1ae8660eac538d6b8d669e358b89f26ab65e545f4fbced4157c",
+          "bytes": 9301
         },
         {
           "path": "/mcp/references/TOOLS.md",
-          "sha256": "e20abe1d0c797be782187c70d279583217cbfddb1b5c5d422f5b86e8165033cb",
-          "bytes": 7987
+          "sha256": "4929e6323312f1fa0a4f7800128fe05c6cee345e9e925b6534357c416517f20b",
+          "bytes": 8039
         }
       ]
     },
@@ -340,18 +340,18 @@
     },
     {
       "slug": "search",
-      "version": "1.2.0",
+      "version": "1.2.3",
       "entry": "/search/SKILL.md",
       "files": [
         {
           "path": "/search/SKILL.md",
-          "sha256": "821ca59cdbe82ff0878dd4e1663ee8c8190dc03555ee41339789de57eb5d126f",
-          "bytes": 10823
+          "sha256": "53a9a52c5cf7775530b43f38c683128a27da7c954d515f1b83b8c45d21dd9bb8",
+          "bytes": 14148
         },
         {
           "path": "/search/references/API.md",
-          "sha256": "53fb0a8624f68235cb9e8710817902a979b4b03f83dbf646c1149a8945f6bf96",
-          "bytes": 11033
+          "sha256": "a259d04baa96844c6fc4075114618d0c77f3868e55ac1d55376af33cc56a3bf3",
+          "bytes": 13441
         }
       ]
     },
@@ -403,18 +403,18 @@
     },
     {
       "slug": "upload",
-      "version": "1.1.0",
+      "version": "1.1.1",
       "entry": "/upload/SKILL.md",
       "files": [
         {
           "path": "/upload/SKILL.md",
-          "sha256": "244975136320e6d1f5f030a750e372c1d679c3f0494d324cb76246345b76382b",
-          "bytes": 20012
+          "sha256": "1a0676bfc9fb8f898914487dc958a3dc6ca9a9d0f4fabbc7de41bdf3efdec4d5",
+          "bytes": 20409
         },
         {
           "path": "/upload/references/API.md",
-          "sha256": "c3be2ba2812de182c4432a3d0e3364e7f688b3f838869cbc4258bc2b75f0279f",
-          "bytes": 15074
+          "sha256": "72eba5efebec79d7911331364758fda3dd4636f1a0e418740f820a72c7625e0e",
+          "bytes": 15228
         },
         {
           "path": "/upload/references/FORMATS.md",
